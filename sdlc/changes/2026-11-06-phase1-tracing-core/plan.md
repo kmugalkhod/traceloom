@@ -156,3 +156,11 @@ Also: `api/test_security.py` covers CSRF rejection without a token, login rate l
 
 ## Deviations
 <!-- Appended during build: date — what changed vs the plan — why. -->
+- 2026-11-06 — S-1 foundation:
+  - `Settings` has `TRACELOOM_ENV` (`dev|test|production`, default `dev`); a missing `TRACELOOM_SECRET_KEY` fails startup outside `dev`, and in `dev` an ephemeral key is generated. Cookies are `Secure` in production unless `TRACELOOM_COOKIE_SECURE` overrides.
+  - `Container` also carries `engine`, `session_factory`, `api_key_cache` and `mailer`. In lite mode `build_container` wires the in-memory limiter and cache and a startup hook that runs Alembic `upgrade head`.
+  - Cursors are `base64(json[(sort_value, id)] + checksum)`: integrity-checked, not secret (all queries are project-scoped). Added a `UserQuery` dataclass next to `SessionQuery`.
+  - CSRF is a signed double-submit token (`tl_csrf` cookie, `X-CSRF-Token` header or `csrf_token` form field). Requests with HTTP Basic auth and `/api/public/*` are exempt. `SessionMiddleware` lives in `auth/sessions.py`.
+  - The mail console fallback logs the message (FR-A2 needs the reset link) with API secrets, `SMTP_PASSWORD` and `TRACELOOM_SECRET_KEY` scrubbed.
+  - The route-table permission sweep enumerates routes from the OpenAPI schema (FastAPI nests included routers privately), so routes with `include_in_schema=False` are not swept.
+  - `ruff` excludes `.sdlc/` (governance scripts).
