@@ -1,0 +1,845 @@
+{
+  "epic": {
+    "title": "Traceloom Phase 1 \u2014 tracing core (MVP)",
+    "description": "First runnable Traceloom: FastAPI web/API server and worker, lite and full storage adapters behind ports, accounts with role-based access, batched and OTLP ingestion with merge and cost calculation, the traces/sessions/users/dashboard UI, and the traceloom-sdk Python package with integrations and a demo agent. The build is a greenfield repo. Developers work in parallel in modules that stay file-disjoint. The skeleton pre-creates the shared seams, so later tasks add code in their own modules. These seams are config.py with all Settings, a main.py that auto-discovers routers, container.py hooks, and the adapter mixin stubs."
+  },
+  "ui": true,
+  "stories": [
+    {
+      "id": "S1",
+      "title": "Foundation and access control",
+      "description": "The runnable skeleton, the data and port interfaces everything else builds on, and server-side authentication and permissions (FR-A5, FR-A6 primitives, FR-X1, NFR-4).",
+      "acceptance": [
+        "The app boots in lite mode and GET /api/public/health returns 200 {status:ok,version}",
+        "The DB models, migration, ports and cursor helpers exist and are unit-tested",
+        "Auth primitives and request dependencies enforce the permission matrix server-side",
+        "CSP and security headers are present on responses; unsafe cookie-authenticated requests without a CSRF token are rejected"
+      ],
+      "tasks": [
+        {
+          "id": "T1",
+          "title": "Backend skeleton",
+          "description": "Create the package layout, dependency manifests and test setup, with no features. The root pyproject.toml has the full plan dependency list, the [dev] extra, ruff config, pytest config (testpaths, markers e2e/it/perf) and the console script. A minimal sdk/python/pyproject.toml plus traceloom_sdk/__init__.py stub is included so the setup step's `-e ./sdk/python` install works. config.py holds the pydantic-settings Settings with EVERY env setting from the spec (mode, DATABASE_URL, secret, signup, reset minutes, ingest limits, rate limits, Redis, S3, ClickHouse, SMTP). main.py is an app factory with a lifespan that calls container.startup()/shutdown() hooks, security-headers + CSP middleware, and a pkgutil-based router auto-discovery over traceloom.api and traceloom.web.routers (any module exposing `router`), so later tasks never edit main.py for registration. container.py has a Container dataclass, a lazy build_container(settings) and a `mode=full` hook that imports traceloom.container_full lazily. Add the health route in api/health.py and .env.example. tests/conftest.py provides settings, app and client fixtures on a tmp SQLite DB and tmp blob dir, plus a no-network assertion. Add an empty tests/factories.py loaded as a pytest plugin.",
+          "files": [
+            "pyproject.toml",
+            "sdk/python/pyproject.toml",
+            "sdk/python/traceloom_sdk/__init__.py",
+            "traceloom/__init__.py",
+            "traceloom/config.py",
+            "traceloom/main.py",
+            "traceloom/container.py",
+            "traceloom/api/__init__.py",
+            "traceloom/api/health.py",
+            "traceloom/web/__init__.py",
+            "traceloom/web/routers/__init__.py",
+            "traceloom/cli.py",
+            "tests/conftest.py",
+            "tests/factories.py",
+            "tests/api/test_health.py",
+            "tests/api/test_security_headers.py",
+            ".env.example",
+            "README.md"
+          ],
+          "acceptance": [
+            "`sdlc.py verify` (setup, build, pytest, ruff) is green",
+            "GET /api/public/health returns 200 {status:ok,version}",
+            "CSP, X-Content-Type-Options and frame-ancestors headers are present on every response",
+            "Settings load defaults from env, and a missing TRACELOOM_SECRET_KEY fails startup when not in dev"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": []
+        },
+        {
+          "id": "T2",
+          "title": "Data models, migration and ports",
+          "description": "Write SQLAlchemy models for all meta tables (users, organizations, memberships, invites, projects, api_keys, password_resets, model_definitions, saved_views, user_prefs, comments, audit_log) and the lite trace tables (traces, observations, scores) with the spec indexes. Add db/session.py (engine factory, SQLite WAL and pragmas, get_db dependency), the Alembic env and 0001_initial. ports.py holds the TraceStore, BlobStore, Queue, RateLimiter and Cache protocols; the TraceQuery, SessionQuery, DashboardQuery, Page and row dataclasses; and opaque cursor encode/decode. Add stub mixin files adapters/lite/sql_read.py (SqlReadMixin) and adapters/lite/sql_analytics.py (SqlAnalyticsMixin) so later tasks fill them without colliding.",
+          "files": [
+            "traceloom/db/__init__.py",
+            "traceloom/db/base.py",
+            "traceloom/db/models.py",
+            "traceloom/db/session.py",
+            "traceloom/db/migrations/env.py",
+            "traceloom/db/migrations/versions/0001_initial.py",
+            "alembic.ini",
+            "traceloom/ports.py",
+            "traceloom/adapters/__init__.py",
+            "traceloom/adapters/lite/__init__.py",
+            "traceloom/adapters/lite/sql_read.py",
+            "traceloom/adapters/lite/sql_analytics.py",
+            "tests/unit/test_models_migration.py",
+            "tests/unit/test_cursor.py"
+          ],
+          "acceptance": [
+            "The Alembic upgrade builds the full schema on empty SQLite, with every spec index present",
+            "project_id is the first parameter of every TraceStore method in ports.py",
+            "Cursor encode/decode round-trips and rejects tampered input",
+            "Models round-trip a row for each table"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T3",
+          "title": "Auth primitives, mail and in-memory limiter",
+          "description": "Pure building blocks with no DB dependency. auth/passwords.py (argon2, min length 10), auth/sessions.py (signed cookie carrying user id and session_version, secure flags), auth/csrf.py (token issue and verify, plus an ASGI middleware class), auth/permissions.py (Role enum, the matrix from the spec, can(role,perm)), auth/api_keys.py (generate tl-pk-/tl-sk- pairs, hash the secret, verify, TTL cache with explicit evict). services/mail.py sends over SMTP when SMTP_HOST is set, otherwise logs to the console, and keeps an in-memory outbox for tests. adapters/lite/memory.py has the in-memory RateLimiter and Cache.",
+          "files": [
+            "traceloom/auth/__init__.py",
+            "traceloom/auth/passwords.py",
+            "traceloom/auth/sessions.py",
+            "traceloom/auth/csrf.py",
+            "traceloom/auth/permissions.py",
+            "traceloom/auth/api_keys.py",
+            "traceloom/services/__init__.py",
+            "traceloom/services/mail.py",
+            "traceloom/adapters/lite/memory.py",
+            "tests/unit/test_auth_primitives.py",
+            "tests/unit/test_permissions_matrix.py",
+            "tests/unit/test_memory_limiter.py"
+          ],
+          "acceptance": [
+            "The permission matrix unit test covers every role \u00d7 action cell in the spec",
+            "Passwords shorter than 10 chars are rejected, and hashes verify",
+            "The API key secret is stored only as a hash, and eviction makes a cached key fail immediately",
+            "The tampered or old-session_version cookie is rejected",
+            "The mail outbox captures messages, and the console fallback never logs secrets"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T4",
+          "title": "Auth dependencies, middleware and test factories",
+          "description": "auth/deps.py provides current_user, current_org/project resolution, a require(perm) dependency, and the HTTP Basic project-key authentication dependency (uses the key cache and updates last_used_at). Add the 401/403/404 handlers and error envelope api/errors.py, and a services/audit.py write helper. Wire session and CSRF middleware into main.py (the only post-skeleton editor of main.py) and the auth rate-limit hook. Fill tests/factories.py with user/org/project/membership/key factories and a logged-in client helper. Include tests/api/test_permissions.py with the route-table sweep (every unsafe route returns 403 for a Viewer, and the sweep only checks routes that exist) and test_security.py for CSRF rejection and cookie flags.",
+          "files": [
+            "traceloom/auth/deps.py",
+            "traceloom/api/errors.py",
+            "traceloom/services/audit.py",
+            "traceloom/main.py",
+            "tests/factories.py",
+            "tests/api/test_permissions.py",
+            "tests/api/test_security.py"
+          ],
+          "acceptance": [
+            "Unauthenticated requests get 401 (API) or a redirect to login (pages); a role without the permission gets 403",
+            "Basic key auth resolves a key to its project only, and cross-project access is denied",
+            "Unsafe cookie-authenticated requests without a CSRF token are rejected",
+            "A revoked key fails within 1 s via cache eviction",
+            "Error responses use the {error:{code,message}} envelope"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T2",
+            "T3"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Accounts, organizations and project settings",
+      "description": "Sign-up and login, password reset, organizations, projects, invites, members and roles, API keys and model definitions. These are the pages that make a project usable (FR-A1\u2013A6, FR-C2).",
+      "acceptance": [
+        "A visitor can sign up, log in, log out and reset a password, and reset invalidates old sessions",
+        "An org owner can create a project, invite members and change roles, and the last Owner is protected",
+        "An Admin can create and revoke API keys (secret shown once) and manage project model definitions",
+        "Buttons for actions a role cannot perform are not rendered"
+      ],
+      "tasks": [
+        {
+          "id": "T5",
+          "title": "App shell, theme and error pages",
+          "description": "The first HTML shell. It covers base.html (left nav Dashboard/Traces/Sessions/Users/Settings, top bar with org/project picker, environment switcher include with `ignore missing`, date-range slot, theme toggle, user menu), _macros.html, the 403 and 404 templates, and app.css with light and dark tokens and focus rings. app.js has the theme, the shortcut framework (/, j/k, enter, ?), copy buttons and the HTMX CSRF header. Vendor htmx.min.js. A web/context.py helper builds the shell context from the user's memberships (no dependency on other services). All scripts are external (CSP).",
+          "files": [
+            "traceloom/web/templates/base.html",
+            "traceloom/web/templates/_macros.html",
+            "traceloom/web/templates/errors/403.html",
+            "traceloom/web/templates/errors/404.html",
+            "traceloom/web/static/app.css",
+            "traceloom/web/static/app.js",
+            "traceloom/web/static/vendor/htmx.min.js",
+            "traceloom/web/context.py"
+          ],
+          "acceptance": [
+            "The shell renders at 1280px and 390px in light and dark with the theme persisted",
+            "Static assets load under the CSP with no inline scripts",
+            "403 and 404 pages render inside the shell",
+            "The `?` key shows the shortcut help",
+            "Contrast and visible focus rings meet WCAG AA"
+          ],
+          "qa": "Open any page in the browser at 1280px and 390px, toggle the theme, and check that the nav, top bar and help overlay (?) work with no CSP errors in the console.",
+          "ui": true,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T6",
+          "title": "Sign-up, login, logout and password reset",
+          "description": "Services and pages for FR-A1 and FR-A2. Sign-up (open by default, restricted to invited emails when TRACELOOM_SIGNUP_ENABLED=false), login, logout, forgot and reset password (single-use token, TRACELOOM_RESET_TOKEN_MINUTES, same response whether or not the email exists, bumps session_version), and the auth rate limit (10/minute per IP+email) with 429. Includes the web routes, templates and the e2e sign-up journey start.",
+          "files": [
+            "traceloom/services/accounts.py",
+            "traceloom/web/routers/auth.py",
+            "traceloom/web/templates/auth/signup.html",
+            "traceloom/web/templates/auth/login.html",
+            "traceloom/web/templates/auth/forgot.html",
+            "traceloom/web/templates/auth/reset.html",
+            "tests/api/test_auth.py"
+          ],
+          "acceptance": [
+            "Sign up, log in and log out work, and a password under 10 chars is rejected with an inline error",
+            "Reset mail is captured in the outbox, the token is single-use and expires, and the reset response is identical for unknown emails",
+            "A reset invalidates all existing sessions (test_reset_invalidates_sessions)",
+            "With signup disabled, only invited emails can register",
+            "The 11th login attempt per minute returns 429"
+          ],
+          "qa": "In the browser, sign up with a new email, log out and log in. Request a reset, take the link from the console or mail outbox, set a new password and confirm that a second logged-in browser context is logged out. Call the login endpoint 11 times and expect 429.",
+          "ui": true,
+          "depends_on": [
+            "T4",
+            "T5"
+          ]
+        },
+        {
+          "id": "T7",
+          "title": "Organizations, projects, members and invites",
+          "description": "FR-A3 and FR-A4. Services and pages for creating an org (creator becomes Owner) and projects, the org/project switcher, a Members page, role changes, removal, and invites by email with a role and an expiring token. The accept-invite page adds an existing user or routes a new user through sign-up. Owner-only grant-Owner and delete-org, and the last-Owner protection. Writes audit rows for role changes.",
+          "files": [
+            "traceloom/services/orgs.py",
+            "traceloom/services/invites.py",
+            "traceloom/web/routers/orgs.py",
+            "traceloom/web/routers/settings_members.py",
+            "traceloom/web/templates/orgs/new.html",
+            "traceloom/web/templates/orgs/accept_invite.html",
+            "traceloom/web/templates/settings/general.html",
+            "traceloom/web/templates/settings/members.html",
+            "tests/api/test_orgs_invites.py"
+          ],
+          "acceptance": [
+            "Creating an org makes the creator Owner, and a user can hold different roles in several orgs",
+            "An invite joins with the invited role (test_invite_role), and expired or used tokens fail",
+            "The last Owner cannot be demoted or leave (test_last_owner_protected)",
+            "An Admin cannot grant Owner or delete the org",
+            "Controls are hidden for roles without the permission"
+          ],
+          "qa": "As Owner, create an org and a project, invite a second email as Member, accept in another browser context, then change the role to Admin and try to demote the sole Owner (expect an error). As a Viewer, check that no invite or role controls render.",
+          "ui": true,
+          "depends_on": [
+            "T4",
+            "T5"
+          ]
+        },
+        {
+          "id": "T8",
+          "title": "API keys and model definitions settings",
+          "description": "FR-A6 and FR-C2 settings pages. The API keys page creates a key with a note (secret shown once), lists keys by public key, note, created and last used, and revokes with cache eviction. The Models page lists global and project definitions and lets Admins add, edit and delete project definitions (overrides global). Includes the empty-project onboarding card with an SDK snippet. The project model-definition CRUD is in the cost admin module's consumer routes.",
+          "files": [
+            "traceloom/web/routers/settings_keys.py",
+            "traceloom/web/routers/settings_models.py",
+            "traceloom/web/templates/settings/keys.html",
+            "traceloom/web/templates/settings/models.html",
+            "traceloom/web/templates/_onboarding.html",
+            "tests/api/test_api_keys.py",
+            "tests/api/test_models_settings.py"
+          ],
+          "acceptance": [
+            "The secret appears once at creation and is never stored or shown again",
+            "A revoked key gets 401 on ingestion immediately",
+            "Only Admin+ can create or revoke keys and edit model definitions, and Members and Viewers get 403",
+            "A project definition is saved, edited and deleted, and it overrides the global one in the cost registry",
+            "An empty project shows the 'Create an API key' onboarding with a snippet"
+          ],
+          "qa": "As Admin, create a key and copy the pair, then POST a trace using the keys and expect 207. Revoke the key and expect 401 on the next call. Add a project model definition for a seeded model name and see it listed. Log in as a Viewer and verify the pages are forbidden or read-only.",
+          "ui": true,
+          "depends_on": [
+            "T4",
+            "T5",
+            "T11"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "Ingestion pipeline, cost and OTLP",
+      "description": "Batched ingestion with asynchronous, idempotent, order-independent processing, durable replay, cost and token calculation, and OTLP intake (FR-I1\u2013I6, FR-C1\u2013C4, NFR-3).",
+      "acceptance": [
+        "POST /api/public/ingestion returns 207 with per-event successes/errors, 413 over limits, 401 for bad keys, and 503 on blob failure",
+        "The same batch twice yields no duplicates, and an update before its create yields the merged row",
+        "With the consumer stopped ingestion still returns 207, and after restart each event appears exactly once",
+        "Cost is provided, calculated or none per FR-C3, with project overrides and tokenizer fallback",
+        "OTLP JSON and protobuf produce equivalent observations"
+      ],
+      "tasks": [
+        {
+          "id": "T9",
+          "title": "Event schemas, merge and accept_batch",
+          "description": "ingest/schemas.py has pydantic models for every event type, including observation-create/update with all observation types and score-create. ingest/merge.py is the ADR-0008 field-level last-write-wins fold (tags union, idempotent re-apply, out-of-order update-before-create). ingest/accept.py has accept_batch, which validates per event, writes the raw batch to the BlobStore, enqueues it, enforces max events/bytes, and builds the 207 body. It works only against the BlobStore and Queue ports (tested with fakes), and does a stub-trace-on-unknown-trace and root-span-creates-trace fold (FR-I6) inside merge.",
+          "files": [
+            "traceloom/ingest/__init__.py",
+            "traceloom/ingest/schemas.py",
+            "traceloom/ingest/merge.py",
+            "traceloom/ingest/accept.py",
+            "tests/api/test_merge.py",
+            "tests/unit/test_ingest_schemas.py",
+            "tests/unit/test_accept_batch.py"
+          ],
+          "acceptance": [
+            "Invalid events are reported in errors with status 400 and are not queued, while valid ones are queued",
+            "Merge unit tests cover fill, overwrite, tags union, idempotent re-apply and update-before-create",
+            "Oversize event count or bytes raises a limit error that the route maps to 413",
+            "A blob-store failure surfaces as a distinct error that the route maps to 503",
+            "An orphan observation yields a stub trace, and a root span with no trace fields yields a trace from the span"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T2"
+          ]
+        },
+        {
+          "id": "T10",
+          "title": "Lite adapters: SQL write path, blob, queue",
+          "description": "adapters/lite/sql_trace_store.py defines SqlTraceStore(SqlReadMixin, SqlAnalyticsMixin) with the write side: upsert (merging via event_ts), get_existing, refresh_trace_aggregates (latency, tokens, cost, max_level, observation_count, search_text truncated to 4 KB), update_trace_flags, add score, and delete_traces (traces, observations, scores, comments). Add local_blob.py and inproc_queue.py (a pausable consumer for the durability tests with a synchronous drain()). Fill container.py: build lite adapters, the startup/shutdown hooks, the migrate-in-lite step, and the `full` hook. Write contract tests for the write ports parametrized over adapters (lite always).",
+          "files": [
+            "traceloom/adapters/lite/sql_trace_store.py",
+            "traceloom/adapters/lite/local_blob.py",
+            "traceloom/adapters/lite/inproc_queue.py",
+            "traceloom/container.py",
+            "tests/contract/test_trace_store_contract.py",
+            "tests/contract/test_blob_queue_contract.py"
+          ],
+          "acceptance": [
+            "Upserting the same entities twice leaves one row each, and a later event_ts wins per field",
+            "Aggregates on the trace row match the observations",
+            "delete_traces removes the observations, scores and comments of the traces, and returns the count",
+            "The queue consumer can be paused and resumed, and drain() processes everything queued",
+            "Every method takes project_id first and never returns another project's rows"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T2"
+          ]
+        },
+        {
+          "id": "T11",
+          "title": "Cost engine and model seed",
+          "description": "seed/models.yaml covers current Claude, GPT, Gemini and Llama families (match regex, tokenizer, per-usage-key USD per token, optional tier above an input-token threshold, valid_from). cost/registry.py loads the seed at startup as global definitions (upsert), matches by regex, with project-over-global precedence and the latest valid_from \u2264 start time, cached. cost/pricing.py computes cost = \u03a3 usage \u00d7 price with tiers and a derived total, with the provided / calculated / none source. cost/tokenizers.py has lazy tiktoken and falls back to empty usage offline. cost/admin.py has the project definition CRUD used by the settings page.",
+          "files": [
+            "traceloom/seed/models.yaml",
+            "traceloom/cost/__init__.py",
+            "traceloom/cost/registry.py",
+            "traceloom/cost/pricing.py",
+            "traceloom/cost/tokenizers.py",
+            "traceloom/cost/admin.py",
+            "tests/api/test_cost.py"
+          ],
+          "acceptance": [
+            "Provided cost_details win and are marked cost_source=provided",
+            "Usage plus a seeded model gives the calculated cost with total, and the tier above the threshold applies",
+            "A project override beats a global match, and among same-scope matches the latest valid_from \u2264 start wins",
+            "No match gives cost_source=none",
+            "With no usage and a tokenizer, usage_source=tokenizer; with the tokenizer unavailable, usage stays empty"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T2"
+          ]
+        },
+        {
+          "id": "T12",
+          "title": "Processing, sweeper and public ingestion API",
+          "description": "ingest/process.py loads the blob, folds events with the merge, applies cost and tokens, upserts, refreshes aggregates and marks the batch processed. ingest/sweeper.py re-enqueues unprocessed batches idempotently. api/ingestion.py has POST /api/public/ingestion (Basic pk:sk through the T3 key helpers and the DB session, the per-key rate limit TRACELOOM_RATE_INGEST with 429, 207/413/401/503 mapping) and the deep health checks (?deep=1 storage and queue). The queue consumer and sweeper start via the container startup hook.",
+          "files": [
+            "traceloom/ingest/process.py",
+            "traceloom/ingest/sweeper.py",
+            "traceloom/api/ingestion.py",
+            "tests/api/test_ingestion.py",
+            "tests/api/test_durability.py"
+          ],
+          "acceptance": [
+            "207 with successes/errors, 413 over limits, 401 for a bad or revoked key, 503 on blob failure, and 429 over the rate limit",
+            "The same batch sent twice gives no duplicates (test_duplicate_batch), and update-before-create gives the merged row (test_update_before_create)",
+            "With the consumer stopped, 3 batches return 207 with no rows, and after restart plus sweeper each event exists exactly once (test_queue_stopped_then_replayed_exactly_once)",
+            "Cross-project key use never changes the other project's data",
+            "Generations with usage get calculated cost, and the sweeper re-run changes nothing"
+          ],
+          "qa": "Start the server, then curl POST /api/public/ingestion with a demo key and a batch containing a trace, a generation and one malformed event. Expect 207 with one error. Send the same batch again and confirm that the count of traces from the traces API or DB is unchanged. Call /api/public/health?deep=1.",
+          "ui": false,
+          "depends_on": [
+            "T3",
+            "T9",
+            "T10",
+            "T11"
+          ]
+        },
+        {
+          "id": "T13",
+          "title": "OTLP/HTTP intake",
+          "description": "ingest/otel.py converts OTLP JSON and protobuf (opentelemetry-proto, pinned <2) into ingest events, and api/otel.py exposes POST /api/public/otel/v1/traces. Spans map to observations (span id, trace id, parent), resource/scope attributes go to metadata, and gen_ai.* attributes make a generation (model, usage including legacy token keys, params, prompt/completion attributes and events). ERROR status gives level ERROR and a status message. traceloom.* attributes map user_id/session_id/tags/environment/release/type. The response is ExportTraceServiceResponse with partialSuccess, and the route goes through accept_batch with Basic key auth.",
+          "files": [
+            "traceloom/ingest/otel.py",
+            "traceloom/api/otel.py",
+            "tests/api/test_otel.py"
+          ],
+          "acceptance": [
+            "The JSON payload and the same spans in protobuf produce identical observations (generation, model, usage, parent links)",
+            "A span with ERROR status has level ERROR and a status message",
+            "traceloom.* attributes populate the trace fields and the observation type",
+            "Unparseable spans are reported via partialSuccess without failing the whole request",
+            "A bad key gets 401"
+          ],
+          "qa": "curl the OTLP endpoint with a JSON payload and with a protobuf payload using the same Basic key, then check both appear as generations with the same model and usage via the traces API.",
+          "ui": false,
+          "depends_on": [
+            "T3",
+            "T9"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "title": "Trace explorer",
+      "description": "Browse, search, filter and debug traces: the list with saved views and environment switching, the detail with tree, timeline, agent graph and IO viewer, and the ClickHouse implementation of the same store (FR-T1\u2013T9, NFR-1, NFR-4 escaping).",
+      "acceptance": [
+        "The traces list supports search, all filters, sort, column chooser, saved views and the cursor 'Load more', with state in the URL",
+        "Trace detail shows tree, timeline with a TTFT marker, an agent graph and formatted/JSON/Markdown IO viewers",
+        "Errors are highlighted and 'Jump to first error' (e) selects the first ERROR",
+        "Malicious input renders as literal text everywhere"
+      ],
+      "tasks": [
+        {
+          "id": "T14",
+          "title": "Lite read queries (list, search, detail)",
+          "description": "Fill adapters/lite/sql_read.py (SqlReadMixin): list_traces with every FR-T2 filter (name, user, session, tags any-of, level \u2265, environment, release, version, has_error, metadata.key=value, latency and cost ranges, bookmarked, date range), case-insensitive substring q over search_text/name/id, sort on time/latency/cost/tokens, cursor pagination (50), and get_trace returning observations, scores and rollups. Tests seed rows directly through the T2 models and are added to the shared store contract suite.",
+          "files": [
+            "traceloom/adapters/lite/sql_read.py",
+            "tests/contract/test_trace_store_read_contract.py",
+            "tests/api/test_traces_api.py"
+          ],
+          "acceptance": [
+            "test_search_output_word returns only the trace whose output contains the word",
+            "test_metadata_filter_and_range returns only matching traces in range",
+            "Cursor pagination is stable with no duplicates or gaps across sorts",
+            "get_trace returns the whole tree and scores and never returns another project's data",
+            "The first page returns in under 1 s on a 10k-trace DB"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T2"
+          ]
+        },
+        {
+          "id": "T15",
+          "title": "Rendering and tree helpers",
+          "description": "web/render.py: pretty JSON, chat-transcript detection for lists of {role,content}, escaped raw JSON, and sanitized Markdown via markdown-it-py with HTML disabled. web/tree.py: nest observations by parent, timeline geometry on a shared axis with the TTFT marker, DEBUG filtering, first-error lookup, and the server-side layered agent-graph layout (distinct type+name steps, call count, total duration, parent\u2192child and sibling-sequence edges) as SVG-ready data. Pure functions and unit tests only (no templates).",
+          "files": [
+            "traceloom/web/render.py",
+            "traceloom/web/tree.py",
+            "tests/unit/test_render.py",
+            "tests/unit/test_tree.py"
+          ],
+          "acceptance": [
+            "Input containing <script> comes out escaped in every rendering mode",
+            "Markdown with raw HTML or javascript: links is sanitized",
+            "A list of role/content messages is detected as chat, and other values pretty-print",
+            "The tree nests by parent, tolerates orphans, and the first error is the earliest ERROR observation",
+            "The graph layout gives deterministic node/edge data with counts and durations"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T16",
+          "title": "Traces list page",
+          "description": "The project traces page (FR-T1\u2013T4): table with time, name, user, session, tags, latency, tokens, cost, level, scores chips, environment, release; filter bar, search, date range, column chooser persisted per user (user_prefs), sort, 'Load more' via HTMX, the environment switcher partial (persisted per user per project) that base.html includes, and saved views (services/views.py: per project, edit by creator or Admin, applying restores the URL). j/k/enter shortcuts, and the empty state reusing the onboarding card. Includes the e2e filters journey.",
+          "files": [
+            "traceloom/web/routers/traces.py",
+            "traceloom/services/views.py",
+            "traceloom/web/templates/traces/list.html",
+            "traceloom/web/templates/traces/_rows.html",
+            "traceloom/web/templates/traces/_filters.html",
+            "traceloom/web/templates/_env_switcher.html",
+            "tests/api/test_trace_list_page.py",
+            "tests/e2e/test_journey_filters.py"
+          ],
+          "acceptance": [
+            "All filter and search state is in the URL, and reloading restores it",
+            "Column choice and environment persist per user and project",
+            "Saved views can be created, applied (restoring the URL) and edited only by the creator or an Admin",
+            "Load more pages by cursor with no duplicates",
+            "A trace with a <script> input shows literal text and no dialog fires"
+          ],
+          "qa": "Seed traces via the ingestion API (distinct outputs, metadata.region=eu on some). In the browser, search for a word that is only in one output, add the metadata filter and the 24h range, hide a column and reload, save a view and apply it from a fresh page. Check at 390px.",
+          "ui": true,
+          "depends_on": [
+            "T4",
+            "T5",
+            "T14"
+          ]
+        },
+        {
+          "id": "T17",
+          "title": "Trace detail page",
+          "description": "The detail page (FR-T5\u2013T9): header (name, ids with copy, user/session links, tags, latency, cost, tokens, environment/release/version, read-only flags), left pane with a Tree/Timeline/Graph switch (t key; DEBUG hidden behind a toggle; graph tab shown only when agent/tool/chain observations exist and clicking a node selects its first observation), right IO pane with Formatted/JSON/Markdown modes plus generation details (model, params, usage, cost with its source, status message), error highlighting (red/amber) and Jump to first error (e). The page includes `{% include ignore missing %}` slots for the comments/scores/actions partials owned by the collaboration tasks. A detail-only static/trace.js carries the shortcuts. Includes the e2e first-trace-detail and XSS journeys.",
+          "files": [
+            "traceloom/web/routers/trace_detail.py",
+            "traceloom/web/templates/traces/detail.html",
+            "traceloom/web/templates/traces/_tree.html",
+            "traceloom/web/templates/traces/_timeline.html",
+            "traceloom/web/templates/traces/_graph.html",
+            "traceloom/web/templates/traces/_io.html",
+            "traceloom/web/static/trace.js",
+            "tests/api/test_trace_detail_page.py",
+            "tests/api/test_security_escape.py",
+            "tests/e2e/test_journey_xss.py"
+          ],
+          "acceptance": [
+            "The tree nests observations \u22653 levels with type icon, duration, cost and level colour",
+            "The timeline shows Gantt bars and a TTFT marker on generations, and the `t` key toggles the views",
+            "Generations show model, usage and cost with its 'provided'/'calculated' source",
+            "ERROR rows are red and WARNING rows amber, and `e` selects the first ERROR",
+            "The script payload renders as literal text in all three IO modes (test_script_escaped_*), and no browser dialog fires",
+            "The graph tab appears only for traces with agent/tool/chain steps"
+          ],
+          "qa": "Ingest a trace with an agent span, tool spans, a generation with usage and a failing tool. Open its detail page at 1280px and 390px, switch Tree/Timeline/Graph with `t`, press `e` to jump to the failing tool, flip the IO modes on a message list, and ingest an input of <script>alert(1)</script> to confirm that it is displayed literally.",
+          "ui": true,
+          "depends_on": [
+            "T4",
+            "T5",
+            "T14",
+            "T15"
+          ]
+        },
+        {
+          "id": "T18",
+          "title": "ClickHouse TraceStore adapter",
+          "description": "Full-mode adapters/full/clickhouse_trace_store.py and clickhouse_schema.sql: tables with the same columns (ReplacingMergeTree on event_ts, ngram bloom-filter skip indexes for search), upsert, get_existing, aggregates, FINAL reads, and the same query API as the lite store, including list/detail/sessions/users/dashboard SQL builders. Unit tests check query building and row shape against a fake client, and the shared contract suite gets a ClickHouse parametrization that is active only with TRACELOOM_IT=1.",
+          "files": [
+            "traceloom/adapters/full/__init__.py",
+            "traceloom/adapters/full/clickhouse_trace_store.py",
+            "traceloom/adapters/full/clickhouse_schema.sql",
+            "tests/unit/test_clickhouse_sql.py",
+            "tests/contract/conftest_full.py"
+          ],
+          "acceptance": [
+            "Every query is built with project_id as the first predicate",
+            "Generated SQL for list filters, cursor paging and aggregates is covered by unit tests with a fake client",
+            "Default pytest passes with no ClickHouse, and the IT-gated contract tests are skipped unless TRACELOOM_IT=1",
+            "The schema file applies cleanly in the unit syntax check"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "title": "Collaboration, sessions and dashboard",
+      "description": "Team workflows on traces plus the session, user and dashboard views (FR-T10\u2013T13, FR-S1\u2013S4, FR-D1\u2013D2, NFR-1).",
+      "acceptance": [
+        "Members can comment (with @mention mail), score and bookmark, and edit tags; Viewers see none of those controls",
+        "Admins can toggle public share and delete one or many traces with an audit row, and the share link works logged out",
+        "Sessions list and replay, users list and user page show correct totals",
+        "Dashboard numbers equal direct aggregations over the raw rows"
+      ],
+      "tasks": [
+        {
+          "id": "T19",
+          "title": "Comments, scores, bookmark and tags",
+          "description": "FR-T11, FR-T13, and the Member+ parts of FR-T5/T10. services/comments.py has Markdown (sanitized) comments on traces and observations, @email/@name mentions of project members that send mail, and delete by the author or an Admin. Routes and HTMX partials add scores (name, numeric, boolean or categorical value, comment; source ANNOTATION; author is the current user), a bookmark toggle, and tag editing. Partials _comments.html, _scores.html and _actions.html are included by the detail page. Scores show as chips in the list scores column. Controls render only for Member+. Includes the e2e viewer-read-only journey.",
+          "files": [
+            "traceloom/services/comments.py",
+            "traceloom/web/routers/trace_actions.py",
+            "traceloom/web/templates/traces/_comments.html",
+            "traceloom/web/templates/traces/_scores.html",
+            "traceloom/web/templates/traces/_actions.html",
+            "tests/api/test_comments.py",
+            "tests/api/test_trace_actions.py",
+            "tests/e2e/test_journey_viewer.py"
+          ],
+          "acceptance": [
+            "A Member can add a comment, a score, a bookmark and tags, while a Viewer gets 403 on every one and sees no controls (test_no_edit_controls_for_viewer)",
+            "An @mention of a project member sends a mail captured in tests (test_mention_sends_mail)",
+            "Comment Markdown is sanitized, with no raw HTML or script execution",
+            "Authors can delete their own comments, an Admin can delete any, and other Members cannot",
+            "Scores appear as `name: value` chips and carry the ANNOTATION source and the author"
+          ],
+          "qa": "As a Member, open a trace detail, add a comment mentioning another member, a numeric score and a categorical score, bookmark the trace and add a tag. As a Viewer, confirm that none of the controls render and that direct POSTs return 403.",
+          "ui": true,
+          "depends_on": [
+            "T4",
+            "T5",
+            "T10"
+          ]
+        },
+        {
+          "id": "T20",
+          "title": "Public share, delete and audit log",
+          "description": "FR-T10 and FR-T12. Admin+ share toggle (partial in the actions area) and the public read-only page /share/{project_id}/{trace_id} (own standalone template using tree.py and render.py, no login, 404 when sharing is off). Delete one trace, or every trace matching the current filter, via a confirm dialog that shows the count; deletes remove the observations, scores and comments. Every delete writes an audit_log row (actor, action, project, trace ids or filter, count, time).",
+          "files": [
+            "traceloom/web/routers/share.py",
+            "traceloom/web/routers/trace_delete.py",
+            "traceloom/web/templates/share.html",
+            "traceloom/web/templates/traces/_delete_dialog.html",
+            "traceloom/web/templates/traces/_share_toggle.html",
+            "tests/api/test_share_delete.py",
+            "tests/e2e/test_journey_share_delete.py"
+          ],
+          "acceptance": [
+            "The share toggle makes /share/... reachable logged out and turning it off returns 404 (test_share_toggle)",
+            "Delete by filter removes exactly the matched traces, and the audit row records the actor, filter and count (test_delete_by_filter_audited)",
+            "Only Admin+ can toggle sharing or delete, and the dialog shows the match count",
+            "The public page shows <script> input as literal text (the share-page XSS case)",
+            "Other projects' traces are never deleted"
+          ],
+          "qa": "As Admin, ingest several traces, filter to a subset, open Delete matching, confirm that the dialog shows the right count, confirm, and check that only those traces are gone. Toggle share on for one trace, open its link in a private window and view it, toggle off and expect 404.",
+          "ui": true,
+          "depends_on": [
+            "T4",
+            "T5",
+            "T10",
+            "T14",
+            "T15"
+          ]
+        },
+        {
+          "id": "T21",
+          "title": "Lite analytics queries",
+          "description": "Fill adapters/lite/sql_analytics.py (SqlAnalyticsMixin): list_sessions and get_session (first/last trace time, count, duration, cost, distinct users/tags, timestamp-ordered traces), list_users and get_user_summary (daily usage series, recent traces/sessions/scores), and dashboard (trace count, total cost, cost and tokens by model, p50/p90/p95/p99 latency per trace name and per model via a registered SQLite percentile aggregate, error rate by level, top 10 users by cost, traces over time bucketed by range). Environment and date filters apply to all. Includes test_numbers_match_raw and perf/test_volume.py (10k traces / 50k observations bulk-seeded with the models).",
+          "files": [
+            "traceloom/adapters/lite/sql_analytics.py",
+            "tests/api/test_dashboard.py",
+            "tests/api/test_sessions_users.py",
+            "tests/perf/test_volume.py"
+          ],
+          "acceptance": [
+            "test_numbers_match_raw: every dashboard figure equals the Python computation over the seeded rows (AC-11)",
+            "A session of 5 out-of-order traces lists in timestamp order with the total cost equal to the sum (test_session_replay_order_and_total)",
+            "At 10k/50k the first list page and a filtered page return in under 1 s, detail in under 500 ms and the dashboard in under 2 s",
+            "Every query is project-scoped and respects the environment filter"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T2"
+          ]
+        },
+        {
+          "id": "T22",
+          "title": "Sessions and users pages",
+          "description": "FR-S1\u2013S4 pages. The sessions list (sort, date range and environment filters, cursor pagination) and the session replay: a chat-like timeline of each trace's input and output in time order with cost and latency per turn, links to the trace and totals on top. The users list and the user page with a usage-over-time chart (reuses the chart helper from the dashboard task's static file only if present; otherwise a table fallback) and recent 50 traces/sessions/scores linking to filtered lists. Includes the e2e session journey.",
+          "files": [
+            "traceloom/web/routers/sessions.py",
+            "traceloom/web/routers/users.py",
+            "traceloom/web/templates/sessions/list.html",
+            "traceloom/web/templates/sessions/detail.html",
+            "traceloom/web/templates/users/list.html",
+            "traceloom/web/templates/users/detail.html",
+            "tests/api/test_sessions_users_pages.py",
+            "tests/e2e/test_journey_session.py"
+          ],
+          "acceptance": [
+            "The sessions list shows the id, first/last time, count, duration, cost, users and tags with sort and pagination",
+            "The replay lists the turns in time order, with the totals equal to the sums",
+            "The script input in a turn renders as literal text",
+            "The users list and user page show correct counts, tokens and cost, and link to filtered traces",
+            "Viewer access is read-only, and other projects' sessions return 404"
+          ],
+          "qa": "Ingest 5 traces in one session out of order with cost. Open the sessions list, open the replay and verify the order, per-turn cost and the top totals. Open the users list and a user page and follow a link to the filtered traces list.",
+          "ui": true,
+          "depends_on": [
+            "T4",
+            "T5",
+            "T21"
+          ]
+        },
+        {
+          "id": "T23",
+          "title": "Dashboard page",
+          "description": "The home dashboard (FR-D1): stat tiles (trace count, total cost), cost and tokens by model, latency percentile tables per trace name and per model, error rate by level, top 10 users by cost, and traces over time, all for the selected date range and environment. Vendor uPlot (MIT, license kept) and an app-side chart initializer file driven by JSON data attributes (CSP-safe, no inline script). Includes the e2e dashboard journey.",
+          "files": [
+            "traceloom/web/routers/dashboard.py",
+            "traceloom/web/templates/dashboard.html",
+            "traceloom/web/static/charts.js",
+            "traceloom/web/static/vendor/uplot.iife.min.js",
+            "traceloom/web/static/vendor/uplot.min.css",
+            "tests/api/test_dashboard_page.py",
+            "tests/e2e/test_journey_dashboard.py"
+          ],
+          "acceptance": [
+            "The page renders every FR-D1 panel and the numbers match the store's dashboard() output",
+            "The date range and the environment switcher change all panels",
+            "An empty project shows an empty state, not errors",
+            "Charts render offline under the CSP, with no console errors",
+            "The page is readable at 390px and passes the contrast check in both themes"
+          ],
+          "qa": "Seed a project with known traces across two models and several users. Open the dashboard for 24h and 7d, compare the tile and table numbers with the values you seeded, switch the environment, and verify the charts draw and the layout holds at 390px in dark mode.",
+          "ui": true,
+          "depends_on": [
+            "T4",
+            "T5",
+            "T21"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S6",
+      "title": "Python SDK, demo agent and deployment",
+      "description": "The traceloom-sdk package with its integrations, the offline demo agent with seed-demo and the CLI, and the full-mode adapters, Compose files and load script (FR-P1\u2013P7, FR-X2, FR-X3).",
+      "acceptance": [
+        "The SDK never raises into user code, batches and flushes reliably, and instruments sync/async/generator functions",
+        "The OpenAI, Anthropic, LangChain and LiteLLM integrations capture model, usage and TTFT against fakes",
+        "examples/agent.py runs offline and produces a 3+ level tree with one tool error",
+        "docker compose config validates, with total mem_limit under 6 GB"
+      ],
+      "tasks": [
+        {
+          "id": "T24",
+          "title": "SDK core: client, observe, context, masking",
+          "description": "traceloom_sdk client.py (env config TRACELOOM_HOST/PUBLIC_KEY/SECRET_KEY/FLUSH_AT/FLUSH_INTERVAL/SAMPLE_RATE/ENABLED, constructor overrides, bounded queue that drops with a warning when full, background flusher thread, public flush() also run at atexit, retries on 429/5xx and network errors with exponential backoff and jitter (max 3), per-trace deterministic sampling, mask(fn) with '<masking failed>'), context.py (contextvars stack), objects.py (Span/Generation/Event handles, context-manager and .end()), observe.py (@observe for sync, async, generators and async generators; exceptions set ERROR and re-raise), and the manual API (start_span/start_generation/start_observation, event, update_current_trace, update_current_observation, score, get_current_trace_id). Every public entry point is wrapped in try/except that logs to the `traceloom` logger.",
+          "files": [
+            "sdk/python/traceloom_sdk/__init__.py",
+            "sdk/python/traceloom_sdk/client.py",
+            "sdk/python/traceloom_sdk/context.py",
+            "sdk/python/traceloom_sdk/objects.py",
+            "sdk/python/traceloom_sdk/observe.py",
+            "sdk/python/tests/test_client.py",
+            "sdk/python/tests/test_observe.py"
+          ],
+          "acceptance": [
+            "An unreachable host never raises and flush() returns within its timeout",
+            "A 500 is retried up to 3 times with backoff, and a full queue drops events with a warning",
+            "@observe nests correctly on sync, async, generator and async-generator functions, and an exception gives level ERROR and is re-raised",
+            "The mask function is applied to input, output and metadata, and a mask that raises gives '<masking failed>'",
+            "Sampling is deterministic per trace id, and flush-at and interval triggers send batches in the expected envelope"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T25",
+          "title": "OpenAI and Anthropic integrations",
+          "description": "traceloom_sdk/openai.py wrap(client) covers chat completions and responses, sync, async and streaming. traceloom_sdk/anthropic.py wrap(client) covers messages, sync, async and streaming. Each captures model, parameters, input messages, output, usage and time to first token (completion_start_time) on streams, using the core client. Tests run against fake transports with respx and never need network.",
+          "files": [
+            "sdk/python/traceloom_sdk/openai.py",
+            "sdk/python/traceloom_sdk/anthropic.py",
+            "sdk/python/tests/test_openai.py",
+            "sdk/python/tests/test_anthropic.py"
+          ],
+          "acceptance": [
+            "A wrapped client call produces a generation with model, params, input, output and usage",
+            "Stream calls record TTFT and assemble the full output",
+            "Provider errors set level ERROR and re-raise the original exception unchanged",
+            "Wrapping never changes the provider's return values, and instrumentation failures never raise"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T24"
+          ]
+        },
+        {
+          "id": "T26",
+          "title": "LangChain and LiteLLM integrations",
+          "description": "traceloom_sdk/langchain.py CallbackHandler maps chains, LLMs, chat models, tools and retrievers to observation types with parent links, usage and TTFT where available. traceloom_sdk/litellm.py callback works as a litellm success_callback/failure_callback function with no hard dependency on litellm. Tests use fakes.",
+          "files": [
+            "sdk/python/traceloom_sdk/langchain.py",
+            "sdk/python/traceloom_sdk/litellm.py",
+            "sdk/python/tests/test_langchain.py",
+            "sdk/python/tests/test_litellm.py"
+          ],
+          "acceptance": [
+            "A LangChain run produces correctly nested observations of the mapped types, and LLM runs become generations with usage",
+            "The LiteLLM callback records success and failure as generations (failure gives level ERROR) with usage and TTFT",
+            "Importing the module without litellm or langchain installed does not break the SDK import",
+            "Handler errors never reach user code"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T24"
+          ]
+        },
+        {
+          "id": "T27",
+          "title": "Demo agent, seed-demo and CLI",
+          "description": "examples/agent.py runs the support agent: a planner LLM chooses tools, with a search tool, a calculator tool, a failing lookup_order tool and a final answer. It gives a 3+ level tree with an agent span, tool spans, generations and one tool ERROR. examples/fake_llm.py gives realistic model names and usage with TTFT. It runs offline on the fake LLM, or against Anthropic when ANTHROPIC_API_KEY is set. examples/README.md explains both. services/demo.py and cli.py implement `traceloom migrate`, `traceloom worker` (consumer plus sweeper loop, usable in lite and full), `traceloom seed-demo` (creates a demo user, org, project and key using auth primitives and models, and prints them), and `traceloom serve`.",
+          "files": [
+            "examples/agent.py",
+            "examples/fake_llm.py",
+            "examples/README.md",
+            "traceloom/services/demo.py",
+            "traceloom/cli.py",
+            "tests/api/test_cli_demo.py",
+            "tests/unit/test_demo_agent.py"
+          ],
+          "acceptance": [
+            "`traceloom seed-demo` is idempotent and prints the email, password, project id and keys",
+            "examples/agent.py exits 0 offline and sends events forming a 3+ level tree with exactly one ERROR tool span and non-zero usage",
+            "`traceloom migrate` brings an empty DB to head",
+            "`traceloom worker` starts and stops cleanly",
+            "The README documents both the offline and the Anthropic mode"
+          ],
+          "qa": "Run `traceloom seed-demo`, start the server, run `python examples/agent.py` with the printed keys and host, then fetch the trace through the traces list page or API within 5 s and confirm the tree depth and the single tool error.",
+          "ui": false,
+          "depends_on": [
+            "T3",
+            "T24"
+          ]
+        },
+        {
+          "id": "T28",
+          "title": "Full-mode adapters, Docker and Compose",
+          "description": "container_full.py (the hook imported by container.py in full mode), adapters/full/s3_blob.py (boto3), redis_queue.py (Dramatiq actor process_batch), and redis_limiter.py (limiter and cache). Dockerfile, docker-compose.yml (web, worker, Postgres, Redis, ClickHouse, MinIO with mem_limit totalling under 6 GB) and docker-compose.lite.yml (web only), deploy/clickhouse/memory.xml, scripts/loadtest.py, and a README full-mode section. Unit tests use moto and fakeredis, and the contract tests for the blob and queue are gated by TRACELOOM_IT=1.",
+          "files": [
+            "traceloom/container_full.py",
+            "traceloom/adapters/full/s3_blob.py",
+            "traceloom/adapters/full/redis_queue.py",
+            "traceloom/adapters/full/redis_limiter.py",
+            "Dockerfile",
+            "docker-compose.yml",
+            "docker-compose.lite.yml",
+            "deploy/clickhouse/memory.xml",
+            "scripts/loadtest.py",
+            "tests/unit/test_s3_blob_fake.py",
+            "tests/unit/test_redis_queue_fake.py"
+          ],
+          "acceptance": [
+            "The S3 blob store and Redis queue pass their unit tests against moto and fakeredis",
+            "`docker compose config` validates for both files, and the sum of mem_limit values is under 6 GB",
+            "Default pytest needs no Docker, Redis, S3 or ClickHouse",
+            "The full-mode imports of boto3, redis and dramatiq happen only when the mode is full",
+            "loadtest.py runs with --help and documents the target volumes"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T2"
+          ]
+        }
+      ]
+    }
+  ]
+}
