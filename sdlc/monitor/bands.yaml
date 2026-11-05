@@ -1,0 +1,35 @@
+# Control bands for the closing-the-loop play. Detection is deterministic; Claude is invoked only on a breach.
+# Run:  python .sdlc/bin/monitor.py            (cron / scheduled CI / monitoring webhook)
+#       python .sdlc/bin/monitor.py --dry-run  (see what would fire)
+metrics:
+  - metric: ci_test_failure_rate
+    enabled: false                     # sample data — point source at a real metric, then set true
+    owner: "@platform-team"
+    # source: {csv: path, column: name}  or  {cmd: "script printing a JSON list or one number per line"}
+    source: { csv: sdlc/monitor/sample_series.csv, column: value }
+    baseline: { window: 30 }          # rolling window, excludes the latest 8 points under evaluation
+    rules: western_electric            # R1 >3σ, R2 2-of-3 >2σ, R3 4-of-5 >1σ, R4 8-in-a-row (drift)
+    direction: up                      # only breaches in the bad direction count: up | down | both
+    cooldown_minutes: 240
+    tiers:
+      1sigma: { action: log }
+      2sigma: { action: diagnose, tools: "Read,Grep,Glob,Bash(gh run view *),Bash(gh run list *)" }
+      3sigma: { action: propose, tools: "Read,Grep,Glob,Bash(gh run view *)",
+                routes: [pull_request, "runbook:quarantine-flaky"] }
+    runbooks:                          # pre-approved commands the propose tier may run, exactly as written
+      quarantine-flaky: "make quarantine-flaky"
+
+  # - metric: post_deploy_5xx_rate
+  #   source: { cmd: "python scripts/metrics/prom_query.py 'sum(rate(http_requests_total{code=~\"5..\"}[5m]))'" }
+  #   direction: up
+  #   tiers:
+  #     2sigma: { action: diagnose }
+  #     3sigma: { action: propose, routes: ["runbook:rollback-deploy"] }
+  #   runbooks:
+  #     rollback-deploy: "make rollback ENV=staging"
+
+  # - metric: pr_cycle_time_hours      # process metric: drift writes a report for engineering leadership
+  #   source: { cmd: "python scripts/metrics/pr_cycle_time.py --days 60" }
+  #   direction: up
+  #   tiers:
+  #     2sigma: { action: diagnose }

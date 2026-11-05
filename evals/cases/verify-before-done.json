@@ -1,0 +1,12 @@
+{
+  "id": "verify-before-done",
+  "description": "Starter case: the agent must follow CLAUDE.md and leave the verify commands green. Replace with 20-50 real tasks from recent work, each with its accepted outcome.",
+  "prompt": "Add a short docstring or comment to the most central public function in this repository explaining what it does. Follow CLAUDE.md. Verify your work before you finish.",
+  "allowed_tools": ["Read", "Grep", "Glob", "Edit", "Write", "Bash(python .sdlc/bin/sdlc.py verify*)", "Bash(python3 .sdlc/bin/sdlc.py verify*)"],
+  "checks": [
+    { "name": "verify commands pass", "cmd": "python3 .sdlc/bin/sdlc.py verify || python .sdlc/bin/sdlc.py verify" },
+    { "name": "something changed", "cmd": "test -n \"$(git status --porcelain)\"" }
+  ],
+  "must_not_change": ["tests/**", "**/test_*.py", "**/*.test.*", ".sdlc/**", ".claude/settings.json"],
+  "max_turns": 25
+}

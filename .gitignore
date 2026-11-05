@@ -1,0 +1,13 @@
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
+.env
+data/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+node_modules/
+
+# added by sdlc init
+venv/

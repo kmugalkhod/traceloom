@@ -1,0 +1,155 @@
+{
+  "changes_dir": "sdlc/changes",
+  "lessons_dir": "sdlc/lessons",
+  "protected_paths": [
+    ".claude/settings.json",
+    ".venv/**",
+    "REVIEW.md"
+  ],
+  "test_globs": [
+    "tests/**",
+    "test/**",
+    "**/__tests__/**",
+    "**/test_*.py",
+    "**/*_test.py",
+    "**/*_test.go",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/src/test/**",
+    "**/itest/**"
+  ],
+  "verify": {
+    "setup": "python3 -m venv .venv && .venv/bin/pip install -q -e '.[dev]' -e ./sdk/python",
+    "build": ".venv/bin/python -m compileall -q traceloom sdk/python/traceloom_sdk",
+    "test": ".venv/bin/pytest -q",
+    "lint": ".venv/bin/ruff check ."
+  },
+  "format_cmd": ".venv/bin/ruff format {file}",
+  "lint_on_edit_cmd": "",
+  "prod_gate": {
+    "mode": "block",
+    "patterns": [
+      "\\bdeploy\\b.*\\bprod(uction)?\\b",
+      "\\bhelm\\b.*\\b(upgrade|install)\\b.*\\bprod",
+      "\\bkubectl\\b.*\\b(apply|delete|rollout|scale)\\b.*\\bprod",
+      "\\bterraform\\b.*\\bapply\\b.*\\bprod"
+    ],
+    "approval_env": "RELEASE_APPROVAL",
+    "approval_ttl_minutes": 120
+  },
+  "protected_branches": [
+    "main",
+    "master"
+  ],
+  "secret_scan": true,
+  "secret_scan_exclude": [],
+  "tracker": {
+    "type": "internal",
+    "url_template": "",
+    "jira": {
+      "base_url": "",
+      "project_key": "",
+      "issue_types": {
+        "epic": "Epic",
+        "story": "Story",
+        "task": "Subtask"
+      },
+      "transitions": {
+        "todo": "To Do",
+        "in_progress": "In Progress",
+        "blocked": "In Progress",
+        "in_qa": "In Review",
+        "done": "Done"
+      },
+      "assignee_account_id": "",
+      "label_prefix": "agent-"
+    },
+    "linear": {
+      "team_key": "",
+      "epic_as": "project",
+      "states": {
+        "todo": "Todo",
+        "in_progress": "In Progress",
+        "blocked": "In Progress",
+        "in_qa": "In Review",
+        "done": "Done"
+      },
+      "assignee_id": "",
+      "label_prefix": "agent-"
+    }
+  },
+  "vcs": "auto",
+  "models": {
+    "spec": "sonnet",
+    "plan": "sonnet",
+    "build": "sonnet",
+    "review": "sonnet",
+    "gate": "sonnet",
+    "triage": "sonnet",
+    "evals": "sonnet"
+  },
+  "pipeline": {
+    "commit": true,
+    "branch_prefix": "sdlc/",
+    "open_pr": false,
+    "max_fix_rounds": 3,
+    "allowed_bash": []
+  },
+  "evals": {
+    "dir": "evals/cases",
+    "threshold": 0.9
+  },
+  "team": {
+    "developers": 2,
+    "qa_agents": 1,
+    "models": {
+      "planner": "sonnet",
+      "developer": "sonnet",
+      "qa": "sonnet",
+      "helper": "sonnet",
+      "designer": "sonnet"
+    },
+    "max_qa_rounds": 3,
+    "max_dev_attempts": 2,
+    "max_help_rounds": 2,
+    "run_timeout_minutes": 40,
+    "branch_prefix": "team/",
+    "worktree_dir": ".sdlc/worktrees",
+    "allowed_bash": [],
+    "qa": {
+      "start_cmd": ".venv/bin/uvicorn traceloom.main:app --port {port}",
+      "health_path": "/",
+      "port_base": 8600,
+      "start_timeout": 60,
+      "browser": "playwright-mcp",
+      "browser_executable": "",
+      "browser_args": []
+    },
+    "poll_seconds": 3,
+    "sync_seconds": 10,
+    "board_port": 8765,
+    "design": {
+      "mode": "auto",
+      "approval": "human",
+      "max_rounds": 3,
+      "approval_timeout_minutes": 240,
+      "plugin_dirs": [],
+      "design_port": 8690,
+      "ui_globs": [
+        "**/*.html",
+        "**/*.css",
+        "**/*.scss",
+        "**/*.jsx",
+        "**/*.tsx",
+        "**/*.vue",
+        "**/*.svelte",
+        "**/static/**",
+        "**/templates/**",
+        "**/components/**",
+        "**/pages/**",
+        "**/app/**/page.*",
+        "**/ui/**"
+      ]
+    }
+  }
+}
