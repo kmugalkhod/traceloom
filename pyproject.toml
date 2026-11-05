@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "traceloom"
+version = "0.1.0"
+description = "Self-hosted LLM-engineering platform: traces, cost, prompts, evals."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.30",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.7,<3",
+    "pydantic-settings>=2.3,<3",
+    "email-validator>=2.1",
+    "sqlalchemy>=2.0.30,<2.1",
+    "alembic>=1.13",
+    "psycopg[binary]>=3.1",
+    "argon2-cffi>=23.1",
+    "itsdangerous>=2.2",
+    "markdown-it-py>=3.0",
+    "pyyaml>=6.0",
+    "httpx>=0.27",
+    "opentelemetry-proto>=1.27,<2",
+    "protobuf>=4.25",
+    "tiktoken>=0.7",
+    "clickhouse-connect>=0.7",
+    "boto3>=1.34",
+    "redis>=5.0",
+    "dramatiq[redis]>=1.17",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "pytest-playwright>=0.5",
+    "playwright>=1.45",
+    "ruff>=0.5",
+    "fakeredis>=2.23",
+    "moto[s3]>=5.0",
+    "respx>=0.21",
+    "openai>=1.40",
+    "anthropic>=0.34",
+    "langchain-core>=0.2",
+]
+
+[project.scripts]
+traceloom = "traceloom.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["traceloom*"]
+
+[tool.setuptools.package-data]
+traceloom = [
+    "web/templates/**/*",
+    "web/static/**/*",
+    "seed/*.yaml",
+    "db/migrations/*.mako",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [".sdlc"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["B008"]  # FastAPI Depends() in argument defaults
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "sdk/python/tests"]
+pythonpath = ["."]
+addopts = "-ra --import-mode=importlib"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "e2e: browser journeys (Playwright)",
+    "it: integration tests against docker compose; run with TRACELOOM_IT=1",
+    "perf: volume/latency tests",
+]
