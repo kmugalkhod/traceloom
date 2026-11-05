@@ -11,7 +11,9 @@ from typing import Any
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from traceloom.auth.api_keys import ApiKeyCache
 from traceloom.config import Settings
+from traceloom.services.mail import Mailer
 
 log = logging.getLogger("traceloom")
 
@@ -28,6 +30,8 @@ class Container:
     queue: Any = None
     limiter: Any = None
     cache: Any = None
+    api_key_cache: ApiKeyCache = field(default_factory=ApiKeyCache)
+    mailer: Mailer | None = None
     # Lifecycle hooks and health probes registered by feature modules.
     startup_hooks: list[Callable[[Container], None]] = field(default_factory=list)
     shutdown_hooks: list[Callable[[Container], None]] = field(default_factory=list)
@@ -46,11 +50,17 @@ class Container:
 
 
 def build_container(settings: Settings) -> Container:
+    from traceloom.adapters.lite.memory import InMemoryCache, InMemoryRateLimiter
     from traceloom.db.session import make_engine, make_session_factory, upgrade_to_head
 
     engine = make_engine(settings.database_url)
     container = Container(
-        settings=settings, engine=engine, session_factory=make_session_factory(engine)
+        settings=settings,
+        engine=engine,
+        session_factory=make_session_factory(engine),
+        limiter=InMemoryRateLimiter(),
+        cache=InMemoryCache(),
+        mailer=Mailer(settings),
     )
     if settings.mode == "lite":
         container.startup_hooks.append(lambda c: upgrade_to_head(c.engine))

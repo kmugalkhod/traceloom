@@ -11,6 +11,9 @@ from fastapi import FastAPI
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from traceloom import __version__
+from traceloom.api.errors import install_error_handlers
+from traceloom.auth.csrf import CSRFMiddleware
+from traceloom.auth.sessions import SessionMiddleware
 from traceloom.config import Settings, get_settings
 from traceloom.container import build_container
 
@@ -78,7 +81,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Traceloom", version=__version__, lifespan=lifespan)
     app.state.settings = settings
     app.state.container = container
+    # Last added runs first: headers wrap everything, then CSRF, then the session cookie check.
+    app.add_middleware(SessionMiddleware, settings=settings)
+    app.add_middleware(CSRFMiddleware, settings=settings)
     app.add_middleware(SecurityHeadersMiddleware)
+    install_error_handlers(app)
     include_discovered_routers(app)
     return app
 

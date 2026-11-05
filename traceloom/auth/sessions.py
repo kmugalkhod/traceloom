@@ -7,9 +7,11 @@ cookie issued before it.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from http.cookies import SimpleCookie
 
 from fastapi import Response
 from itsdangerous import BadData, URLSafeTimedSerializer
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from traceloom.config import Settings
 
@@ -70,3 +72,27 @@ def clear_session_cookie(response: Response, settings: Settings) -> None:
     response.delete_cookie(
         COOKIE_NAME, httponly=True, secure=settings.secure_cookies, samesite="lax", path="/"
     )
+
+
+class SessionMiddleware:
+    """Verifies the session cookie's signature and age once per request.
+
+    The result lands in `request.state.session` (None when absent or invalid). Whether the
+    user still exists and the session_version still matches is checked in auth.deps.
+    """
+
+    def __init__(self, app: ASGIApp, settings: Settings) -> None:
+        self.app = app
+        self.settings = settings
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            cookies = SimpleCookie()
+            for key, value in scope["headers"]:
+                if key == b"cookie":
+                    cookies.load(value.decode("latin-1"))
+            morsel = cookies.get(COOKIE_NAME)
+            scope.setdefault("state", {})["session"] = read_session(
+                self.settings, morsel.value if morsel else None
+            )
+        await self.app(scope, receive, send)
