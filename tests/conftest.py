@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from traceloom.config import Settings
 from traceloom.main import create_app
 
-pytest_plugins = ["tests.factories"]
+pytest_plugins = ["tests.factories", "tests.contract.stores"]
 
 _LOOPBACK = {"127.0.0.1", "::1", "localhost"}
 
