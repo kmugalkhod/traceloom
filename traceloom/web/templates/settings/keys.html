@@ -1,0 +1,81 @@
+{% extends "settings/base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}API keys{% endblock %}
+{% block settings_body %}
+<div class="stack">
+  {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
+  {% if error %}{{ m.banner("err", error) }}{% endif %}
+
+  {% if created %}
+  <div class="panel">
+    <div class="panel-h"><h2>Key created</h2></div>
+    <div class="panel-b stack">
+      {{ m.banner("warn", "Copy the secret key now. It is shown only once and cannot be recovered; only a hash is stored.") }}
+      <div class="field"><span class="lbl">Public key</span>
+        <div class="secret-box"><pre class="code" id="new-public">{{ created.public }}</pre>{{ m.copy_button("#new-public") }}</div></div>
+      <div class="field"><span class="lbl">Secret key</span>
+        <div class="secret-box"><pre class="code" id="new-secret">{{ created.secret }}</pre>{{ m.copy_button("#new-secret") }}</div></div>
+      <div class="hint">Use them as the HTTP Basic user and password, or set TRACELOOM_PUBLIC_KEY and TRACELOOM_SECRET_KEY for the SDK.</div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not keys and not created %}
+    {% include "_onboarding.html" %}
+  {% else %}
+  <div class="panel">
+    <div class="panel-h"><h2>API keys</h2><span class="grow"></span>
+      <button type="button" class="btn btn-primary btn-sm" data-dialog-open="create-key">{{ m.icon("i-plus") }}Create API key</button></div>
+    <div class="rack">
+      <table class="tbl tbl-flat keepcols">
+        <thead><tr><th>Public key</th><th>Note</th><th class="hide-m">Created</th><th class="hide-m">Last used</th><th>Status</th><th class="r"><span class="sr">Actions</span></th></tr></thead>
+        <tbody>
+        {% for key in keys %}
+          <tr{% if key.revoked_at %} class="is-dim"{% endif %}>
+            <td class="mono">{{ key.public_key }}</td>
+            <td class="c-name">{{ key.note or "—" }}</td>
+            <td class="hide-m muted">{{ key.created_at | date }}</td>
+            <td class="hide-m muted">{{ key.last_used_at | ago }}</td>
+            <td>{% if key.revoked_at %}<span class="lv ERROR">Revoked</span>{% else %}<span class="lv ok">Active</span>{% endif %}</td>
+            <td class="r">
+              {% if key.revoked_at %}<span class="hint">Rejected with 401</span>
+              {% else %}<button type="button" class="btn btn-sm btn-ghost" data-dialog-open="revoke-key"
+                       data-form-action="/project/{{ project.id }}/settings/keys/{{ key.id }}/revoke"
+                       data-fill-name="{{ key.note or key.public_key }}">Revoke</button>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block dialogs %}
+<dialog class="dlg" id="create-key" aria-label="Create API key">
+  <div class="dialog">
+    {{ m.dialog_head("Create API key", "i-key") }}
+    <form method="post" action="/project/{{ project.id }}/settings/keys">
+      {{ m.csrf() }}
+      <div class="body">
+        <div class="field"><label for="key-note">Note</label><input class="input" id="key-note" name="note" value="{{ note }}" maxlength="200" placeholder="What is this key for?"><div class="hint">Shown in the list so you can tell keys apart.</div></div>
+      </div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">Create key</button></footer>
+    </form>
+  </div>
+</dialog>
+<dialog class="dlg" id="revoke-key" aria-label="Revoke API key">
+  <div class="dialog">
+    {{ m.dialog_head("Revoke this key?", "i-key") }}
+    <form method="post" action="" data-dialog-form>
+      {{ m.csrf() }}
+      <div class="body">
+        <p>Requests using <b data-slot="name"></b> will be rejected with 401 right away. This cannot be undone.</p>
+      </div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-danger">Revoke key</button></footer>
+    </form>
+  </div>
+</dialog>
+{% endblock %}

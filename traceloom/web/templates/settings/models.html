@@ -1,0 +1,77 @@
+{% extends "settings/base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Models{% endblock %}
+{% block settings_body %}
+<div class="stack">
+  {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
+  {% if error %}{{ m.banner("err", error) }}{% endif %}
+  {{ m.banner("info", "Project definitions override the built-in price list for this project. Cost on a generation shows whether it was provided by your app or calculated from these prices.") }}
+
+  {% if form %}
+  <div class="panel">
+    <div class="panel-h"><h2>{{ "Edit " ~ editing.model_name if editing else "Add a model" }}</h2><span class="hint">USD per 1M tokens</span></div>
+    <form class="panel-b stack" method="post" action="/project/{{ project.id }}/settings/models{% if editing %}/{{ editing.id }}{% endif %}">
+      {{ m.csrf() }}
+      <div class="row-wrap items-end">
+        {{ m.field("model_name", "Name", value=form.model_name, required=True) }}
+        {{ m.field("match_pattern", "Match (regex)", value=form.match_pattern, required=True, hint="Searched in the model name a generation reports, for example ^claude-sonnet-4-5") }}
+        {{ m.field("valid_from", "Valid from", type="date", value=form.valid_from, hint="Optional. Generations before this date ignore the definition.") }}
+        {{ m.field("tokenizer", "Tokenizer", value=form.tokenizer, hint="Optional, for example tiktoken:o200k_base. Used to count tokens when usage is missing.") }}
+      </div>
+      <div class="row-wrap items-end">
+        {% for key, label in price_keys %}
+          <div class="field"><label for="price_{{ key }}">{{ label }}</label><input class="input w-112" id="price_{{ key }}" name="price_{{ key }}" inputmode="decimal" value="{{ form.prices[key] }}"{% if key == "input" or key == "output" %} required{% endif %}></div>
+        {% endfor %}
+      </div>
+      <div class="stack-s">
+        <span class="lbl">Price tiers</span>
+        <div class="hint">When a generation's input tokens exceed the threshold, these prices replace the ones above. Leave a row empty to skip it.</div>
+        {% for tier in form.tiers + [{"threshold": "", "input": "", "output": "", "cache_read": "", "cache_write": ""}] %}
+        {% set row = loop.index %}
+        <div class="row-wrap items-end">
+          <div class="field"><label for="tier-{{ row }}-threshold">Above input tokens</label><input class="input w-112" id="tier-{{ row }}-threshold" name="tier_threshold" inputmode="numeric" value="{{ tier.threshold }}"></div>
+          {% for key, label in price_keys %}
+            <div class="field"><label for="tier-{{ row }}-{{ key }}">{{ label }}</label><input class="input w-112" id="tier-{{ row }}-{{ key }}" name="tier_{{ key }}" inputmode="decimal" value="{{ tier[key] }}"></div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="row"><button class="btn btn-primary" type="submit">Save definition</button><a class="btn btn-ghost" href="/project/{{ project.id }}/settings/models">Cancel</a></div>
+    </form>
+  </div>
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel-h"><h2>Model definitions</h2><span class="hint">USD per 1M tokens</span><span class="grow"></span>
+      <a class="btn btn-primary btn-sm" href="/project/{{ project.id }}/settings/models?new=1">{{ m.icon("i-plus") }}Add model</a></div>
+    <div class="rack">
+      <table class="tbl tbl-flat keepcols">
+        <thead><tr><th>Match</th><th>Scope</th><th class="r">Input</th><th class="r">Output</th><th class="hide-m">Valid from</th><th class="r"><span class="sr">Actions</span></th></tr></thead>
+        <tbody>
+        {% for d in definitions %}
+          <tr>
+            <td class="mono name">{{ d.model_name }}</td>
+            <td>{% if d.project_id %}<span class="src calc">Project</span>{% if d.id in overrides %} <span class="hint">overrides the built-in price</span>{% endif %}{% else %}<span class="src">Built-in</span>{% endif %}</td>
+            <td class="num">${{ (d.prices or {}).get("input") | per_million }}</td>
+            <td class="num">${{ (d.prices or {}).get("output") | per_million }}</td>
+            <td class="hide-m muted">{{ d.valid_from | date }}</td>
+            <td class="r">
+              {% if d.project_id %}
+              <span class="row jc-end gap-4">
+                <a class="btn btn-sm" href="/project/{{ project.id }}/settings/models?edit={{ d.id }}">{{ m.icon("i-pencil") }}Edit</a>
+                <form class="inline-form" method="post" action="/project/{{ project.id }}/settings/models/{{ d.id }}/delete" data-confirm="Delete the definition for {{ d.model_name }}?">
+                  {{ m.csrf() }}<button class="btn btn-icon btn-sm btn-ghost" type="submit" aria-label="Delete definition" title="Delete definition">{{ m.icon("i-trash") }}</button>
+                </form>
+              </span>
+              {% else %}
+              <a class="btn btn-sm" href="/project/{{ project.id }}/settings/models?override={{ d.id }}">{{ m.icon("i-plus") }}Override</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

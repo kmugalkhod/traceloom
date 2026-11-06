@@ -164,7 +164,8 @@ def settings_tabs(project_id: str, current: str, role: Role | None) -> list[dict
     tabs = [("general", "General", base), ("members", "Members & invites", f"{base}/members")]
     if can(role, Perm.API_KEYS):
         tabs.append(("keys", "API keys", f"{base}/keys"))
-    tabs.append(("models", "Models", f"{base}/models"))
+    if can(role, Perm.MODEL_DEFINITIONS):
+        tabs.append(("models", "Models", f"{base}/models"))
     return [
         {"key": k, "label": label, "href": href, "current": k == current} for k, label, href in tabs
     ]

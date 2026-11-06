@@ -1,0 +1,30 @@
+{# Shown by the keys page, and by the traces list while the project has no data yet. #}
+{% import "_macros.html" as m %}
+<div class="empty">
+  <h2>Create an API key</h2>
+  <p>This project has no traces yet. Create a key, then add three lines to your app and run it. Traces show up here within seconds.</p>
+  {% if can(Perm.API_KEYS) %}
+    <form method="post" action="/project/{{ project.id }}/settings/keys">
+      {{ m.csrf() }}<input type="hidden" name="note" value="First key">
+      <button class="btn btn-primary" type="submit">{{ m.icon("i-key") }}Create an API key</button>
+    </form>
+  {% else %}
+    <p class="hint">Ask an Admin or Owner of {{ org.name }} to create one.</p>
+  {% endif %}
+  <div class="stack-s w-640">
+    <div class="row"><span class="lbl">Then, in your app</span><span class="right">{{ m.copy_button("#sdk-snippet") }}</span></div>
+    <pre class="code" id="sdk-snippet">pip install -e ./sdk/python
+
+export TRACELOOM_HOST={{ base_url }}
+export TRACELOOM_PUBLIC_KEY=tl-pk-...
+export TRACELOOM_SECRET_KEY=tl-sk-...
+
+from traceloom_sdk import Traceloom, observe
+
+Traceloom()
+
+@observe()
+def answer(question):
+    ...</pre>
+  </div>
+</div>
