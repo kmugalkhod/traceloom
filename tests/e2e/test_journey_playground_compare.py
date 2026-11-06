@@ -1,10 +1,5 @@
-"""Journey (AC-10): three variants with different models stream side by side, each with its own
-usage and cost; a fifth cannot be added; the columns stack under 1100px.
-
-The compare panel opens on the playground page's `pg:action` event and reads `window.Playground`.
-Here a minimal host provides those hooks (`#pg-compare-mount`, `getState`, `setMode`), so the
-script is exercised in a real browser on its own.
-"""
+"""Journey (AC-10): on the playground page, three variants with different models stream side by
+side, each with its own usage and cost; a fifth cannot be added; the columns stack under 1100px."""
 
 from __future__ import annotations
 
@@ -31,6 +26,9 @@ class PerModel(BaseProvider):
     """Streams the model name, slowly, with usage that depends on the model."""
 
     def _stream(self, messages, model, params, tools, schema):
+        if model == "boom":
+            yield TextDelta("partial ")
+            raise RuntimeError(f"upstream refused {self.cfg.api_key}")
         STARTS.append(time.monotonic())
         for word in (model, "says", "hello"):
             yield TextDelta(word + " ")
@@ -40,62 +38,39 @@ class PerModel(BaseProvider):
         yield DoneDelta("stop")
 
 
-HOST = """
-document.body.innerHTML = '<main><div id="pg-grid"></div>'
-  + '<div id="pg-compare-mount" hidden></div></main>';
-window.Playground = {
-  config: { projectId: '%(pid)s' },
-  getState: function () { return {
-    connectionId: '%(conn)s', model: '%(model)s',
-    messages: [{ role: 'user', content: 'Say hello' }], variables: {}, params: {}, tools: [],
-    responseSchema: null }; },
-  setMode: function (mode) {
-    document.getElementById('pg-grid').hidden = mode === 'compare';
-    document.getElementById('pg-compare-mount').hidden = mode !== 'compare'; }
-};
-"""
-
-
-def open_compare(page):
-    page.evaluate(
-        "document.dispatchEvent(new CustomEvent('pg:action', { detail: { action: 'compare' } }))"
-    )
-
-
-def load(page, src):
-    page.evaluate(
-        """src => new Promise((ok, fail) => { const s = document.createElement('script');
-        s.src = src; s.onload = ok; s.onerror = fail; document.head.appendChild(s); })""",
-        src,
-    )
+KEY = "sk-ant-fake-123456"
 
 
 @pytest.fixture
-def compare_page(session, live):
+def pg(session, live):
     providers.register("anthropic", PerModel)
     STARTS.clear()
     with live.container.session_factory() as db:
         owner = db.scalar(select(User).where(User.email == live.account.email))
         project = db.get(Project, live.account.project_id)
-        conn = connections.create(
+        connections.create(
             db, project, Actor.for_user(owner, Role.OWNER),
             ConnectionPolicy.from_settings(live.container.settings),
-            provider="anthropic", name="Claude fake", secrets={"api_key": "sk-ant-fake-123456"},
+            provider="anthropic", name="Claude fake", secrets={"api_key": KEY},
         )  # fmt: skip
         db.commit()
-        conn_id = conn.id
     page = session.page
-    pid = live.account.project_id
-    page.goto(f"{live.url}/project/{pid}/traces")
-    page.add_style_tag(url="/static/playground_compare.css")
-    page.evaluate("() => { " + HOST % {"pid": pid, "conn": conn_id, "model": MODELS[0]} + " }")
-    load(page, "/static/playground_compare.js")
+    page.goto(f"{live.url}/project/{live.account.project_id}/playground")
+    page.locator("[data-msg-text]").last.fill("Say hello")
+    page.fill("#pg-model", MODELS[0])
     yield session
     providers.unregister("anthropic")
 
 
-def test_three_variants_stream_independently(compare_page, live):
-    page = compare_page.page
+def open_compare(page):
+    page.click("[data-menu-toggle=pg-menu]")
+    page.click("[data-pg-action=compare]")
+    expect(page.locator("#pg-root")).to_have_attribute("data-mode", "compare")
+    expect(page.locator("#pg-grid")).to_be_hidden()
+
+
+def test_three_variants_stream_independently(pg):
+    page = pg.page
     open_compare(page)
     expect(page.locator("[data-variant]")).to_have_count(2)
     page.click("[data-add-variant]")
@@ -112,11 +87,11 @@ def test_three_variants_stream_independently(compare_page, live):
         expect(col.locator("[data-u-output]")).to_have_text(f"{size * 2:,}")
         expect(col.locator("[data-u-cost]")).to_contain_text("$")
     assert len(STARTS) == 3 and max(STARTS) - min(STARTS) < 0.5  # they ran at the same time
-    assert compare_page.problems == []
+    assert pg.problems == []
 
 
-def test_a_fifth_variant_cannot_be_added(compare_page):
-    page = compare_page.page
+def test_a_fifth_variant_cannot_be_added(pg):
+    page = pg.page
     open_compare(page)
     for _ in range(2):
         page.click("[data-add-variant]")
@@ -129,8 +104,8 @@ def test_a_fifth_variant_cannot_be_added(compare_page):
     expect(add).to_be_enabled()
 
 
-def test_columns_sit_side_by_side_wide_and_stack_under_1100px(compare_page):
-    page = compare_page.page
+def test_columns_sit_side_by_side_wide_and_stack_under_1100px(pg):
+    page = pg.page
     open_compare(page)
     page.click("[data-add-variant]")
     page.click("[data-add-variant]")
@@ -144,15 +119,34 @@ def test_columns_sit_side_by_side_wide_and_stack_under_1100px(compare_page):
     assert all(narrow[i + 1]["y"] > narrow[i]["y"] for i in range(3))
 
 
-def test_errors_and_stop_are_per_column(compare_page):
-    page = compare_page.page
+def test_errors_are_inline_scrubbed_and_per_column(pg):
+    page = pg.page
     open_compare(page)
     columns = page.locator("[data-variant]")
-    columns.nth(0).locator("[data-v-model]").fill(MODELS[0])
-    columns.nth(1).locator("[data-v-model]").fill("")  # falls back to the shared model
-    columns.nth(1).locator("[data-v-follow]").uncheck()
-    for row in columns.nth(1).locator(".v-msg [data-m-remove]").all():
-        row.click()  # no messages of its own: this column cannot run
+    columns.nth(0).locator("[data-v-model]").fill(MODELS[1])
+    columns.nth(1).locator("[data-v-model]").fill("boom")
     page.click("[data-run-all]")
-    expect(columns.nth(1).locator("[data-v-error]")).to_be_visible()
-    expect(columns.nth(0).locator("[data-v-text]")).to_contain_text(f"{MODELS[0]} says hello")
+    expect(columns.nth(0).locator("[data-v-text]")).to_contain_text(f"{MODELS[1]} says hello")
+    failed = columns.nth(1)
+    expect(failed.locator("[data-v-error]")).to_contain_text("upstream refused")
+    expect(failed.locator("[data-v-text]")).to_contain_text("partial")
+    assert KEY not in page.content() and "123456" not in failed.inner_text()
+    expect(columns.nth(0).locator("[data-v-error]")).to_be_hidden()
+
+
+def test_a_column_with_its_own_messages_and_stop(pg):
+    page = pg.page
+    open_compare(page)
+    col = page.locator("[data-variant]").nth(1)
+    col.locator("[data-v-follow]").uncheck()
+    expect(col.locator(".v-msg")).to_have_count(2)  # started as a copy of the shared messages
+    expect(col.locator("[data-m-content]").last).to_have_value("Say hello")
+    col.locator("[data-m-content]").last.fill("A different question")
+    col.locator("[data-v-model]").fill(MODELS[2])
+    page.locator("[data-variant]").nth(0).locator("[data-v-model]").fill(MODELS[0])
+    page.click("[data-run-all]")
+    expect(col.locator("[data-variant-stop]")).to_be_visible()
+    col.locator("[data-variant-stop]").click()
+    expect(col.locator("[data-variant-stop]")).to_be_hidden()
+    expect(page.locator("[data-variant]").nth(0).locator("[data-u-input]")).to_have_text("100")
+    expect(col.locator("[data-u-input]")).to_be_hidden()  # a stopped column reports no usage

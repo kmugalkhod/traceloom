@@ -3,7 +3,10 @@
 {% import "playground/_message.html" as msg with context %}
 {% block title %}Playground{% endblock %}
 {% block ctx_m %}{% endblock %}
-{% block scripts %}<script src="/static/playground.js" defer></script>{% endblock %}
+{% block scripts %}<link rel="stylesheet" href="/static/playground_compare.css">
+<script src="/static/playground.js" defer></script>
+<script src="/static/playground_compare.js" defer></script>
+<script src="/static/playground_save.js" defer></script>{% endblock %}
 {% block content %}
 {% if not has_connections %}
   {{ m.page_header("Playground") }}

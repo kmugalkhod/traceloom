@@ -76,6 +76,15 @@
         var note = dropped ? ' ' + dropped + ' tool message' + (dropped === 1 ? ' was' : 's were') + ' not saved.' : '';
         banner(doneBox, 'Saved ' + res.data.name + ' as version ' + res.data.version + '.' + note, res.data.url, 'View version');
         form.elements.commit_message.value = '';
+        // the prompt now exists: offer it under "New version of an existing prompt"
+        var known = Array.prototype.some.call(select.options, function (o) { return o.value === res.data.name; });
+        if (!known) {
+          var added = document.createElement('option');
+          added.value = res.data.name; added.textContent = res.data.name + ' (latest v' + res.data.version + ')';
+          select.appendChild(added);
+        }
+        var versionRadio = form.querySelector('input[name="mode"][value="version"]');
+        if (versionRadio) { versionRadio.disabled = false; }
       }).catch(function () {
         submit.disabled = false;
         banner(errorBox, 'Could not reach the server. Try again.');
