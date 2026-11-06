@@ -1,11 +1,12 @@
 /* Trace detail header, tags and workspace frame (FR-TD1..TD3). */
 
 /* Breadcrumb lives in the context bar. */
-.ctxbar .crumbs{margin-right:auto;font-size:13px;min-width:0}
+.ctxbar .crumbs{font-size:13px}
 .ctxbar .crumbs a{color:var(--ink-2)}
 .ctxbar .crumbs .mono{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ctxbar .crumbs~.env-sw,.ctxbar .crumbs~.select-wrap{margin-right:0}
-@container app (max-width:760px){.ctxbar .crumbs{display:none}}
+
+/* The header starts 16px under the context bar. */
+.main:has(.th-head){padding-top:var(--sp-6)}
 
 /* Compact header: title row, then one row of inline metrics with the tags. */
 .th-head{display:flex;flex-direction:column;gap:8px;flex:none}
@@ -13,11 +14,11 @@
 .th-title h1{font-size:24px;letter-spacing:-.02em;line-height:1.2;margin:0}
 .mline-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px}
 .mline{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 0;margin:0;padding:0;font-size:14px;color:var(--ink-2)}
-.mline>div{display:flex;align-items:baseline;min-width:0}
+.mline>div{display:flex;flex-direction:row;align-items:baseline;gap:0;min-width:0}
 .mline>div+div::before{content:"·";margin:0 8px;color:var(--ink-3)}
 .mline dt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .mline dd{margin:0;font-weight:500}
-.mline .num{font-family:var(--font-ui);font-variant-numeric:tabular-nums;text-align:left;color:var(--ink)}
+.mline .num{font-size:inherit;font-family:var(--font-ui);font-variant-numeric:tabular-nums;text-align:left;color:var(--ink)}
 
 /* Tags: chips, an x for Members+, inline "+ Add tag". */
 .tags{display:flex;flex-wrap:wrap;align-items:center;gap:6px}

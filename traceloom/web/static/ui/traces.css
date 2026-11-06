@@ -41,6 +41,7 @@
 .panel[data-tl] .tbl th.r,.panel[data-tl] .tbl td.r{text-align:right}
 .panel[data-tl] .tbl th.c,.panel[data-tl] .tbl td.c{text-align:center}
 .panel[data-tl] .tbl td.num{font-family:var(--font-ui);font-variant-numeric:tabular-nums;text-align:right}
+.panel[data-tl] .tbl th.r{font-variant-numeric:tabular-nums}
 .panel[data-tl] .tbl th.r a{justify-content:flex-end}
 .panel[data-tl] .tbl td.c .muted{color:var(--ink-3)}
 .panel[data-tl] .tbl tr.ERROR td,.panel[data-tl] .tbl tr.WARNING td{background:transparent}
