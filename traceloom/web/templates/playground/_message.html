@@ -4,13 +4,21 @@
   <header>
     <span class="grip" aria-hidden="true">{{ m.icon("i-grip", "ico-sm") }}</span>
     <select class="role-sel" data-msg-role aria-label="Role">
-      {% for r in ("system", "user", "assistant") %}<option value="{{ r }}"{% if r == role %} selected{% endif %}>{{ r | title }}</option>{% endfor %}
+      {% for r in ("system", "user", "assistant", "tool") %}<option value="{{ r }}"{% if r == role %} selected{% endif %}>{{ r | title }}</option>{% endfor %}
     </select>
     <span class="grow"></span>
     <button type="button" class="btn btn-icon btn-sm btn-ghost" data-msg-up aria-label="Move message up">{{ m.icon("i-up", "ico-sm") }}</button>
     <button type="button" class="btn btn-icon btn-sm btn-ghost" data-msg-down aria-label="Move message down">{{ m.icon("i-down", "ico-sm") }}</button>
     <button type="button" class="btn btn-icon btn-sm btn-ghost" data-msg-remove aria-label="Remove message">{{ m.icon("i-x", "ico-sm") }}</button>
   </header>
+  <div class="msg-extra">
+    <label class="msg-id" data-msg-idwrap hidden><span class="lbl">Tool call id</span><input class="input mono" data-msg-callid autocomplete="off" aria-label="Tool call id"></label>
+    <details class="msg-calls" data-msg-callswrap hidden>
+      <summary>Tool calls</summary>
+      <textarea class="textarea mono" data-msg-calls rows="4" spellcheck="false" aria-label="Tool calls (JSON)" placeholder='[{"id": "call_1", "name": "lookup", "arguments": {}}]'></textarea>
+      <span class="field-error" data-msg-callserr role="alert" hidden>{{ m.icon("i-error", "ico-sm") }}<span data-errtext></span></span>
+    </details>
+  </div>
   <div class="ed-wrap" data-ed><pre class="ed-hl" aria-hidden="true"></pre><textarea class="ed-ta" data-msg-text rows="3" aria-label="Message content" spellcheck="false">{{ content }}</textarea></div>
 </div>
 {%- endmacro %}

@@ -1132,3 +1132,7 @@ dialog.dlg .dialog{width:100%}
 #pg-root{display:flex;flex-direction:column;gap:var(--sp-5)}
 .pgtool .select,.pgtool .input{width:auto;flex:0 1 280px}
 @container app (max-width:760px){.pgtool .select,.pgtool .input{flex:1 1 100%;width:100%}}
+.mcard .msg-extra{padding:8px 12px 0;display:flex;flex-direction:column;gap:8px}
+.mcard .msg-id{display:flex;flex-direction:column;gap:4px}
+.mcard .msg-calls>summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--ink-2)}
+.mcard.tool>header{background:var(--surface-2)}

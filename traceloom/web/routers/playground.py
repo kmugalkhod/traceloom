@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -16,10 +17,11 @@ from traceloom.db.models import Membership, User
 from traceloom.db.session import get_db
 from traceloom.llm import connections
 from traceloom.llm.connections import ConnectionPolicy
-from traceloom.llm.models import supported_params
+from traceloom.llm.models import ALL_PARAMS, PARAM_RULES, supported_params
 from traceloom.prompts import service as prompts
 from traceloom.prompts.service import Actor, PromptError, PromptNotFound
 from traceloom.prompts.variables import find_message_variables, find_variables
+from traceloom.services import views
 from traceloom.web.context import page_context
 from traceloom.web.templating import render
 
@@ -30,6 +32,7 @@ BLANK_MESSAGES = [
     {"role": "user", "content": ""},
 ]
 PARAM_KEYS = ("temperature", "top_p", "max_tokens", "stop")
+LAST_CONNECTION_PREF = "playground_connection"
 
 
 def _admins(db: Session, org_id: str) -> list[str]:
@@ -115,10 +118,18 @@ def playground_page(
         }
         for u in usable
     ]
+    # One connection is used without asking. With several, the user's last choice (if it still
+    # exists), otherwise nothing: a run must never go to a provider the user did not pick.
+    ids = [c["id"] for c in connection_list]
+    last = views.get_pref(db, access.user.id, project.id, LAST_CONNECTION_PREF)
+    initial["connectionId"] = ids[0] if len(ids) == 1 else (last if last in ids else "")
     base = f"/project/{project.id}/playground"
     config = {
+        "paramRules": PARAM_RULES,
+        "defaultParams": list(ALL_PARAMS),
         "projectId": project.id,
         "runUrl": f"{base}/run",
+        "rememberUrl": f"{base}/last-connection",
         "saveUrl": f"{base}/save",
         "observationUrl": f"{base}/from-observation/",
         "connections": connection_list,
@@ -138,3 +149,27 @@ def playground_page(
         notice=notice,
     )
     return render(request, "playground/index.html", context)
+
+
+class LastConnection(BaseModel):
+    connection_id: str
+
+
+@router.post("/project/{project_id}/playground/last-connection", status_code=204)
+def remember_connection(
+    body: LastConnection,
+    access: Access = Depends(require(Perm.PLAYGROUND_RUN)),
+    container: Container = Depends(get_container),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Remember the user's connection choice for this project (a per-user preference)."""
+    usable = connections.list_usable(
+        db,
+        access.project,
+        Actor.for_user(access.user, access.role),
+        ConnectionPolicy.from_settings(container.settings),
+    )
+    if body.connection_id not in {u.id for u in usable}:
+        raise HTTPException(404, "Connection not found.")
+    views.set_pref(db, access.user.id, access.project.id, LAST_CONNECTION_PREF, body.connection_id)
+    return Response(status_code=204)

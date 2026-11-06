@@ -39,16 +39,27 @@
     return null;
   }
   function modelsFor(id) { var c = connection(id); return c ? c.models.slice() : []; }
+  // The rules come from the server (traceloom.llm.models.PARAM_RULES), so the page and the server
+  // can never disagree about which parameters a model takes.
+  var ruleCache = {};
   function supportedParams(model, id) {
     var c = connection(id === undefined ? state.connectionId : id);
-    if (!c) { return ['temperature', 'top_p', 'max_tokens', 'stop']; }
-    return (c.params && c.params[model]) || c.defaultParams || ['temperature', 'top_p', 'max_tokens', 'stop'];
+    var provider = c ? c.provider : '';
+    var rules = config.paramRules || [];
+    for (var i = 0; i < rules.length; i++) {
+      var rule = rules[i];
+      if (rule.providers.indexOf(provider) < 0) { continue; }
+      var re = ruleCache[rule.pattern] || (ruleCache[rule.pattern] = new RegExp(rule.pattern));
+      if (re.test(model || '')) { return rule.params.slice(); }
+    }
+    return (config.defaultParams || ['temperature', 'top_p', 'max_tokens', 'stop']).slice();
   }
 
   var VAR = /\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
   function variablesIn(messages) {
     var names = [];
     messages.forEach(function (m) {
+      if (m.role === 'tool') { return; }
       var re = new RegExp(VAR.source, 'g'), hit;
       while ((hit = re.exec(m.content)) !== null) { if (names.indexOf(hit[1]) < 0) { names.push(hit[1]); } }
     });
@@ -56,9 +67,13 @@
   }
   function compile(messages, variables) {
     return messages.map(function (m) {
-      return { role: m.role, content: m.content.replace(new RegExp(VAR.source, 'g'), function (whole, name) {
-        return Object.prototype.hasOwnProperty.call(variables, name) && variables[name] !== '' ? String(variables[name]) : whole;
-      }) };
+      var out = clone(m);
+      if (m.role !== 'tool') {
+        out.content = m.content.replace(new RegExp(VAR.source, 'g'), function (whole, name) {
+          return Object.prototype.hasOwnProperty.call(variables, name) && variables[name] !== '' ? String(variables[name]) : whole;
+        });
+      }
+      return out;
     });
   }
 
@@ -69,7 +84,12 @@
   function body(s) {
     return {
       connection_id: s.connectionId, model: s.model,
-      messages: s.messages.map(function (m) { return { role: m.role, content: m.content }; }),
+      messages: s.messages.map(function (m) {
+        var out = { role: m.role, content: m.content };
+        if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length) { out.tool_calls = m.tool_calls; }
+        if (m.role === 'tool') { out.tool_call_id = m.tool_call_id || ''; }
+        return out;
+      }),
       variables: s.variables || {}, params: s.params || {}, tools: s.tools || [],
       response_schema: s.responseSchema || null, trace: !!s.trace,
       prompt_name: s.promptName || null, prompt_version: s.promptVersion || null
@@ -165,10 +185,11 @@
     while (msgsEl.firstChild) { msgsEl.removeChild(msgsEl.firstChild); }
     state.messages.forEach(function (message, i) {
       var card = template.content.firstElementChild.cloneNode(true);
-      card.classList.remove('system', 'user', 'assistant');
+      card.classList.remove('system', 'user', 'assistant', 'tool');
       card.classList.add(message.role);
       var select = card.querySelector('[data-msg-role]'), area = card.querySelector('[data-msg-text]'), pre = card.querySelector('.ed-hl');
       select.value = message.role;
+      showExtras(card, message);
       area.value = message.content;
       area.setAttribute('aria-label', message.role + ' message ' + (i + 1));
       highlight(pre, message.content);
@@ -177,6 +198,17 @@
       msgsEl.appendChild(card);
     });
     renderCounts();
+  }
+
+  // Tool call id (tool messages) and tool calls (assistant messages) are editable, never hidden.
+  function showExtras(card, message) {
+    var idWrap = card.querySelector('[data-msg-idwrap]'), callsWrap = card.querySelector('[data-msg-callswrap]');
+    idWrap.hidden = message.role !== 'tool';
+    idWrap.querySelector('[data-msg-callid]').value = message.tool_call_id || '';
+    var has = message.role === 'assistant' && message.tool_calls && message.tool_calls.length;
+    callsWrap.hidden = message.role !== 'assistant';
+    callsWrap.open = !!has;
+    callsWrap.querySelector('[data-msg-calls]').value = has ? JSON.stringify(message.tool_calls, null, 2) : '';
   }
 
   function renderCounts() {
@@ -271,6 +303,18 @@
   }
 
   msgsEl.addEventListener('input', function (e) {
+    var idInput = e.target.closest('[data-msg-callid]'), callsArea = e.target.closest('[data-msg-calls]');
+    if (idInput || callsArea) {
+      var owner = e.target.closest('[data-msg]'), idx = Number(owner.getAttribute('data-index')), msg = state.messages[idx];
+      if (idInput) { msg.tool_call_id = idInput.value; emitState(); return; }
+      var raw = callsArea.value.trim(), box = owner.querySelector('[data-msg-callserr]');
+      if (!raw) { delete msg.tool_calls; box.hidden = true; callsArea.removeAttribute('aria-invalid'); emitState(); return; }
+      var parsed = jsonProblem(raw), problem = parsed.error || '';
+      if (!problem && !(Array.isArray(parsed.value) && parsed.value.every(function (c) { return c && typeof c === 'object' && typeof c.name === 'string'; }))) { problem = 'Tool calls must be a JSON array of objects with a name.'; }
+      box.hidden = !problem; text(box.querySelector('[data-errtext]') || box, problem ? problem + ' The tool calls were not applied.' : '');
+      if (problem) { callsArea.setAttribute('aria-invalid', 'true'); } else { callsArea.removeAttribute('aria-invalid'); msg.tool_calls = parsed.value; emitState(); }
+      return;
+    }
     var area = e.target.closest('[data-msg-text]');
     if (!area) { return; }
     var card = area.closest('[data-msg]'), i = Number(card.getAttribute('data-index'));
@@ -284,7 +328,9 @@
     if (!sel) { return; }
     var card = sel.closest('[data-msg]'), i = Number(card.getAttribute('data-index'));
     state.messages[i].role = sel.value;
-    card.classList.remove('system', 'user', 'assistant'); card.classList.add(sel.value);
+    card.classList.remove('system', 'user', 'assistant', 'tool'); card.classList.add(sel.value);
+    showExtras(card, state.messages[i]);
+    syncVariables();
     emitState();
   });
   msgsEl.addEventListener('click', function (e) {
@@ -308,8 +354,15 @@
     if (input) { state.variables[input.getAttribute('data-var')] = input.value; emitState(); }
   });
 
+  function rememberConnection(id) {
+    if (!id) { return; }
+    fetch(config.rememberUrl, { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': cookie('tl_csrf') },
+      body: JSON.stringify({ connection_id: id }) }).catch(function () { /* a preference, never fatal */ });
+  }
   $('pg-connection').addEventListener('change', function (e) {
     state.connectionId = e.target.value;
+    rememberConnection(state.connectionId);
     var models = modelsFor(state.connectionId);
     if (models.indexOf(state.model) < 0 && models.length) { state.model = models[0]; }
     renderConnection(); renderParams(); updateRunButton(); emitState();
@@ -543,25 +596,48 @@
 
   // ---- from a trace ---------------------------------------------------------------------------------
 
+  var ROLES = ['system', 'user', 'assistant', 'tool'];
   function fromTrace(traceId, obsId) {
     var note = $('pg-note');
     return fetch(config.observationUrl + encodeURIComponent(obsId) + '?trace_id=' + encodeURIComponent(traceId), { headers: { 'Accept': 'application/json' }, credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
       .then(function (fill) {
+        var all = fill.messages || [], shown = [], unshown = [];
+        all.forEach(function (m) {
+          if (m && ROLES.indexOf(m.role) >= 0 && typeof m.content === 'string') {
+            var kept = { role: m.role, content: m.content };
+            if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length) { kept.tool_calls = m.tool_calls; }
+            if (m.role === 'tool') { kept.tool_call_id = m.tool_call_id || ''; }
+            shown.push(kept);
+          } else { unshown.push(m); }
+        });
         var variables = {};
-        variablesIn(fill.messages || []).forEach(function (n) { variables[n] = ''; });
+        variablesIn(shown).forEach(function (n) { variables[n] = ''; });
         var chosen = fill.connection_id || '';
         var models = modelsFor(chosen);
         var partial = {
-          messages: (fill.messages || []).filter(function (m) { return m.role === 'system' || m.role === 'user' || m.role === 'assistant'; }),
+          messages: shown.length ? shown : [{ role: 'user', content: '' }],
           variables: variables, params: fill.params || {}, tools: fill.tools || [],
           connectionId: chosen, model: fill.model || (models[0] || ''),
           promptName: fill.prompt_name || null, promptVersion: fill.prompt_version || null
         };
-        if (!partial.messages.length) { partial.messages = [{ role: 'user', content: '' }]; }
         setState(partial);
         while (note.firstChild) { note.removeChild(note.firstChild); }
-        note.appendChild(banner('info', 'Opened from trace ' + traceId + '.', 'Messages, model, parameters and tools were copied from the ' + (fill.prompt_name || 'generation') + (chosen ? '.' : '. Pick a connection to run it.')));
+        var results = shown.filter(function (m) { return m.role === 'tool'; }).length;
+        var calls = shown.reduce(function (n, m) { return n + (m.tool_calls ? m.tool_calls.length : 0); }, 0);
+        var detail = shown.length + (shown.length === 1 ? ' message was' : ' messages were') + ' copied' +
+          (results ? ' (' + results + ' tool ' + (results === 1 ? 'result' : 'results') + (calls ? ', ' + calls + ' tool ' + (calls === 1 ? 'call' : 'calls') : '') + ')' : '') +
+          ', with the model, parameters and tools of the ' + (fill.prompt_name || 'generation') + (chosen ? '.' : '. Pick a connection to run it.');
+        note.appendChild(banner('info', 'Opened from trace ' + traceId + '.', detail));
+        if (unshown.length) {
+          var warn = banner('warn', unshown.length + (unshown.length === 1 ? ' message' : ' messages') + ' could not be shown.',
+            'The editor has no card for these roles, so they are not part of this run: ');
+          unshown.forEach(function (m) {
+            var item = node('div', 'hint mono', '[' + (m && m.role !== undefined ? m.role : '?') + '] ' + (m && typeof m.content === 'string' ? m.content : JSON.stringify(m)));
+            warn.firstChild.appendChild(item);
+          });
+          note.appendChild(warn);
+        }
       })
       .catch(function () {
         note.appendChild(banner('warn', 'Could not open that generation.', 'It may have been deleted, or you may not have access.'));
@@ -577,7 +653,7 @@
   state.tools = initial.tools || [];
   state.promptName = initial.promptName || null;
   state.promptVersion = initial.promptVersion || null;
-  state.connectionId = config.connections.length === 1 ? config.connections[0].id : (config.connections[0] ? config.connections[0].id : '');
+  state.connectionId = initial.connectionId || ''; // the server decides: the only one, the last used, or none
   state.model = initial.model || (modelsFor(state.connectionId)[0] || '');
   syncVariables();
   renderAll();

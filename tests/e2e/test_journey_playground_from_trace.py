@@ -260,3 +260,164 @@ def test_layout_has_no_horizontal_scroll(live, session, fake, theme, width, heig
     for button in ("#pg-run", "#pg-settings-btn"):
         box = page.locator(button).bounding_box()
         assert box and box["x"] >= 0 and box["x"] + box["width"] <= width + 1
+
+
+def demo_answer(live):
+    """Run the demo agent against the live server; return (trace_id, observation_id, messages)."""
+    import traceloom_sdk
+    from traceloom_sdk import Traceloom, set_default_client
+
+    from examples import agent
+
+    client = Traceloom(
+        host=live.url,
+        public_key=live.account.public_key,
+        secret_key=live.account.secret_key,
+        flush_interval=0.1,
+    )
+    set_default_client(client)
+    try:
+        result = agent.run()
+        assert traceloom_sdk.flush() is True
+    finally:
+        set_default_client(None)
+        client.shutdown(2)
+    trace_id = result["trace_id"]
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        detail = live.container.trace_store.get_trace(live.account.project_id, trace_id)
+        answers = [o for o in (detail.observations if detail else []) if o.name == "answer"]
+        if answers:
+            return trace_id, answers[0].id, answers[0].input
+        time.sleep(0.2)
+    raise AssertionError("the demo agent's answer generation never arrived")
+
+
+def test_replay_carries_every_message_including_tool_results(live, session, fake):
+    trace_id, obs_id, original = demo_answer(live)
+    assert len(original) == 7 and sum(m["role"] == "tool" for m in original) == 3
+    page = session.page
+    page.goto(playground(live, f"?trace={trace_id}&obs={obs_id}"))
+
+    cards = page.locator("#pg-msgs [data-msg]")
+    expect(cards).to_have_count(7)
+    roles = [page.locator("#pg-msgs [data-msg-role]").nth(i).input_value() for i in range(7)]
+    assert roles == [m["role"] for m in original]
+    areas = page.locator("#pg-msgs [data-msg-text]")
+    for i, m in enumerate(original):
+        expect(areas.nth(i)).to_have_value(m["content"])
+    expect(page.locator("#pg-note")).to_contain_text("7 messages")
+    expect(page.locator("#pg-note")).to_contain_text("3 tool results")
+
+    page.click("#pg-run")
+    expect(page.locator("#pg-status")).to_contain_text("Done")
+    sent = fake.calls[-1]["messages"]
+    assert [(m["role"], m["content"]) for m in sent] == [
+        (m["role"], m["content"]) for m in original
+    ]
+
+
+def test_tool_calls_and_ids_survive_editing_and_run(live, session, fake):
+    page = session.page
+    page.goto(playground(live))
+    page.evaluate(
+        """() => Playground.setState({messages: [
+            {role: 'user', content: 'weather?'},
+            {role: 'assistant', content: '', tool_calls: [
+                {id: 'c1', name: 'get_weather', arguments: {city: 'Oslo'}}]},
+            {role: 'tool', content: '4 degrees', tool_call_id: 'c1'}]})"""
+    )
+    expect(page.locator("#pg-msgs [data-msg]")).to_have_count(3)
+    calls = page.locator("#pg-msgs [data-msg-calls]").nth(1)  # the assistant card
+    expect(calls).to_have_value(__import__("re").compile("get_weather"))
+    expect(page.locator("#pg-msgs [data-msg-callid]").nth(2)).to_have_value("c1")
+    calls.fill('[{"id": "c1", "name": "get_weather", "arguments": {"city": "Bergen"}}]')
+    page.click("#pg-run")
+    expect(page.locator("#pg-status")).to_contain_text("Done")
+    sent = fake.calls[-1]["messages"]
+    assert sent[1]["tool_calls"] == [
+        {"id": "c1", "name": "get_weather", "arguments": {"city": "Bergen"}}
+    ]
+    assert sent[2]["tool_call_id"] == "c1" and sent[2]["role"] == "tool"
+    calls.fill("[{broken")
+    expect(page.locator("#pg-msgs [data-msg-callserr]").nth(1)).to_be_visible()
+
+
+def test_a_message_that_cannot_be_shown_is_reported_not_dropped(live, session, fake):
+    trace_id = "trace-odd"
+    odd = [
+        {"role": "user", "content": "hello"},
+        {"role": "function", "content": "legacy function result"},
+    ]
+    live.ingest(
+        [
+            {
+                "id": "odd-1",
+                "type": "generation-create",
+                "timestamp": "2026-11-06T10:00:00.000Z",
+                "body": {
+                    "id": "odd-gen",
+                    "traceId": trace_id,
+                    "name": "odd",
+                    "model": "claude-sonnet-5-5",
+                    "startTime": "2026-11-06T10:00:00.000Z",
+                    "input": odd,
+                    "output": "x",
+                },
+            }
+        ]
+    )
+    page = session.page
+    page.goto(playground(live, f"?trace={trace_id}&obs=odd-gen"))
+    note = page.locator("#pg-note")
+    expect(note).to_contain_text("could not be shown")
+    expect(note).to_contain_text("function")
+    expect(note).to_contain_text("legacy function result")  # the text is preserved in the note
+
+
+@pytest.mark.parametrize(
+    ("model", "inputs"),
+    [
+        ("claude-sonnet-5-5", 1),
+        ("claude-sonnet-5", 1),
+        ("claude-opus-5", 1),
+        ("claude-fable-5", 1),
+        ("claude-fable-5-1", 1),
+        ("claude-sonnet-5-5-20260301", 1),
+        ("claude-haiku-4-5-20251001", 4),
+        ("claude-opus-4-8", 4),
+    ],
+)
+def test_parameters_offered_follow_the_server_rules(live, session, fake, model, inputs):
+    page = session.page
+    page.goto(playground(live))
+    page.click("#pg-settings-btn")
+    page.fill("#pg-model", model)
+    page.locator("#pg-model").dispatch_event("change")
+    expect(page.locator("#pg-params input")).to_have_count(inputs)
+    if inputs == 1:
+        expect(page.locator("#pg-params-hint")).to_contain_text("temperature")
+
+
+def test_with_several_connections_the_user_picks_and_it_is_remembered(live, session, fake):
+    with live.container.session_factory() as db:
+        owner = db.scalar(select(User).where(User.email == live.account.email))
+        project = db.get(Project, live.account.project_id)
+        connections.create(
+            db, project, Actor.for_user(owner, Role.OWNER),
+            ConnectionPolicy.from_settings(live.container.settings),
+            provider="anthropic", name="Second connection", secrets={"api_key": "sk-second-0001"},
+        )  # fmt: skip
+        db.commit()
+    page = session.page
+    page.goto(playground(live))
+    expect(page.locator("#pg-connection")).to_have_value("")  # no silent default
+    page.locator("[data-msg-text]").nth(1).fill("hi")
+    page.keyboard.press("Control+Enter")  # the button is marked disabled; the shortcut explains why
+    expect(page.locator("#pg-out")).to_contain_text("Pick a connection first")
+    assert fake.calls == []  # nothing was sent anywhere
+
+    page.select_option("#pg-connection", label="Second connection")
+    page.wait_for_timeout(300)  # the choice is saved in the background
+    page.goto(playground(live))
+    expect(page.locator("#pg-connection option:checked")).to_have_text("Second connection")

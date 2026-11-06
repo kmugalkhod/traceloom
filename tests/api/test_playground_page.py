@@ -89,7 +89,14 @@ def test_config_lists_usable_connections_and_never_the_secret(client, login, wor
     )
     assert config["runUrl"] == url(world, "/run") and config["canWrite"] is True
     assert KEY not in page and "SECRET" not in page
-    assert set(only) == {"id", "name", "provider", "models", "params", "defaultParams"}
+    assert set(only) == {
+        "id",
+        "name",
+        "provider",
+        "models",
+        "params",
+        "defaultParams",
+    }  # shape kept
 
 
 def test_supported_params_per_model(client, login, world, connection):
@@ -252,3 +259,115 @@ def test_other_projects_prompt_is_not_loaded(client, login, world, db, make_proj
     login(client, world.users[Role.MEMBER])
     page = client.get(url(world, "?prompt=theirs"), headers=HTML).text
     assert "secret" not in page and "was not found" in page
+
+
+# --- supported parameters: one rule set, shared with the page ---
+
+
+@pytest.mark.parametrize(
+    ("provider", "model", "expected"),
+    [
+        ("anthropic", "claude-sonnet-5-5", ["max_tokens"]),
+        ("anthropic", "claude-sonnet-5", ["max_tokens"]),
+        ("anthropic", "claude-opus-5", ["max_tokens"]),
+        ("anthropic", "claude-fable-5", ["max_tokens"]),
+        ("anthropic", "claude-fable-5-1", ["max_tokens"]),
+        ("anthropic", "claude-sonnet-5-5-20260301", ["max_tokens"]),
+        ("anthropic", "claude-opus-5-latest", ["max_tokens"]),
+        ("anthropic", "claude-haiku-4-5-20251001", ["temperature", "top_p", "max_tokens", "stop"]),
+        ("anthropic", "claude-opus-4-8", ["temperature", "top_p", "max_tokens", "stop"]),
+        ("anthropic", "claude-3-7-sonnet", ["temperature", "top_p", "max_tokens", "stop"]),
+        ("anthropic", "my-finetune", ["temperature", "top_p", "max_tokens", "stop"]),
+        ("openai", "gpt-5", ["max_tokens"]),
+        ("openai", "gpt-5-mini-2025-08-07", ["max_tokens"]),
+        ("openai", "o3-mini", ["max_tokens"]),
+        ("azure_openai", "o4-mini", ["max_tokens"]),
+        ("openai", "gpt-4o", ["temperature", "top_p", "max_tokens", "stop"]),
+        ("openai", "gpt-4.1-mini", ["temperature", "top_p", "max_tokens", "stop"]),
+        ("google", "gemini-2.5-pro", ["temperature", "top_p", "max_tokens", "stop"]),
+    ],
+)
+def test_supported_params_for_listed_unlisted_and_dated_ids(provider, model, expected):
+    assert supported_params(provider, model) == expected
+
+
+def test_page_ships_the_server_rules_and_connections_drop_the_secret(
+    client, login, world, connection
+):
+    login(client, world.users[Role.MEMBER])
+    config = config_of(client.get(url(world), headers=HTML).text)
+    rules = config["paramRules"]
+    assert rules and all(set(r) == {"providers", "pattern", "params"} for r in rules)
+    import re as _re
+
+    def js_side(provider, model):  # what playground.js does with the rules
+        for rule in rules:
+            if provider in rule["providers"] and _re.search(rule["pattern"], model):
+                return rule["params"]
+        return config["defaultParams"]
+
+    for provider, model in (
+        ("anthropic", "claude-sonnet-5"),
+        ("anthropic", "claude-opus-5-20260101"),
+        ("openai", "o3-mini"),
+        ("anthropic", "claude-haiku-4-5"),
+        ("google", "gemini-2.5-pro"),
+    ):
+        assert js_side(provider, model) == supported_params(provider, model), (provider, model)
+
+
+# --- which connection is selected ---
+
+
+def make_connection(db, world, container, name):
+    admin = Actor.for_user(world.users[Role.ADMIN], Role.ADMIN)
+    row = connections.create(
+        db, world.project, admin, ConnectionPolicy.from_settings(container.settings),
+        provider="anthropic", name=name, secrets={"api_key": f"sk-{name}-0000"},
+    )  # fmt: skip
+    db.commit()
+    return row
+
+
+def test_a_single_connection_is_selected(client, login, world, connection):
+    login(client, world.users[Role.MEMBER])
+    initial = config_of(client.get(url(world), headers=HTML).text)["initial"]
+    assert initial["connectionId"] == connection.id
+
+
+def test_with_several_connections_none_is_selected_until_the_user_picks(
+    client, login, world, db, container, connection
+):
+    second = make_connection(db, world, container, "Second")
+    login(client, world.users[Role.MEMBER])
+    assert config_of(client.get(url(world), headers=HTML).text)["initial"]["connectionId"] == ""
+    r = client.post(url(world, "/last-connection"), json={"connection_id": second.id})
+    assert r.status_code == 204
+    assert (
+        config_of(client.get(url(world), headers=HTML).text)["initial"]["connectionId"] == second.id
+    )
+
+
+def test_last_connection_is_per_user_and_checked(client, login, world, db, container, connection):
+    other = make_connection(db, world, container, "Other")
+    login(client, world.users[Role.MEMBER])
+    assert (
+        client.post(url(world, "/last-connection"), json={"connection_id": other.id}).status_code
+        == 204
+    )
+    assert (
+        client.post(url(world, "/last-connection"), json={"connection_id": "nope"}).status_code
+        == 404
+    )
+    login(client, world.users[Role.ADMIN])  # someone else sees no preference
+    assert config_of(client.get(url(world), headers=HTML).text)["initial"]["connectionId"] == ""
+
+
+def test_viewer_cannot_set_the_last_connection(client, login, world, connection):
+    login(client, world.users[Role.VIEWER])
+    assert (
+        client.post(
+            url(world, "/last-connection"), json={"connection_id": connection.id}
+        ).status_code
+        == 403
+    )
