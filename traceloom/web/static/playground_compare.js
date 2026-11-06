@@ -116,6 +116,7 @@
     });
     $(panel, '[data-grid]').appendChild(v);
     refreshModels(v);
+    updateStopAll();
     renumber();
     return v;
   }
@@ -128,11 +129,27 @@
 
   // --- running -----------------------------------------------------------------------------------
 
+  var LABELS = { ready: 'Ready', waiting: 'Waiting', streaming: 'Streaming', done: 'Done', error: 'Error', stopped: 'Stopped' };
+  function setStatus(v, state) {
+    var chip = $(v, '[data-v-status]');
+    chip.setAttribute('data-state', state);
+    chip.textContent = LABELS[state];
+  }
+
+  function updateStopAll() {
+    var any = variants().some(function (v) { return controllers.has(v); });
+    var btn = $(panel, '[data-stop-all]');
+    if (btn) { btn.disabled = !any; }
+  }
+
   function stop(v) {
     var c = controllers.get(v);
-    if (c) { c.abort(); controllers.delete(v); }
+    if (c) { c.abort(); controllers.delete(v); setStatus(v, 'stopped'); }
     $(v, '[data-variant-stop]').hidden = true;
+    updateStopAll();
   }
+
+  function stopAll() { variants().forEach(stop); }
 
   function showError(v, text) {
     var box = $(v, '[data-v-error]');
@@ -154,6 +171,10 @@
   }
 
   function handle(v, textNode, name, d) {
+    if ((name === 'delta' || name === 'tool_call') && $(v, '[data-v-status]').getAttribute('data-state') === 'waiting') {
+      setStatus(v, 'streaming');
+    }
+    if (name === 'error') { v.__errored = true; }
     if (name === 'delta') { textNode.appendData(d.text); }
     else if (name === 'tool_call') {
       var li = document.createElement('li');
@@ -206,13 +227,19 @@
     }
     var controller = new AbortController();
     controllers.set(v, controller);
+    v.__errored = false;
+    setStatus(v, 'waiting');
     $(v, '[data-variant-stop]').hidden = false;
+    updateStopAll();
     return window.Playground.runStream(state, function (ev) {
       handle(v, textNode, ev.name, ev.data);
     }, controller.signal).then(function (result) {
       if (!result.ok && !result.aborted) { showError(v, result.message || 'The run failed.'); }
-    }).then(function () {
-      if (controllers.get(v) === controller) { controllers.delete(v); $(v, '[data-variant-stop]').hidden = true; }
+      if (controllers.get(v) !== controller) { return; } // stopped or replaced meanwhile
+      controllers.delete(v);
+      $(v, '[data-variant-stop]').hidden = true;
+      setStatus(v, result.aborted ? 'stopped' : (!result.ok || v.__errored) ? 'error' : 'done');
+      updateStopAll();
     });
   }
 
@@ -234,9 +261,19 @@
     else if (t.closest('[data-run-all]')) { runAll(); }
     else if (v && t.closest('[data-variant-remove]')) { removeVariant(v); }
     else if (v && t.closest('[data-variant-stop]')) { stop(v); }
+    else if (t.closest('[data-stop-all]')) { stopAll(); }
     else if (v && t.closest('[data-v-add-message]')) { addMessage(v); }
     else if (v && t.closest('[data-m-remove]')) { t.closest('.v-msg').remove(); }
   });
+
+  // In compare mode ⌘/Ctrl+Enter runs every column instead of the (hidden) single response.
+  document.addEventListener('keydown', function (e) {
+    if (!panel || e.key !== 'Enter' || !(e.metaKey || e.ctrlKey)) { return; }
+    var root = document.getElementById('pg-root');
+    if (!root || root.getAttribute('data-mode') !== 'compare') { return; }
+    e.preventDefault(); e.stopImmediatePropagation();
+    runAll();
+  }, true);
 
   document.addEventListener('pg:action', function (e) {
     if (e.detail && e.detail.action === 'compare') { toggle(); }

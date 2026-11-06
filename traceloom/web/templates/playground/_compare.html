@@ -8,6 +8,7 @@
     <span class="right row">
       <button type="button" class="btn btn-sm" data-add-variant>{{ m.icon("i-plus", "ico-sm") }}Add variant</button>
       <button type="button" class="btn btn-primary btn-sm" data-run-all>{{ m.icon("i-play", "ico-sm") }}Run all</button>
+      <button type="button" class="btn btn-sm" data-stop-all disabled>{{ m.icon("i-stop", "ico-sm") }}Stop all</button>
     </span>
   </header>
   {% if not connections %}{{ m.banner("warn", "Add an LLM connection in Settings to run variants.") }}{% endif %}

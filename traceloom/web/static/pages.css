@@ -29,3 +29,8 @@
 .node:hover .row-act,.node[aria-selected=true] .row-act,.node .row-act:focus-visible{opacity:1}
 .node .row-act:hover{background:var(--surface-3,var(--surface-2));color:var(--accent)}
 @media (hover:none){.node .row-act{opacity:1}}
+/* IO pane header: wrap instead of spilling, shorten the prompt chip, icon-only button on phones */
+#io-pane .io-sec>.row:first-child{flex-wrap:wrap;row-gap:6px}
+#io-pane .io-prompt{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+#io-pane .io-open-pg{flex:none}
+@media (max-width:480px){#io-pane .io-open-pg .lbl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}

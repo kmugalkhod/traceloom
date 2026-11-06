@@ -142,3 +142,27 @@ def test_open_in_playground_from_a_generation(setup, live):
     page.locator(".node .row-act").click()
     page.wait_for_url("**/playground?trace=trace-001&obs=trace-001-gen")
     assert setup.problems == []
+
+
+@pytest.mark.parametrize("width", [390, 360, 768])
+def test_open_in_playground_stays_inside_its_card_on_phones(setup, live, width):
+    events = trace_events(1, input_="question 1")
+    for e in events:  # a prompt-linked generation has the longest header
+        if e["id"] == "trace-001-gen":
+            e["body"].update(promptName="support/customer-greeting-long-name", promptVersion=12)
+    live.ingest(events)
+    page = setup.page
+    page.set_viewport_size({"width": width, "height": 800})
+    pid = live.account.project_id
+    page.goto(f"{live.url}/project/{pid}/traces/trace-001?obs=trace-001-gen")
+    button = page.locator("#io-pane [data-open-playground]")
+    expect(button).to_be_visible()
+    name = button.get_attribute("aria-label") or button.inner_text()
+    assert "playground" in name.lower()  # still named when the text is shortened to an icon
+    card = page.locator("#io-pane .io-sec").first.bounding_box()
+    box = button.bounding_box()
+    assert box["x"] >= card["x"] - 1 and box["x"] + box["width"] <= card["x"] + card["width"] + 1
+    scroll = page.evaluate(
+        "document.documentElement.scrollWidth - document.documentElement.clientWidth"
+    )
+    assert scroll <= 0  # no horizontal page scroll
