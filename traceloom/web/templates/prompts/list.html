@@ -2,6 +2,11 @@
 {% import "_macros.html" as m with context %}
 {% block title %}Prompts{% endblock %}
 {% block ctx_m %}{% endblock %}
+{% block crumbs %}{% if folder %}
+{% set items = [{"label": "All prompts", "href": folder_url("")}] %}
+{% for path, part in crumbs %}{% set _ = items.append({"label": part, "href": folder_url(path)}) %}{% endfor %}
+{{ m.crumbs(items) }}
+{% endif %}{% endblock %}
 {% block content %}
 {% call m.page_header("Prompts", "Versioned instructions for " ~ project.name ~ ". Search covers names, tags and content.") %}
   {% if can_write %}<a class="btn btn-primary" href="{{ new_url }}">{{ m.icon("i-plus") }}New prompt</a>{% endif %}
@@ -29,12 +34,7 @@
   </nav>
 
   <div class="stack">
-    {% if folder %}
-    <nav class="crumbs" aria-label="Folder path">
-      <a href="{{ folder_url('') }}">All prompts</a>
-      {% for path, part in crumbs %}{{ m.icon("i-chev-r", "ico-sm") }}<a href="{{ folder_url(path) }}">{{ part }}</a>{% endfor %}
-    </nav>
-    {% endif %}
+    {% if folder %}<div class="crumbs-m">{{ self.crumbs() }}</div>{% endif %}
     {% include "prompts/_filters.html" %}
 
     {% if items %}
@@ -69,11 +69,10 @@
       <span class="row">{% if prev_url %}<a class="btn btn-sm" href="{{ prev_url }}">Previous</a>{% endif %}{% if next_url %}<a class="btn btn-sm" href="{{ next_url }}">Next</a>{% endif %}</span>
     </div>
     {% else %}
-    <div class="panel empty">
-      {{ m.icon("i-search", "ico-lg") }}
-      <h2>No prompts match</h2>
-      <p>Nothing in {{ "this folder" if folder else "the project" }} matches your search and filters.</p>
-      <p><a class="btn" href="{{ clear_url }}">Clear filters</a></p>
+    <div class="panel">
+      {% call m.empty_state("i-search", "No prompts match", "Nothing in " ~ ("this folder" if folder else "the project") ~ " matches your search and filters.") %}
+        <div class="acts"><a class="btn" href="{{ clear_url }}">Clear filters</a></div>
+      {% endcall %}
     </div>
     {% endif %}
   </div>
