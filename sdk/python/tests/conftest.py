@@ -76,3 +76,51 @@ def _reset_default():
 def sdk_logs(caplog):
     caplog.set_level(logging.DEBUG, logger="traceloom")
     return caplog
+
+
+class Script:
+    """Scripted replies for a provider SDK's HTTP client, whichever httpx generation it uses.
+
+    (respx only patches `httpx`; recent provider SDKs ship their own `httpx2`.)
+    """
+
+    def __init__(self, module):
+        self.module = module
+        self.queue = []
+        self.requests = []
+
+    def reply(self, status=200, json=None, content=None, headers=None):
+        self.queue.append({"status": status, "json": json, "content": content, "headers": headers})
+
+    def _handler(self, request):
+        self.requests.append(request)
+        spec = self.queue.pop(0) if len(self.queue) > 0 else {"status": 500, "json": {}}
+        kwargs = {"headers": spec.get("headers")}
+        if spec.get("json") is not None:
+            kwargs["json"] = spec["json"]
+        if spec.get("content") is not None:
+            kwargs["content"] = spec["content"]
+        return self.module.Response(spec["status"], **kwargs)
+
+    def http(self, is_async=False):
+        transport = self.module.MockTransport(self._handler)
+        return (self.module.AsyncClient if is_async else self.module.Client)(transport=transport)
+
+
+def provider_script(sdk_module_name):
+    import importlib
+
+    base = importlib.import_module(f"{sdk_module_name}._base_client")
+    return Script(getattr(base, "httpx2", None) or base.httpx)
+
+
+@pytest.fixture
+def openai_script():
+    pytest.importorskip("openai")
+    return provider_script("openai")
+
+
+@pytest.fixture
+def anthropic_script():
+    pytest.importorskip("anthropic")
+    return provider_script("anthropic")
