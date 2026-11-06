@@ -1,0 +1,19 @@
+<!-- Keeps ClickHouse inside its 2 GB container limit (docker-compose.yml mem_limit). -->
+<clickhouse>
+    <max_server_memory_usage_to_ram_ratio>0.8</max_server_memory_usage_to_ram_ratio>
+    <mark_cache_size>268435456</mark_cache_size>
+    <uncompressed_cache_size>134217728</uncompressed_cache_size>
+    <max_concurrent_queries>20</max_concurrent_queries>
+    <profiles>
+        <default>
+            <max_memory_usage>1073741824</max_memory_usage>
+            <max_threads>2</max_threads>
+        </default>
+    </profiles>
+    <!-- Trim the logging tables, which otherwise grow without bound on a small box. -->
+    <query_log remove="1"/>
+    <trace_log remove="1"/>
+    <metric_log remove="1"/>
+    <asynchronous_metric_log remove="1"/>
+    <text_log remove="1"/>
+</clickhouse>
