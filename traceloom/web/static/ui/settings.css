@@ -1,0 +1,14 @@
+/* Settings (FR-SA1): 40px tabs on the page edge, shared table rules, a 48px row-menu column. */
+.tabs.stabs{gap:var(--sp-2);padding:0;overflow-x:auto}
+.tabs.stabs a[role=tab]{height:40px;padding:0 var(--sp-5);border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:500}
+.tabs.stabs a[role=tab]:first-child{padding-left:0}
+.tabs.stabs a[role=tab][aria-selected=true]{border-bottom-color:var(--accent-solid);font-weight:600}
+.tabs.stabs a[role=tab]:hover{background:transparent;color:var(--ink)}
+
+/* the empty onboarding snippet fits the 520px empty state */
+.empty .w-640{width:100%;max-width:100%}
+
+/* row '...' menus: one 48px right-aligned column (connections use rows, not a table) */
+.tbl td.menu .menu-wrap{display:inline-flex;justify-content:flex-end}
+.conn .hbtn .menu-wrap{display:flex;justify-content:flex-end;width:48px}
+.conn .hbtn{align-items:center}

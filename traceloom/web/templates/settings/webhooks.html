@@ -15,24 +15,23 @@
   {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
 
   {% if not rows %}
-  <div class="panel empty">
-    {{ m.icon("i-webhook", "ico-lg") }}
-    <h2>No webhooks yet</h2>
-    <p>Get a signed request whenever a prompt version is created or a label moves, for CI checks or cache busting. Each request carries an <span class="mono">X-Traceloom-Signature</span> header you verify with a secret that is shown once.</p>
-    <button type="button" class="btn btn-primary" data-dialog-open="add-webhook">{{ m.icon("i-plus") }}Add webhook</button>
+  <div class="panel">
+    {% call m.empty_state("i-webhook", "No webhooks yet", "Get a signed request whenever a prompt version is created or a label moves, for CI checks or cache busting. Each request carries an X-Traceloom-Signature header you verify with a secret that is shown once.") %}
+      <div class="acts"><button type="button" class="btn btn-primary" data-dialog-open="add-webhook">{{ m.icon("i-plus") }}Add webhook</button></div>
+    {% endcall %}
   </div>
   {% else %}
   <div class="panel panel-vis">
     <div class="panel-h"><h2>Webhooks</h2><span class="right"><button type="button" class="btn btn-primary btn-sm" data-dialog-open="add-webhook">{{ m.icon("i-plus") }}Add webhook</button></span></div>
     <div class="rack">
       <table class="tbl tbl-flat cardrows">
-        <thead><tr><th>Endpoint</th><th>Status</th><th class="r"><span class="sr">Actions</span></th></tr></thead>
+        <thead><tr><th>Endpoint</th><th>Status</th><th class="r menu"><span class="sr">Actions</span></th></tr></thead>
         <tbody>
         {% for row in rows %}
           <tr{% if not row.hook.enabled %} class="is-dim"{% endif %}>
             <td class="c-name m-show"><div class="cell2"><b class="mono">{{ row.hook.url }}</b><span>{{ row.events }}</span></div></td>
             <td class="m-show"><span class="lv {{ row.status.css }}">{% if row.status.icon %}{{ m.icon(row.status.icon, "ico-sm") }}{% endif %}{{ row.status.text }}</span></td>
-            <td class="r m-show m-full">
+            <td class="r menu m-show m-full">
               <div class="hbtn">
                 <form method="post" action="/project/{{ project.id }}/settings/webhooks/{{ row.hook.id }}/test" class="inline-form">{{ m.csrf() }}
                   <button class="btn btn-sm btn-ghost" type="submit">{{ m.icon("i-send") }}Send test</button></form>
