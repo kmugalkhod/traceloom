@@ -33,6 +33,7 @@ class ResolvedKey:
     key_id: str
     project_id: str
     public_key: str
+    may_move_protected_labels: bool = False
 
 
 class ApiKeyCache:
