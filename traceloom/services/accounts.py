@@ -20,7 +20,7 @@ from traceloom.auth.passwords import (
     verify_password,
 )
 from traceloom.config import Settings
-from traceloom.db.models import Invite, PasswordReset, User
+from traceloom.db.models import PasswordReset, User
 from traceloom.services.mail import Mailer
 
 
@@ -41,6 +41,12 @@ class ResetInvalid(AccountError):
 
 
 _dummy_hash: str | None = None
+
+# One answer for every address on an invite-only server: it never tells who has an invite.
+INVITE_ONLY = (
+    "No invite was found. Sign-up is invite-only on this server: "
+    "open the link in your invite email to create your account."
+)
 
 
 def normalize_email(email: str) -> str:
@@ -64,31 +70,16 @@ def password_error(password: str) -> str | None:
     return None
 
 
-def has_pending_invite(db: Session, email: str, now: datetime | None = None) -> bool:
-    now = now or datetime.now(UTC)
-    return (
-        db.scalar(
-            select(Invite.id).where(
-                Invite.email == email, Invite.accepted_at.is_(None), Invite.expires_at > now
-            )
-        )
-        is not None
-    )
-
-
 def register(
     db: Session, settings: Settings, *, email: str, name: str, password: str, invited: bool = False
 ) -> User:
-    """Create an account. With TRACELOOM_SIGNUP_ENABLED=false only invited emails get one.
+    """Create an account. With TRACELOOM_SIGNUP_ENABLED=false only an invite token opens one.
 
     `invited` means the caller already verified an invite token for this email.
     """
     email = normalize_email(email)
-    if not settings.signup_enabled and not invited and not has_pending_invite(db, email):
-        raise SignupClosed(
-            "Sign-up is invite-only on this server. Use the address your invite was sent to.",
-            "email",
-        )
+    if not settings.signup_enabled and not invited:
+        raise SignupClosed(INVITE_ONLY, "email")
     if error := password_error(password):
         raise AccountError(error, "password")
     user = User(email=email, name=name.strip()[:200], password_hash=hash_password(password))
@@ -168,9 +159,21 @@ def reset_password(db: Session, token: str, new_password: str) -> User:
         raise ResetInvalid("This link has expired or was already used.")
     if error := password_error(new_password):
         raise AccountError(error, "password")
+    now = datetime.now(UTC)
+    # Claim the token first: of two requests that both saw it valid, only one updates the row.
+    claimed = db.execute(
+        update(PasswordReset)
+        .where(
+            PasswordReset.token_hash == hash_token(token),
+            PasswordReset.used_at.is_(None),
+            PasswordReset.expires_at > now,
+        )
+        .values(used_at=now)
+    ).rowcount
+    if claimed != 1:
+        raise ResetInvalid("This link has expired or was already used.")
     row = db.get(PasswordReset, hash_token(token))
     user = db.get(User, row.user_id)
-    now = datetime.now(UTC)
     user.password_hash = hash_password(new_password)
     user.session_version += 1
     db.execute(

@@ -9,8 +9,9 @@ from decimal import Decimal, InvalidOperation
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
+from starlette.datastructures import FormData
 
-from traceloom.auth.deps import Access, get_container, require
+from traceloom.auth.deps import Access, form_data, get_container, require
 from traceloom.auth.permissions import Perm
 from traceloom.container import Container
 from traceloom.cost import admin
@@ -200,9 +201,10 @@ def models_page(
     return _page(request, db, access, notice=notice)
 
 
-async def _save(request, db, access, container, definition_id: str | None):
-    form = await request.form()
+def _save(request, db, access, container, form, definition_id: str | None):
     editing = db.get(ModelDefinition, definition_id) if definition_id else None
+    if definition_id and (editing is None or editing.project_id != access.project.id):
+        raise HTTPException(404, "Not found.")  # before parsing: an error page shows the row
     try:
         fields = _parse_form(form)
         if definition_id:
@@ -243,24 +245,26 @@ async def _save(request, db, access, container, definition_id: str | None):
 
 
 @router.post("/project/{project_id}/settings/models", response_class=HTMLResponse)
-async def create_definition(
+def create_definition(
     request: Request,
     access: Access = Depends(require(Perm.MODEL_DEFINITIONS)),
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
+    form: FormData = Depends(form_data),
 ):
-    return await _save(request, db, access, container, None)
+    return _save(request, db, access, container, form, None)
 
 
 @router.post("/project/{project_id}/settings/models/{definition_id}", response_class=HTMLResponse)
-async def update_definition(
+def update_definition(
     request: Request,
     definition_id: str,
     access: Access = Depends(require(Perm.MODEL_DEFINITIONS)),
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
+    form: FormData = Depends(form_data),
 ):
-    return await _save(request, db, access, container, definition_id)
+    return _save(request, db, access, container, form, definition_id)
 
 
 @router.post("/project/{project_id}/settings/models/{definition_id}/delete")

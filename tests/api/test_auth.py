@@ -296,24 +296,55 @@ def test_signup_disabled_rejects_uninvited_emails(closed, make_org):
         assert s.scalar(select(User).where(User.email == "stranger@example.com")) is None
 
 
-def test_signup_disabled_lets_an_invited_email_register(closed, make_org):
+def test_signup_disabled_refuses_an_invited_email_without_the_token(closed, make_org):
+    """The invite token is the proof: typing an invited address is not enough, and the answer
+    does not reveal whether that address has an invite."""
     org = make_org()
     add_invite(closed, org)
-    step = closed.post("/signup", data={"email": "Invited@example.com"})
-    assert (
-        step.status_code == 200
-        and 'name="password"' in step.text
-        and "invited@example.com" in step.text
-    )
-    r = closed.post(
-        "/signup",
-        data={"email": "invited@example.com", "password": GOOD, "name": "I"},
-        follow_redirects=False,
-    )
-    assert r.status_code == 303
+    for email in ("invited@example.com", "stranger@example.com"):
+        step = closed.post("/signup", data={"email": email})
+        assert step.status_code == 400 and 'name="password"' not in step.text
+        assert "No invite was found" in step.text
+        r = closed.post("/signup", data={"email": email, "password": GOOD, "name": "I"})
+        assert r.status_code == 400 and "invite-only" in r.text
     with closed.app.state.container.session_factory() as s:
+        assert s.scalar(select(User)) is None and s.scalar(select(Membership)) is None
+        assert s.scalar(select(Invite)).accepted_at is None
+
+
+def _visible_text(html, email):
+    return re.sub(r'value="[^"]*"', "", html).replace(email, "EMAIL")
+
+
+def test_invite_only_answers_are_the_same_with_or_without_an_invite(closed, make_org):
+    add_invite(closed, make_org())
+    answers = [
+        _visible_text(closed.post("/signup", data={"email": email}).text, email)
+        for email in ("invited@example.com", "stranger@example.com")
+    ]
+    assert answers[0] == answers[1]
+
+
+def test_open_signup_with_an_invited_email_but_no_token_joins_nothing(client, make_org):
+    prime(client)
+    org = make_org()
+    add_invite(client, org, role="admin")
+    assert signup(client, email="invited@example.com").status_code == 303
+    with client.app.state.container.session_factory() as s:
         user = s.scalar(select(User).where(User.email == "invited@example.com"))
-        assert s.get(Membership, (user.id, org.id)).role == "member"
+        assert user is not None and s.get(Membership, (user.id, org.id)) is None
+        assert s.scalar(select(Invite)).accepted_at is None
+
+
+def test_open_signup_with_the_token_joins_with_the_invited_role(client, make_org):
+    prime(client)
+    org = make_org()
+    add_invite(client, org, role="admin")
+    r = signup(client, email="someone-else@example.com", invite="tok-123")
+    assert r.status_code == 303
+    with client.app.state.container.session_factory() as s:
+        user = s.scalar(select(User).where(User.email == "invited@example.com"))
+        assert s.get(Membership, (user.id, org.id)).role == "admin"
         assert s.scalar(select(Invite)).accepted_at is not None
 
 
@@ -376,3 +407,22 @@ def test_rendered_forms_carry_a_working_csrf_token(client, make_user):
 @pytest.mark.parametrize("path", ["/signup", "/forgot", "/login"])
 def test_every_public_form_has_a_token(client, path):
     assert hidden_token(client.get(path).text)
+
+
+def test_reset_token_use_is_atomic(client, container, make_user, monkeypatch):
+    """Two requests that both saw the token as valid: only the first one sets a password."""
+    from traceloom.services import accounts
+
+    make_user(email="a@example.com")
+    prime(client)
+    client.post("/forgot", data={"email": "a@example.com"})
+    token = reset_token(container)
+    monkeypatch.setattr(accounts, "reset_status", lambda db, token, now=None: "valid")
+    with container.session_factory() as first:
+        accounts.reset_password(first, token, "first new password")
+        first.commit()
+    with container.session_factory() as second:
+        with pytest.raises(accounts.ResetInvalid):
+            accounts.reset_password(second, token, "second new password")
+        second.rollback()
+    assert login(client, "a@example.com", "first new password").status_code == 303

@@ -214,6 +214,27 @@ def test_builtin_and_other_projects_definitions_cannot_be_changed(
     )
 
 
+def test_a_bad_form_for_another_projects_definition_is_404_without_its_details(
+    client, world, login, make_project, db
+):
+    other = make_project(world.org)
+    foreign = ModelDefinition(
+        project_id=other.id,
+        model_name="their-secret-model",
+        match_pattern="^their-secret-pattern$",
+        prices={"input": 1.0},
+    )
+    db.add(foreign)
+    db.commit()
+    builtin = db.scalar(select(ModelDefinition).where(ModelDefinition.project_id.is_(None)))
+    login(client, world.user(Role.OWNER))
+    for definition in (foreign, builtin):
+        r = client.post(url(world, f"/{definition.id}"), data=form(price_input="lots"))
+        assert r.status_code == 404
+        assert definition.model_name not in r.text and definition.match_pattern not in r.text
+    assert client.post(url(world, "/no-such-id"), data=form(price_input="lots")).status_code == 404
+
+
 def test_definition_names_are_escaped(client, world, login):
     login(client, world.user(Role.ADMIN))
     client.post(url(world), data=form(model_name="<script>alert(1)</script>"))
