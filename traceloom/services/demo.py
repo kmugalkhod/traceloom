@@ -1,7 +1,8 @@
 """Demo data for `traceloom seed-demo`: a user, org, project and API key pair, idempotently.
 
-The key pair is derived from the server secret (TRACELOOM_SERVER_SECRET, read via Settings), so running the command again prints the same
-keys (a stored secret cannot be recovered from its hash) and they are unique to each install.
+The key pair is derived from the server secret (TRACELOOM_SERVER_SECRET, read via Settings), so
+running the command again prints the same keys (a stored secret cannot be recovered from its
+hash) and they are unique to each install.
 """
 
 from __future__ import annotations
