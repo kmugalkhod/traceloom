@@ -169,3 +169,8 @@ Also: `api/test_security.py` covers CSRF rejection without a token, login rate l
   - Read-contract fixtures live in `tests/contract/stores.py` (a pytest plugin registered in `tests/conftest.py`); `read_store` is parametrized lite always, ClickHouse via `tests/contract/conftest_full.py` under the `it` marker.
   - ClickHouse stores JSON values as JSON text, reads token/cost totals from the `total` key of `usage_details`/`cost_details`, orders tables by `(project_id, id)` (no partitioning, so replacement is never split across partitions), and indexes `lower(search_text|name|id)` with ngram bloom filters. `adapters/full/*.sql` is package data.
   - Markdown rendering disables the image rule as well as raw HTML, so viewing a trace never makes a remote request.
+- 2026-11-06 — S-6 SDK, demo agent, CLI (T-24..T-27):
+  - SDK sends camelCase bodies and emits `trace-create` at the root observation, a `*-create` at start and a `*-update` at end (plus a `trace-create` carrying the root output). Observation types other than span/generation/event use `observation-create/update`. `sdk/python/pyproject.toml` carries its own ruff config (py39 target) because the SDK supports Python 3.9+.
+  - Usage keys are `input`, `output`, `total`, `cache_read`, `cache_write` (the cost engine's keys); OpenAI cached tokens are split out of `input`.
+  - Provider SDK tests use scripted `httpx2`/`httpx` transports (`tests/conftest.py: Script`) instead of respx, which cannot see the provider SDKs' own `httpx2`.
+  - `seed-demo` derives the demo key pair from `TRACELOOM_SECRET_KEY` so reruns print the same keys; `traceloom worker` runs `container.startup()` (consumer and sweeper hooks) until SIGINT/SIGTERM.

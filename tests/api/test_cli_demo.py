@@ -1,0 +1,99 @@
+from __future__ import annotations
+
+import threading
+import time
+from pathlib import Path
+
+import pytest
+from sqlalchemy import func, inspect, select
+
+from traceloom import cli
+from traceloom.config import Settings
+from traceloom.db.models import ApiKey, Membership, Organization, Project, User
+from traceloom.db.session import make_engine, make_session_factory
+
+
+@pytest.fixture
+def cli_settings(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Settings:
+    monkeypatch.setenv("DATABASE_URL", settings.database_url)
+    monkeypatch.setenv("TRACELOOM_SECRET_KEY", settings.secret_key)
+    monkeypatch.setenv("TRACELOOM_BLOB_DIR", settings.blob_dir)
+    monkeypatch.setenv("TRACELOOM_MODE", "lite")
+    monkeypatch.setenv("TRACELOOM_ENV", "test")
+    cli.get_settings.cache_clear()
+    yield settings
+    cli.get_settings.cache_clear()
+
+
+def test_migrate_brings_an_empty_database_to_head(cli_settings, capsys):
+    assert cli.main(["migrate"]) == 0
+    engine = make_engine(cli_settings.database_url)
+    try:
+        tables = set(inspect(engine).get_table_names())
+    finally:
+        engine.dispose()
+    assert {"users", "projects", "api_keys", "traces", "observations", "scores"} <= tables
+    assert cli.main(["migrate"]) == 0  # running again is a no-op
+
+
+def counts(settings: Settings) -> tuple[int, ...]:
+    engine = make_engine(settings.database_url)
+    try:
+        with make_session_factory(engine)() as db:
+            return tuple(
+                db.scalar(select(func.count()).select_from(m))
+                for m in (User, Organization, Membership, Project, ApiKey)
+            )
+    finally:
+        engine.dispose()
+
+
+def test_seed_demo_is_idempotent_and_prints_credentials(cli_settings, capsys):
+    assert cli.main(["seed-demo"]) == 0
+    first = capsys.readouterr().out
+    assert cli.main(["seed-demo"]) == 0
+    second = capsys.readouterr().out
+    assert counts(cli_settings) == (1, 1, 1, 1, 1)
+    for label in ("email:", "password:", "project id:", "public key:", "secret key:"):
+        assert label in first
+    values = lambda text: {  # noqa: E731
+        ln.split(":", 1)[0]: ln.split(":", 1)[1].strip() for ln in text.splitlines() if ": " in ln
+    }
+    a, b = values(first), values(second)
+    for key in ("email", "password", "project id", "public key", "secret key"):
+        assert a[key] == b[key]
+    assert "created" in first and "already present" in second
+    assert a["public key"].startswith("tl-pk-") and a["secret key"].startswith("tl-sk-")
+
+
+def test_seeded_key_authenticates(cli_settings, capsys):
+    from traceloom.auth.api_keys import hash_secret
+
+    cli.main(["seed-demo"])
+    out = capsys.readouterr().out
+    secret = next(
+        ln.split(":", 1)[1].strip() for ln in out.splitlines() if ln.startswith("secret key")
+    )
+    engine = make_engine(cli_settings.database_url)
+    try:
+        with make_session_factory(engine)() as db:
+            key = db.scalar(select(ApiKey))
+            assert key.secret_hash == hash_secret(secret, cli_settings.secret_key)
+    finally:
+        engine.dispose()
+
+
+def test_worker_starts_and_stops_cleanly(cli_settings, capsys, tmp_path: Path):
+    stop = threading.Event()
+    result: list[int] = []
+    thread = threading.Thread(target=lambda: result.append(cli.run_worker(cli_settings, stop)))
+    thread.start()
+    deadline = time.time() + 20
+    while "worker started" not in capsys.readouterr().out and time.time() < deadline:
+        if not thread.is_alive():
+            break
+        time.sleep(0.05)
+    assert thread.is_alive()
+    stop.set()
+    thread.join(timeout=20)
+    assert not thread.is_alive() and result == [0]
