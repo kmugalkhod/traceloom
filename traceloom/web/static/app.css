@@ -56,7 +56,7 @@ button{font:inherit;color:inherit}
 :focus-visible,.is-focus{outline:2px solid var(--focus);outline-offset:2px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .mono{font-family:var(--font-mono);font-size:var(--fs-data)}
-.num{font-family:var(--font-mono);font-size:var(--fs-data);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.num{font-family:var(--font-ui);font-size:var(--fs-data);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
 .muted{color:var(--ink-3)}.dim{color:var(--ink-2)}
 .cap{font-family:var(--font-cond);font-size:var(--fs-label);font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
 h1,h2,h3,h4{margin:0;font-weight:600;line-height:1.2;text-wrap:balance}
