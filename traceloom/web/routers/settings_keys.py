@@ -63,6 +63,7 @@ def keys_page(
 def create_key(
     request: Request,
     note: str = Form(""),
+    may_move_protected_labels: bool = Form(False),
     access: Access = Depends(require(Perm.API_KEYS)),
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
@@ -84,6 +85,7 @@ def create_key(
         public_key=public_key,
         secret_hash=hash_secret(secret_key, container.settings.secret_key),
         note=note,
+        may_move_protected_labels=may_move_protected_labels,
     )
     db.add(key)
     db.flush()
@@ -95,7 +97,11 @@ def create_key(
         org_id=access.org.id,
         project_id=access.project.id,
         target=key.id,
-        detail={"public_key": public_key, "note": note},
+        detail={
+            "public_key": public_key,
+            "note": note,
+            "may_move_protected_labels": may_move_protected_labels,
+        },
     )
     db.commit()
     # The secret exists only in this response. Only its hash is stored.

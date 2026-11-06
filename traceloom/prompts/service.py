@@ -589,6 +589,7 @@ def list_prompts(
     folder: str = "",
     direct_only: bool = False,
     search: str = "",
+    name: str = "",
     tag: str | None = None,
     label: str | None = None,
     sort: str = "name",
@@ -598,8 +599,9 @@ def list_prompts(
 ) -> PromptList:
     """Prompts of the project, filtered and sorted.
 
-    `folder` limits to that folder's subtree (`direct_only`: just its own prompts). `search`
-    is a case-insensitive substring over name, tags and the latest version's content.
+    `name` is a case-insensitive substring of the name alone. `folder` limits to that folder's
+    subtree (`direct_only`: just its own prompts). `search` is a case-insensitive substring over
+    name, tags and the latest version's content.
     `folders` lists the immediate sub-folders of `folder` among the matches.
     """
     actor.require(Perm.PROMPTS_READ, "You cannot read prompts in this project.")
@@ -619,6 +621,8 @@ def list_prompts(
             labelled = select(Prompt.id).where(Prompt.project_id == project.id)
         stmt = stmt.where(Prompt.id.in_(labelled))
     prompts = list(db.scalars(stmt))
+    if name.strip():
+        prompts = [p for p in prompts if name.strip().lower() in p.name.lower()]
     if tag:
         prompts = [p for p in prompts if tag in (p.tags or [])]
     needle = search.strip().lower()
