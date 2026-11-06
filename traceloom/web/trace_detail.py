@@ -40,7 +40,7 @@ class DetailState:
 
     def playground_url(self, obs_id: str) -> str:
         """The playground pre-filled from a generation of this trace (Open in playground)."""
-        query = urlencode({"obs": obs_id, "trace_id": self.trace_id})
+        query = urlencode({"trace": self.trace_id, "obs": obs_id})
         return f"/project/{self.project_id}/playground?{query}"
 
     def prompt_url(self, name: str, version: int | None) -> str:

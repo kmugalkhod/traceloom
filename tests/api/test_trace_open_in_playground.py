@@ -37,7 +37,7 @@ def page(client, world, obs=None, tail=""):
 
 
 def pg_link(world, obs):
-    return f"/project/{world.project.id}/playground?obs={obs}&amp;trace_id=tr1"
+    return f"/project/{world.project.id}/playground?trace=tr1&amp;obs={obs}"
 
 
 def test_member_sees_open_in_playground_on_generations_only(client, login, world, seeded):

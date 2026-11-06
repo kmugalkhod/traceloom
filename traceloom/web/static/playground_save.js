@@ -1,6 +1,6 @@
-/* Save as prompt dialog. Any button with [data-save-as-prompt] opens it; the dialog fragment is
-   fetched on first use. Needs window.traceloomPlayground.snapshot() from the playground page:
-   { messages: [{role, content}], model, params, tools }. Text from the server or the user is only
+/* Save as prompt dialog. Opens on the page's 'pg:action' event {action: 'save-as-prompt'} (or any
+   [data-save-as-prompt] button); the dialog fragment is fetched on first use into #pg-dialogs. The
+   editor state comes from window.Playground.getState(). Text from the server or the user is only
    written with textContent. */
 (function () {
   'use strict';
@@ -44,8 +44,7 @@
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       errorBox.hidden = true; doneBox.hidden = true;
-      var page = window.traceloomPlayground;
-      var snap = page && page.snapshot ? page.snapshot() : null;
+      var snap = window.Playground ? window.Playground.getState() : null;
       var name = (mode() === 'new' ? nameInput.value : select.value).trim();
       var message = form.elements.commit_message.value.trim();
       if (!snap || !snap.messages || !snap.messages.length) { banner(errorBox, 'There are no messages to save.'); return; }
@@ -83,19 +82,23 @@
   function open() {
     var dlg = document.getElementById('save-prompt');
     if (dlg) { dlg.showModal(); return; }
-    var base = document.body.getAttribute('data-playground-base') || window.location.pathname.replace(/\/playground.*$/, '/playground');
+    var base = '/project/' + window.Playground.config.projectId + '/playground';
     fetch(base + '/save-dialog', { credentials: 'same-origin', headers: { 'Accept': 'text/html' } })
       .then(function (r) { if (!r.ok) { throw new Error('status ' + r.status); } return r.text(); })
       .then(function (html) {
         var holder = document.createElement('div');
         holder.innerHTML = html; // markup from our own template (all values escaped server-side)
         var fresh = holder.querySelector('dialog');
-        document.body.appendChild(fresh);
+        (document.getElementById('pg-dialogs') || document.body).appendChild(fresh);
         wire(fresh);
         fresh.showModal();
       })
       .catch(function () { window.alert('Could not open the save dialog.'); });
   }
+
+  document.addEventListener('pg:action', function (e) {
+    if (e.detail && e.detail.action === 'save-as-prompt') { open(); }
+  });
 
   document.addEventListener('click', function (e) {
     var t = e.target.closest ? e.target.closest('[data-save-as-prompt]') : null;

@@ -1,7 +1,8 @@
 /* Playground compare: up to 4 variant columns, "Run all" streams every column on its own.
-   Needs window.traceloomPlayground.snapshot() from the playground page (shared messages, variables,
-   params, tools). Each column has its own AbortController and its own usage; nothing is shared
-   between runs. Everything from the server or the model is written with textContent. */
+   Opens on the page's 'pg:action' event {action: 'compare'}, mounts into #pg-compare-mount and
+   reads the shared editor through window.Playground (getState, setMode, config). Each column has
+   its own AbortController and its own usage; nothing is shared between runs. Everything from the
+   server or the model is written with textContent. */
 (function () {
   'use strict';
 
@@ -22,17 +23,18 @@
   // --- open / close ------------------------------------------------------------------------------
 
   function setOn(on) {
-    var mount = document.getElementById('compare-mount');
+    if (window.Playground && window.Playground.setMode) { window.Playground.setMode(on ? 'compare' : 'single'); }
+    var mount = document.getElementById('pg-compare-mount');
     if (mount) { mount.hidden = !on; }
-    document.querySelectorAll('[data-compare-toggle]').forEach(function (b) { b.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-    document.dispatchEvent(new CustomEvent('playground:compare', { detail: { on: on } }));
+    on ? document.body.setAttribute('data-compare', '') : document.body.removeAttribute('data-compare');
   }
 
   function toggle() {
-    var mount = document.getElementById('compare-mount');
-    if (!mount) { return; }
+    var mount = document.getElementById('pg-compare-mount');
+    if (!mount || !window.Playground) { return; }
     if (panel) { setOn(mount.hidden); return; }
-    fetch(mount.getAttribute('data-compare-url'), { credentials: 'same-origin', headers: { 'Accept': 'text/html' } })
+    var url = '/project/' + window.Playground.config.projectId + '/playground/compare-panel';
+    fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'text/html' } })
       .then(function (r) { if (!r.ok) { throw new Error('status ' + r.status); } return r.text(); })
       .then(function (html) {
         mount.innerHTML = html; // our own template; every value in it is escaped server-side
@@ -230,9 +232,18 @@
     });
   }
 
+  function sharedState() {
+    var st = window.Playground ? window.Playground.getState() : null;
+    if (!st) { return null; }
+    return {
+      connection_id: st.connectionId, model: st.model, messages: st.messages || [],
+      variables: st.variables || {}, params: st.params || {}, tools: st.tools || [],
+      response_schema: st.responseSchema || null
+    };
+  }
+
   function runAll() {
-    var page = window.traceloomPlayground;
-    var shared = page && page.snapshot ? page.snapshot() : null;
+    var shared = sharedState();
     if (!shared) { return; }
     // every column starts at once; each has its own request, controller and usage
     variants().forEach(function (v) { run(v, shared); });
@@ -243,7 +254,6 @@
   document.addEventListener('click', function (e) {
     var t = e.target.closest ? e.target : null;
     if (!t) { return; }
-    if (t.closest('[data-compare-toggle]')) { e.preventDefault(); toggle(); return; }
     if (!panel || !panel.contains(t)) { return; }
     var v = t.closest('[data-variant]');
     if (t.closest('[data-add-variant]')) { addVariant(); }
@@ -252,6 +262,10 @@
     else if (v && t.closest('[data-variant-stop]')) { stop(v); }
     else if (v && t.closest('[data-v-add-message]')) { addMessage(v, 'user', ''); }
     else if (v && t.closest('[data-m-remove]')) { t.closest('.v-msg').remove(); }
+  });
+
+  document.addEventListener('pg:action', function (e) {
+    if (e.detail && e.detail.action === 'compare') { toggle(); }
   });
 
   document.addEventListener('change', function (e) {
@@ -263,7 +277,7 @@
       var own = $(v, '[data-v-own]');
       own.hidden = e.target.checked;
       if (!e.target.checked && !all(v, '.v-msg').length) {
-        var shared = window.traceloomPlayground && window.traceloomPlayground.snapshot ? window.traceloomPlayground.snapshot() : { messages: [] };
+        var shared = sharedState() || { messages: [] };
         (shared.messages || []).forEach(function (m) { addMessage(v, m.role, m.content); }); // start from a copy of the shared messages
         if (!all(v, '.v-msg').length) { addMessage(v, 'user', ''); }
       }

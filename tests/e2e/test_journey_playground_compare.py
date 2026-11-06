@@ -1,9 +1,9 @@
 """Journey (AC-10): three variants with different models stream side by side, each with its own
 usage and cost; a fifth cannot be added; the columns stack under 1100px.
 
-The page for this journey is the T-25 playground. Until it is mounted the compare panel is driven
-through a minimal host that provides the same hooks (`#compare-mount`, `[data-compare-toggle]` and
-`window.traceloomPlayground.snapshot()`), so the compare script is exercised in a real browser.
+The compare panel opens on the playground page's `pg:action` event and reads `window.Playground`.
+Here a minimal host provides those hooks (`#pg-compare-mount`, `getState`, `setMode`), so the
+script is exercised in a real browser on its own.
 """
 
 from __future__ import annotations
@@ -41,12 +41,25 @@ class PerModel(BaseProvider):
 
 
 HOST = """
-document.body.innerHTML = '<main><button type="button" data-compare-toggle>Compare</button>'
-  + '<div id="compare-mount" data-compare-url="%(url)s" hidden></div></main>';
-window.traceloomPlayground = { snapshot: function () { return {
-  connection_id: '%(conn)s', model: '%(model)s',
-  messages: [{ role: 'user', content: 'Say hello' }], variables: {}, params: {}, tools: [] }; } };
+document.body.innerHTML = '<main><div id="pg-grid"></div>'
+  + '<div id="pg-compare-mount" hidden></div></main>';
+window.Playground = {
+  config: { projectId: '%(pid)s' },
+  getState: function () { return {
+    connectionId: '%(conn)s', model: '%(model)s',
+    messages: [{ role: 'user', content: 'Say hello' }], variables: {}, params: {}, tools: [],
+    responseSchema: null }; },
+  setMode: function (mode) {
+    document.getElementById('pg-grid').hidden = mode === 'compare';
+    document.getElementById('pg-compare-mount').hidden = mode !== 'compare'; }
+};
 """
+
+
+def open_compare(page):
+    page.evaluate(
+        "document.dispatchEvent(new CustomEvent('pg:action', { detail: { action: 'compare' } }))"
+    )
 
 
 def load(page, src):
@@ -75,10 +88,7 @@ def compare_page(session, live):
     pid = live.account.project_id
     page.goto(f"{live.url}/project/{pid}/traces")
     page.add_style_tag(url="/static/playground_compare.css")
-    page.evaluate(
-        "x => { " + HOST % {"url": f"/project/{pid}/playground/compare-panel",
-                            "conn": conn_id, "model": MODELS[0]} + " }", None
-    )  # fmt: skip
+    page.evaluate("() => { " + HOST % {"pid": pid, "conn": conn_id, "model": MODELS[0]} + " }")
     load(page, "/static/playground_compare.js")
     yield session
     providers.unregister("anthropic")
@@ -86,7 +96,7 @@ def compare_page(session, live):
 
 def test_three_variants_stream_independently(compare_page, live):
     page = compare_page.page
-    page.click("[data-compare-toggle]")
+    open_compare(page)
     expect(page.locator("[data-variant]")).to_have_count(2)
     page.click("[data-add-variant]")
     columns = page.locator("[data-variant]")
@@ -107,7 +117,7 @@ def test_three_variants_stream_independently(compare_page, live):
 
 def test_a_fifth_variant_cannot_be_added(compare_page):
     page = compare_page.page
-    page.click("[data-compare-toggle]")
+    open_compare(page)
     for _ in range(2):
         page.click("[data-add-variant]")
     expect(page.locator("[data-variant]")).to_have_count(4)
@@ -121,7 +131,7 @@ def test_a_fifth_variant_cannot_be_added(compare_page):
 
 def test_columns_sit_side_by_side_wide_and_stack_under_1100px(compare_page):
     page = compare_page.page
-    page.click("[data-compare-toggle]")
+    open_compare(page)
     page.click("[data-add-variant]")
     page.click("[data-add-variant]")
     boxes = lambda: [v.bounding_box() for v in page.locator("[data-variant]").all()]  # noqa: E731
@@ -136,7 +146,7 @@ def test_columns_sit_side_by_side_wide_and_stack_under_1100px(compare_page):
 
 def test_errors_and_stop_are_per_column(compare_page):
     page = compare_page.page
-    page.click("[data-compare-toggle]")
+    open_compare(page)
     columns = page.locator("[data-variant]")
     columns.nth(0).locator("[data-v-model]").fill(MODELS[0])
     columns.nth(1).locator("[data-v-model]").fill("")  # falls back to the shared model
