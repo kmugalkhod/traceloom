@@ -8,7 +8,7 @@
 {% if sessions %}
 <div class="panel">
   <div class="rack">
-    <table class="tbl roomy keepcols" aria-label="Sessions">
+    <table class="tbl keepcols" aria-label="Sessions">
       <thead>
         <tr>
           <th class="lvl"></th>
@@ -46,14 +46,15 @@
   </div>
 </div>
 {% elif not first_page %}
-<div class="panel"><div class="empty"><h2>No more sessions</h2><p><a href="{{ first_href }}">Back to the first page</a></p></div></div>
+<div class="panel">
+  {% call m.empty_state("i-sessions", "No more sessions") %}<div class="acts"><a class="btn" href="{{ first_href }}">Back to the first page</a></div>{% endcall %}
+</div>
 {% else %}
 <div class="panel">
-  <div class="empty">
-    <h2>No sessions yet</h2>
-    <p>A session groups the traces of one conversation. Set a <span class="mono">session_id</span> on your traces and they show up here as a replay{% if environment %} (showing environment {{ environment }}){% endif %}.</p>
+  {% call m.empty_state("i-sessions", "No sessions yet", "A session groups the traces of one conversation. Set a session_id on your traces and they show up here as a replay" ~ (" (showing environment " ~ environment ~ ")" if environment else "") ~ ".") %}
     <div class="code" tabindex="0"><span class="n">update_current_trace</span>(session_id=<span class="s">"sess_2f91"</span>)</div>
-  </div>
+    {% if can("project:api_keys") %}<div class="acts"><a class="btn btn-primary" href="/project/{{ project.id }}/settings/keys">Create an API key</a></div>{% endif %}
+  {% endcall %}
 </div>
 {% endif %}
 {% endblock %}
