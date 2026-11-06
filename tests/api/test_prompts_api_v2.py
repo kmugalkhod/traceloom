@@ -143,11 +143,12 @@ def test_resolve_and_dependencies(client, auth):
 def test_cyclic_include_is_400_naming_the_cycle(client, auth):
     create(client, auth, name="a", prompt="A", labels=["x"])
     create(client, auth, name="b", prompt="B @@@prompt:a|label=x@@@", labels=["x"])
-    create(client, auth, name="a", prompt="A @@@prompt:b|label=x@@@", labels=["x"])
-    r = client.get(f"{BASE}/a?label=x", headers=auth)
+    r = create(client, auth, name="a", prompt="A @@@prompt:b|label=x@@@", labels=["x"])
     assert r.status_code == 400
     assert "Circular" in r.json()["error"]["message"]
     assert "@@@prompt:a|label=x@@@" in r.json()["error"]["message"]
+    assert "a v2 -> b v1 -> a v2" in r.json()["error"]["message"]  # the path
+    assert client.get(f"{BASE}/a?label=x", headers=auth).json()["prompt"] == "A"
 
 
 def test_saving_a_missing_reference_is_400(client, auth):

@@ -256,10 +256,35 @@ def prompt_labels(db: Session, project: Project, prompt_id: str) -> dict[str, in
     return {label: version for label, version in rows}
 
 
-def make_resolver(db: Session, project: Project) -> Resolver:
-    """Resolve composition references against this project's prompts only."""
+@dataclass(frozen=True)
+class _Pending:
+    """A version about to be written, as the include graph will see it once it is."""
+
+    name: str
+    type: str
+    version: int
+    content: Any
+    labels: frozenset[str] = frozenset()  # labels that will point at it
+    is_latest: bool = False  # `latest` will mean this version
+
+
+def make_resolver(db: Session, project: Project, pending: _Pending | None = None) -> Resolver:
+    """Resolve composition references against this project's prompts only.
+
+    With `pending`, references resolve as they will after that version is saved or that label
+    is moved, so a loop can be refused before anything is written.
+    """
 
     def resolve(ref: Reference) -> Resolved | None:
+        if pending is not None and ref.name == pending.name:
+            hits = ref.version == pending.version or (
+                ref.version is None
+                and (ref.label in pending.labels or (ref.label == LATEST and pending.is_latest))
+            )
+            if hits:
+                return Resolved(
+                    pending.name, pending.version, pending.type, pending.content, ref.label
+                )
         prompt = _prompt(db, project, ref.name)
         if prompt is None:
             return None
@@ -275,6 +300,25 @@ def make_resolver(db: Session, project: Project) -> Resolver:
         return Resolved(prompt.name, row.version, prompt.type, row.content, ref.label)
 
     return resolve
+
+
+def _check_includes(db: Session, project: Project, pending: _Pending) -> list[dict[str, Any]]:
+    """Resolve the whole include graph from `pending` as it will be after the write.
+
+    Raises PromptError naming the reference for a missing include, a loop (including a prompt
+    that includes itself, directly or through others) or nesting that is too deep. Returns the
+    dependencies the version uses. Nothing is written, so nothing needs undoing.
+    """
+    try:
+        _, dependencies = resolve_content(
+            pending.type,
+            pending.content,
+            make_resolver(db, project, pending),
+            root=(pending.name, pending.version),
+        )
+    except CompositionError as exc:
+        raise PromptError(str(exc)) from exc
+    return dependencies
 
 
 # --- writes ---------------------------------------------------------------------------------
@@ -311,12 +355,19 @@ def create_version(
     if existing and type and type != existing.type:
         raise PromptError(f"{name!r} is a {existing.type} prompt; its type cannot change.")
     content = _content(prompt_type, content)
-    try:  # a missing reference or a cycle is rejected at save, and the versions are recorded
-        _, dependencies = resolve_content(
-            prompt_type, content, make_resolver(db, project), root=None
-        )
-    except CompositionError as exc:
-        raise PromptError(str(exc)) from exc
+    # Check the include graph as it will be after this save (new `latest`, labels moved).
+    dependencies = _check_includes(
+        db,
+        project,
+        _Pending(
+            name,
+            prompt_type,
+            (_latest_version(db, project.id, existing.id) if existing else 0) + 1,
+            content,
+            frozenset(wanted),
+            is_latest=True,
+        ),
+    )
 
     now = utcnow()
     for attempt in range(3):  # two concurrent saves can race for the same version number
@@ -385,8 +436,16 @@ def move_label(
     validate_label(label)
     _check_label_rights(db, project, actor, [label])
     prompt = _require_prompt(db, project, name)
-    if _version_row(db, project.id, prompt.id, version) is None:
+    row = _version_row(db, project.id, prompt.id, version)
+    if row is None:
         raise PromptNotFound(f"Prompt {name!r} has no version {version}.")
+    if prompt_labels(db, project, prompt.id).get(label) != version:
+        # Refuse a move that would close a loop, before anything is written.
+        _check_includes(
+            db,
+            project,
+            _Pending(name, prompt.type, version, row.content, frozenset({label})),
+        )
     return _point_label(db, project, actor, prompt, label, version, utcnow())
 
 
