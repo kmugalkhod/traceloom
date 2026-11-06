@@ -250,3 +250,14 @@ def test_the_real_detail_page_includes_the_lazy_slots(client, login, world, trac
     for part in ("actions", "tags", "discussion"):
         assert f'hx-get="{base(world)}/{part}"' in html and 'hx-trigger="load"' in html
     assert html.count('id="trace-actions"') == 1 and html.count('id="trace-discussion"') == 1
+
+
+def test_annotation_scores_show_as_chips_in_the_list(client, login, world, trace):
+    login_as(client, login, world, Role.MEMBER)
+    html = page(client, world, "discussion")
+    for name, kind, value in (("quality", "NUMERIC", "0.8"), ("tone", "CATEGORICAL", "polite")):
+        post_form(client, html, base(world) + "/scores",
+                  {"name": name, "data_type": kind, "value": value}, headers=HX)  # fmt: skip
+    listing = client.get(f"/project/{world.project.id}/traces?range=30d").text
+    assert "<b>quality</b><span>0.8</span>" in listing
+    assert "<b>tone</b><span>polite</span>" in listing
