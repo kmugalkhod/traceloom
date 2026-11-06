@@ -56,11 +56,10 @@
   {% endif %}
 
   {% if not rows %}
-  <div class="panel empty">
-    {{ m.icon("i-plug", "ico-lg") }}
-    <h2>No LLM connections yet</h2>
-    <p>A connection holds a provider key, stored encrypted, so Members can run prompts in the playground without ever seeing it.</p>
-    <button type="button" class="btn btn-primary" data-dialog-open="add-connection">{{ m.icon("i-plus") }}Add connection</button>
+  <div class="panel">
+    {% call m.empty_state("i-plug", "No LLM connections yet", "A connection holds a provider key, stored encrypted, so Members can run prompts in the playground without ever seeing it.") %}
+      <div class="acts"><button type="button" class="btn btn-primary" data-dialog-open="add-connection">{{ m.icon("i-plus") }}Add connection</button></div>
+    {% endcall %}
   </div>
   {% else %}
   <div class="panel panel-vis">
