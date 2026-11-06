@@ -9,6 +9,7 @@
   {% endfor %}
 </div>
 {%- endmacro %}
+<div class="stack">
 <form class="row-wrap compare-form" method="get" action="{{ base }}" hx-get="{{ base }}" hx-target="#tab-panel" hx-push-url="true" hx-trigger="change">
   <input type="hidden" name="tab" value="compare">
   <div class="field"><label for="cmp-from">From</label>
@@ -59,3 +60,4 @@
   {% else %}<p class="hint">Neither version has a config.</p>{% endif %}
 </div></div>
 <p class="hint">Diff output is text only. A line such as <span class="mono">&lt;script&gt;</span> is shown, never run.</p>
+</div>

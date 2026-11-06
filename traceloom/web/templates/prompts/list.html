@@ -49,7 +49,7 @@
               <span><span class="type-pill">{{ m.icon("i-sessions" if p.type == "chat" else "i-prompt", "ico-sm") }}{{ "Chat" if p.type == "chat" else "Text" }}</span></span>
               {% if p.snippet %}<span class="match">{{ p.snippet }}</span>{% endif %}
             </div></td>
-            <td class="m-show num-r"><span class="vp cur">v{{ p.latest_version }}</span></td>
+            <td class="m-show"><span class="vp cur">v{{ p.latest_version }}</span></td>
             <td class="m-show m-full c-full">
               {% if PRODUCTION not in p.labels %}<span class="lab none">{{ m.icon("i-warn", "ico-sm") }}No production label</span>{% endif %}
               <div class="lab-set">
