@@ -49,8 +49,22 @@ class Container:
                 log.exception("shutdown hook failed")
 
 
+def _db_ok(engine: Engine) -> bool:
+    with engine.connect() as conn:
+        conn.exec_driver_sql("select 1")
+    return True
+
+
+def _blob_ok(container: Container) -> bool:
+    next(iter(container.blob_store.list("pending/")), None)
+    return True
+
+
 def build_container(settings: Settings) -> Container:
+    from traceloom.adapters.lite.inproc_queue import InProcQueue
+    from traceloom.adapters.lite.local_blob import LocalBlobStore
     from traceloom.adapters.lite.memory import InMemoryCache, InMemoryRateLimiter
+    from traceloom.adapters.lite.sql_trace_store import SqlTraceStore
     from traceloom.db.session import make_engine, make_session_factory, upgrade_to_head
 
     engine = make_engine(settings.database_url)
@@ -63,7 +77,14 @@ def build_container(settings: Settings) -> Container:
         mailer=Mailer(settings),
     )
     if settings.mode == "lite":
+        container.trace_store = SqlTraceStore(container.session_factory)
+        container.blob_store = LocalBlobStore(settings.blob_dir)
+        container.queue = InProcQueue()
         container.startup_hooks.append(lambda c: upgrade_to_head(c.engine))
+        container.shutdown_hooks.append(lambda c: c.queue.stop())
+    container.health_checks["db"] = lambda: _db_ok(container.engine)
+    container.health_checks["blob"] = lambda: _blob_ok(container)
+    container.health_checks["queue"] = lambda: container.queue.ping()
     container.shutdown_hooks.append(lambda c: c.engine.dispose())
     if settings.mode == "full":
         # Imported lazily so lite mode never needs ClickHouse/S3/Redis clients.

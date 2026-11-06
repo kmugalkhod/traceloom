@@ -8,9 +8,13 @@ def test_health_ok(client):
 
 
 def test_health_deep_reports_registered_checks(app, client):
-    app.state.container.health_checks["db"] = lambda: True
+    app.state.container.health_checks["extra"] = lambda: True
     body = client.get("/api/public/health?deep=1").json()
-    assert body["checks"] == {"db": "ok"}
+    assert {k: body["checks"][k] for k in ("db", "blob", "extra")} == {
+        "db": "ok",
+        "blob": "ok",
+        "extra": "ok",
+    }
 
 
 def test_health_deep_failure_is_503(app, client):
