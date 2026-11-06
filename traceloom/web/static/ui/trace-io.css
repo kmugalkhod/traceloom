@@ -1,5 +1,5 @@
 /* Detail pane: header, metrics line, tabs, IO blocks, Scores and Comments (FR-TD5, FR-TD6). */
-.dpane-h{gap:8px}
+.dpane .dpane-h.io-sec{flex-direction:row;align-items:center;gap:8px;padding:0 16px;border-bottom:1px solid var(--line)}
 .dpane-h h2{font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dpane-type{font-size:12px}
 .dpane .mline.dm{padding:12px 16px 0}

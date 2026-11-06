@@ -1,6 +1,6 @@
 {% import "_macros.html" as m with context %}
 {% set base = "/project/" ~ project.id ~ "/traces/" ~ trace.id %}
-<div class="tp" id="tp-cmt" role="tabpanel" aria-labelledby="dt-cmt" hidden>
+<div class="tp" id="tp-cmt" role="tabpanel" aria-labelledby="dt-cmt">
   <div class="tp-b" id="comments">
     {% for c in comments %}
       <div class="comment">

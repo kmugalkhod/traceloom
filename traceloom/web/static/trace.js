@@ -91,16 +91,7 @@
     var id = e.detail.target && e.detail.target.id;
     if (id === 'io-pane') { showTab(keptTab); } else if (id === 'trace-discussion') { showTab(selectedTabId()); }
   });
-  document.addEventListener('toggle', function (e) {
-    var d = e.target;
-    if (d.matches && d.matches('details.tag-add') && d.open) {
-      var input = d.querySelector('input[name=tag]');
-      if (input) { input.focus(); }
-    }
-  }, true);
   document.addEventListener('keydown', function (e) {
-    if (e.key !== 'Escape') { return; }
-    var d = e.target.closest && e.target.closest('details.tag-add');
-    if (d && d.open) { d.open = false; var s = d.querySelector('summary'); if (s) { s.focus(); } }
+    if (e.key === 'Escape' && e.target.matches && e.target.matches('.tag-add input')) { e.target.value = ''; e.target.blur(); }
   });
 })();

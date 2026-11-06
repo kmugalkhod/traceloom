@@ -26,14 +26,12 @@
 .tags .chip form{display:inline-flex;margin:0}
 .tags .chip button{width:16px;height:16px;border-radius:4px;align-items:center;justify-content:center}
 .tags .chip button:hover{background:var(--sunken);color:var(--ink)}
-.tag-add{display:inline-flex;align-items:center}
-.tag-add>summary{list-style:none;cursor:pointer;border-style:dashed;color:var(--ink-2)}
-.tag-add>summary::-webkit-details-marker{display:none}
-.tag-add>summary:hover{background:var(--surface-2);color:var(--ink)}
-.tag-add[open]>summary{display:none}
-.tag-add>form{display:inline-flex;align-items:center;gap:6px;margin:0}
-.tag-add .tag-input{height:30px;width:160px}
-.tag-add .btn-sm{height:30px}
+.tag-add{display:inline-flex;align-items:center;gap:6px;margin:0}
+.tag-add .tag-input{height:24px;width:92px;padding:0 8px;border:1px dashed var(--line-strong);border-radius:6px;background:transparent;font-size:12px;font-weight:500;box-shadow:none}
+.tag-add .tag-input::placeholder{color:var(--ink-2)}
+.tag-add .tag-input:focus{height:30px;width:160px;border-style:solid;background:var(--surface);font-size:13px}
+.tag-add .btn-sm{height:30px;display:none}
+.tag-add:focus-within .btn-sm{display:inline-flex}
 
 /* Workspace: header, then two panes that fill the rest of the viewport and scroll on their own. */
 .split[data-trace-detail]{display:grid;grid-template-columns:minmax(360px,40%) minmax(0,1fr);gap:24px;align-items:stretch;flex:1 1 auto;min-height:480px}

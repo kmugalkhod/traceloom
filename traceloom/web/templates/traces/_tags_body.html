@@ -12,14 +12,11 @@
       </form>
     </span>
   {% endfor %}
-  <details class="tag-add"{% if error %} open{% endif %}>
-    <summary class="chip add">{{ m.icon("i-plus", "ico-sm") }}Add tag</summary>
-    <form method="post" action="{{ base }}/tags" hx-post="{{ base }}/tags" hx-target="#trace-tags-controls" hx-swap="innerHTML" class="inline-form">
-      {{ m.csrf() }}
-      <label class="sr" for="new-tag">Tag name</label>
-      <input class="input tag-input" id="new-tag" name="tag" maxlength="200" placeholder="New tag" autocomplete="off" required>
-      <button class="btn btn-sm" type="submit">Add</button>
-    </form>
-  </details>
+  <form method="post" action="{{ base }}/tags" hx-post="{{ base }}/tags" hx-target="#trace-tags-controls" hx-swap="innerHTML" class="inline-form tag-add">
+    {{ m.csrf() }}
+    <label class="sr" for="new-tag">Add tag</label>
+    <input class="input tag-input" id="new-tag" name="tag" maxlength="200" placeholder="+ Add tag" autocomplete="off" required>
+    <button class="btn btn-sm" type="submit">Add</button>
+  </form>
   {% if error %}{{ m.banner("err", error) }}{% endif %}
 {% endif %}

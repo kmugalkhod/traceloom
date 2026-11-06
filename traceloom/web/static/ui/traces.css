@@ -34,7 +34,7 @@
   .panel[data-tl] .tbar>.right{width:100%;flex:1 1 100%}
   .panel[data-tl] .tbar .input-wrap{min-width:0}
   .panel[data-tl] .tbar .input,.panel[data-tl] .tbar>.right .btn,.panel[data-tl] .tbar .seg[role=tablist]{height:44px;min-height:44px}
-  .panel[data-tl] .tbar .seg a{height:38px}
+  .panel[data-tl] .tbar .seg a{height:38px;padding:0 8px}
 }
 
 /* Table: 44px rows, numbers right-aligned in the UI font, calm error rows. */

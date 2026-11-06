@@ -2,7 +2,7 @@
    Header, one metrics line, then the tabs Preview / Metadata / Scores / Comments. #}
 {% import "_macros.html" as m with context %}
 {% set total_tokens = (pane.usage | selectattr(0, "equalto", "total") | list | first) %}
-<div class="panel-h dpane-h">
+<div class="panel-h dpane-h io-sec">
   {% if pane.kind == "observation" %}<span class="ty ty-{{ pane.type }}" title="{{ pane.type }}">{{ m.icon("i-" ~ pane.type if pane.type in icon_types else "i-span") }}</span>{% endif %}
   <h2>{{ pane.title }}</h2>
   {% if pane.level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif pane.level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% endif %}
