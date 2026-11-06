@@ -17,6 +17,8 @@ def seed_trace(
     trace_id: str,
     *,
     observations: int = 2,
+    cost: float | None = None,
+    tokens: int | None = None,
     scores: list[ScoreRow] | None = None,
     **fields: Any,
 ) -> TraceRow:
@@ -36,6 +38,10 @@ def seed_trace(
         )
         for i in range(observations)
     ]
+    if cost is not None:
+        obs[0].cost_details = {"total": cost}
+    if tokens is not None:
+        obs[0].usage_details = {"total": tokens}
     trace.event_ts = ts
     container.trace_store.upsert(project_id, [trace], obs, scores or [])
     container.trace_store.refresh_trace_aggregates(project_id, [trace_id])

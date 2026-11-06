@@ -1,0 +1,10 @@
+{# Date range as a GET form: each button submits `range`, other filters ride along as hidden fields.
+   Needs: range_key, keep (dict of the other query parameters). #}
+<form method="get" class="range-form" aria-label="Date range">
+  {% for key, value in keep.items() %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+  <div class="seg" role="group" aria-label="Date range">
+    {% for key in ("1h", "24h", "7d", "30d") %}
+      <button type="submit" name="range" value="{{ key }}" aria-pressed="{{ 'true' if key == range_key else 'false' }}">{{ key }}</button>
+    {% endfor %}
+  </div>
+</form>

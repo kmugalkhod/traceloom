@@ -40,8 +40,7 @@
         <h3>{{ title }}</h3>
         {% if rendered.kind == "chat" %}
           {% for msg in rendered.messages %}
-            <div class="turn-meta"><b>{{ msg.role }}</b></div>
-            <div class="bubble">{{ msg.html }}</div>
+            <div class="bub {{ 'a' if msg.css_role == 'assistant' else 'u' }}"><span class="cap">{{ msg.role }}</span><div>{{ msg.html }}</div></div>
           {% endfor %}
         {% else %}
           <div class="code" tabindex="0">{{ rendered.html }}</div>

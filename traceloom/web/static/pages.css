@@ -8,11 +8,6 @@
 .tag-input{width:120px}
 .share-link{padding:6px 10px}
 .score-form .field{margin:0}
-.turn{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;padding:12px 0;border-bottom:1px solid var(--line)}
-.turn:last-child{border-bottom:0}
-.turn-meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.bubble{border:1px solid var(--line);border-radius:var(--r-2);padding:8px 12px;background:var(--surface);white-space:pre-wrap;overflow-wrap:anywhere}
-.bubble.out{background:var(--surface-2)}
 .chart-box{width:100%;height:220px}
 .panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-5)}
 .panels .wide{grid-column:1/-1}
@@ -22,3 +17,10 @@
 .share-tree{list-style:none;margin:0;padding:0}
 .share-tree li{padding:4px 0}
 .indent-1{margin-left:16px}.indent-2{margin-left:32px}.indent-3{margin-left:48px}.indent-4{margin-left:64px}.indent-5{margin-left:80px}
+.range-form{display:contents}
+.sort-link{color:inherit;text-decoration:none;display:inline-flex;gap:4px;align-items:center}
+.sort-link[aria-current=true]{color:var(--ink)}
+.chips-cell{display:flex;gap:4px;flex-wrap:nowrap;overflow:hidden}
+.user-cell{display:inline-flex;gap:8px;align-items:center}
+.daily td,.daily th{padding:0 12px}
+.chart-fallback{max-width:520px}
