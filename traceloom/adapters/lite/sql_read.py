@@ -12,7 +12,7 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, Text, and_, cast, func, or_, select
+from sqlalchemy import ColumnElement, Text, and_, case, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from traceloom.db.models import Observation, Score, Trace
@@ -25,6 +25,7 @@ from traceloom.ports import (
     TraceDetail,
     TraceQuery,
     TraceRow,
+    TraceStats,
     decode_cursor,
     encode_cursor,
 )
@@ -259,6 +260,38 @@ class SqlReadMixin:
             sort_value = last.timestamp if query.sort == "timestamp" else _sort_value(last, query)
             next_cursor = encode_cursor(sort_value, last.id)
         return Page(items=items, next_cursor=next_cursor)
+
+    def trace_stats(self, project_id: str, query: TraceQuery) -> TraceStats:
+        where = trace_filter_clauses(project_id, query)
+        with self.session_factory() as session:
+            dialect = session.get_bind().dialect.name
+            latency = Trace.latency_ms
+            if dialect == "sqlite":  # the aggregate registered in db/session.py
+                p50, p95 = func.percentile(latency, 0.5), func.percentile(latency, 0.95)
+            else:
+                p50 = func.percentile_cont(0.5).within_group(latency)
+                p95 = func.percentile_cont(0.95).within_group(latency)
+            count, cost, errors, v50, v95 = session.execute(
+                select(
+                    func.count(),
+                    func.coalesce(func.sum(Trace.total_cost), 0.0),
+                    func.coalesce(func.sum(case((Trace.max_level == "ERROR", 1), else_=0)), 0),
+                    p50,
+                    p95,
+                ).where(*where)
+            ).one()
+        return TraceStats(int(count), float(cost), int(errors), v50, v95)
+
+    def list_environments(self, project_id: str) -> list[str]:
+        with self.session_factory() as session:
+            return list(
+                session.scalars(
+                    select(Trace.environment)
+                    .where(Trace.project_id == project_id)
+                    .distinct()
+                    .order_by(Trace.environment)
+                )
+            )
 
     def get_trace(self, project_id: str, trace_id: str) -> TraceDetail | None:
         with self.session_factory() as session:

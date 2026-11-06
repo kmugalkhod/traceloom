@@ -639,3 +639,37 @@ dialog.dlg .dialog{width:100%}
   .tbl.stack-m td.c-name{flex:1 1 100%;min-width:0}
   .tbl.stack-m td.r{margin-left:auto}
 }
+
+/* ===== trace list additions ===== */
+.seg a{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;font-weight:600;font-size:12px;color:var(--ink-2);border-right:1px solid var(--line)}
+.seg a:last-child{border-right:0}
+.seg a:hover{background:var(--surface-2);text-decoration:none}
+.seg a[aria-pressed=true],.seg a[aria-selected=true]{background:var(--accent-solid);color:var(--on-accent)}
+.pop-env{position:absolute;top:calc(100% + 6px);left:0;min-width:240px;z-index:20}
+.pop-wide{position:absolute;top:calc(100% + 6px);right:0;width:min(560px,calc(100vw - 32px));z-index:20}
+.pop-right{position:absolute;top:calc(100% + 6px);right:0;min-width:260px;z-index:20}
+.pop .item{display:flex;width:100%;border:0;background:none;text-align:left;color:var(--ink)}
+.pop .item[aria-checked=true]::after{content:"✓";margin-left:auto}
+.item.check{cursor:pointer}
+.item.check input{position:absolute;opacity:0;pointer-events:none}
+.item.check input:focus-visible + i{outline:2px solid var(--focus);outline-offset:2px}
+.item.check input:checked + i{background:var(--accent-solid);border-color:var(--accent-solid)}
+.item.check i{width:16px;height:16px;border:1px solid var(--field-line);border-radius:3px;background:var(--surface);display:grid;place-items:center;color:var(--on-accent);flex:none}
+.item.check i .ico{opacity:0}
+.item.check input:checked + i .ico{opacity:1}
+.filter-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--sp-5)}
+.filter-grid .wide{grid-column:1/-1}
+.pager{display:flex;align-items:center;gap:var(--sp-5);padding:12px var(--sp-6);color:var(--ink-3);font-size:12.5px}
+.pager .btn{margin-left:auto}
+.err-text{color:var(--err)}
+.menu-wrap{position:relative}
+.tbl th a{display:inline-flex;gap:4px;align-items:center;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit}
+.tbl th a:hover{text-decoration:none;color:var(--ink)}
+.tbl td a.row-link{color:inherit}
+@container app (max-width:760px){.filter-grid{grid-template-columns:1fr}.pop-wide{left:0;right:0;width:auto}}
+.spacer-top{margin-top:var(--sp-5)}
+.tbar-chips{padding-top:0}
+.actions-row{margin:0}
+.item-row{display:flex;align-items:center;gap:4px}
+.item-row .item{flex:1;min-width:0}
+.mark{color:var(--accent)}

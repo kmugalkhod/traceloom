@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Traces{% endblock %}
+
+{% block daterange %}
+<div class="seg" role="group" aria-label="Date range">
+  {% for key in ["1h", "24h", "7d", "30d"] %}
+    <a href="{{ state.url(drop=['from', 'to'], set={'range': key}) }}" aria-pressed="{{ 'true' if state.range == key else 'false' }}">{{ key }}</a>
+  {% endfor %}
+  <a href="#filter-menu" data-menu-toggle="filter-menu" aria-pressed="{{ 'true' if state.range == 'custom' else 'false' }}">Custom</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="progress" id="loading-bar" role="progressbar" aria-label="Loading" hidden></div>
+{{ m.page_header("Traces", "Every run your agents sent, newest first. Filters live in the URL.") }}
+
+{% if empty_project %}
+  {% include "_onboarding.html" %}
+{% else %}
+<div class="row-wrap actions-row">
+  <div class="menu-wrap">
+    <button type="button" class="btn" aria-haspopup="true" aria-expanded="false" data-menu-toggle="views-menu">{{ m.icon("i-bookmark") }}Saved views</button>
+    <div class="pop pop-right" id="views-menu" data-menu hidden role="menu" aria-label="Saved views">
+      <div class="hd">Saved views</div>
+      {% for view, owner in views %}
+        <div class="item-row">
+          <a class="item grow" role="menuitem" href="{{ state.base_path }}{{ '?' ~ view.query if view.query else '' }}"><span class="grow"><b>{{ view.name }}</b><div class="hint">by {{ 'you' if view.owner_id == user.id else owner }}</div></span></a>
+          {% if view.owner_id == user.id or can(Perm.SHARE_TOGGLE) %}
+          <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="Edit view {{ view.name }}" title="Edit view"
+                  data-dialog-open="edit-view" data-form-action="/project/{{ project.id }}/views/{{ view.id }}"
+                  data-prefill='{{ {"name": view.name, "query": view.query} | tojson | forceescape }}'>{{ m.icon("i-pencil") }}</button>
+          <form class="inline-form" method="post" action="/project/{{ project.id }}/views/{{ view.id }}/delete" data-confirm="Delete the view {{ view.name }}?">
+            {{ m.csrf() }}<input type="hidden" name="next" value="{{ request_path }}">
+            <button class="btn btn-icon btn-sm btn-ghost" type="submit" aria-label="Delete view {{ view.name }}" title="Delete view">{{ m.icon("i-trash") }}</button>
+          </form>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="hint">No saved views yet.</div>
+      {% endfor %}
+      {% if can(Perm.ANNOTATE) %}
+      <div class="sep"></div>
+      <button type="button" class="item" data-dialog-open="save-view">{{ m.icon("i-plus", "ico-sm") }}Save current filters as a view…</button>
+      {% endif %}
+      <div class="hint">Applying a view restores its URL. Only its creator or an Admin can edit it.</div>
+    </div>
+  </div>
+
+  <div class="menu-wrap">
+    <button type="button" class="btn" aria-haspopup="true" aria-expanded="false" data-menu-toggle="columns-menu">{{ m.icon("i-columns") }}Columns</button>
+    <div class="pop pop-right" id="columns-menu" data-menu hidden role="menu" aria-label="Columns">
+      <form method="post" action="/project/{{ project.id }}/prefs/columns">
+        {{ m.csrf() }}<input type="hidden" name="next" value="{{ request_path }}">
+        <div class="hd">Columns <span class="hint">saved for you in this project</span></div>
+        {% for key, label in all_columns %}
+          <label class="item check"><input type="checkbox" name="col" value="{{ key }}"{% if key in columns %} checked{% endif %} data-autosubmit><i>{{ m.icon("i-check", "ico-sm") }}</i>{{ label }}</label>
+        {% endfor %}
+        <noscript><button class="btn btn-sm" type="submit">Save columns</button></noscript>
+      </form>
+    </div>
+  </div>
+
+  {% if can(Perm.ANNOTATE) %}
+  <button type="button" class="btn btn-primary" data-dialog-open="save-view">{{ m.icon("i-plus") }}Save view</button>
+  {% endif %}
+</div>
+
+<div class="statrow" aria-label="Totals for this filter">
+  <div><div class="top">Traces<span class="chipi acc">{{ m.icon("i-traces", "ico-sm") }}</span></div><b>{{ stats.count | count }}</b><span class="sub">{{ state.range_label }}</span></div>
+  <div><div class="top">Total cost<span class="chipi ok">{{ m.icon("i-info", "ico-sm") }}</span></div><b>{{ stats.total_cost | money(2) }}</b><span class="sub">across these traces</span></div>
+  <div><div class="top">Error rate<span class="chipi err">{{ m.icon("i-error", "ico-sm") }}</span></div><b>{{ error_rate }}</b><span class="sub">{{ stats.error_count | count }} traces with an Error</span></div>
+  <div><div class="top">p95 latency<span class="chipi warn">{{ m.icon("i-clock", "ico-sm") }}</span></div><b>{{ stats.latency_p95_ms | latency }}</b><span class="sub">p50 {{ stats.latency_p50_ms | latency }}</span></div>
+</div>
+
+<div class="panel">
+  <form id="filters" method="get" action="{{ state.base_path }}">
+    {% if state.params.get("sort") %}<input type="hidden" name="sort" value="{{ state.params.get('sort') }}">{% endif %}
+    {% if state.params.get("range") and state.range != "custom" %}<input type="hidden" name="range" value="{{ state.range }}">{% endif %}
+    {% if state.params.get("tab") %}<input type="hidden" name="tab" value="{{ state.tab }}">{% endif %}
+    {% if state.params.get("env") %}<input type="hidden" name="env" value="{{ state.params.get('env') }}">{% endif %}
+    {% for key, value in state.form.metadata.items() %}<input type="hidden" name="metadata.{{ key }}" value="{{ value }}">{% endfor %}
+    {% for tag in state.params.getlist("tag") %}{% if loop.index > 1 %}<input type="hidden" name="tag" value="{{ tag }}">{% endif %}{% endfor %}
+    <div class="tbar">
+      <div class="seg" role="tablist" aria-label="Quick filter">
+        {% for key, label, n in tabs %}
+          <a role="tab" href="{{ state.url(set={'tab': key} if key != 'all' else {}, drop=['tab']) }}" aria-selected="{{ 'true' if state.tab == key else 'false' }}">{{ label }}<span class="cnt">{{ n | count }}</span></a>
+        {% endfor %}
+      </div>
+      <span class="right row-wrap">
+        <div class="input-wrap">{{ m.icon("i-search") }}<input class="input" name="q" aria-label="Search traces" value="{{ state.search }}" placeholder="Search name, id, input, output" data-search><kbd>/</kbd></div>
+        <button class="sr" type="submit">Search</button>
+        {% include "traces/_filters.html" %}
+      </span>
+    </div>
+  </form>
+  {% if state.chips %}
+  <div class="tbar tbar-chips">
+    {% for chip in state.chips %}
+      <span class="chip accent">{{ chip.label }} <a href="{{ chip_urls[loop.index0] }}" aria-label="Remove filter {{ chip.label }}">{{ m.icon("i-x", "ico-sm") }}</a></span>
+    {% endfor %}
+    <a href="{{ state.base_path }}" class="hint">Clear all</a>
+  </div>
+  {% endif %}
+
+  {% if error %}
+    <div class="panel-b">{{ m.banner("err", error) }}</div>
+  {% elif not rows %}
+    <div class="empty">
+      {{ m.icon("i-search", "ico-lg") }}
+      <h2>No traces match these filters</h2>
+      <p>Nothing {{ state.range_phrase }} matches the current search and filters. Widen the date range or remove a filter.</p>
+      <div class="row-wrap">
+        {% if state.range != "7d" and state.range != "30d" %}<a class="btn btn-primary" href="{{ state.url(drop=['from', 'to'], set={'range': '7d'}) }}">Widen to 7 days</a>{% endif %}
+        <a class="btn" href="{{ state.base_path }}">Clear all filters</a>
+      </div>
+    </div>
+  {% else %}
+  <div class="rack">
+    <table class="tbl roomy stripify" aria-label="Traces">
+      <thead><tr>
+        <th class="lvl"></th>
+        {% if "time" in columns %}<th aria-sort="{{ state.sort_state('time') }}"><a href="{{ state.sort_url('time') }}">Time{{ m.icon("i-sort", "ico-sm") }}</a></th>{% endif %}
+        <th>Trace</th>
+        {% if "user" in columns %}<th>User</th>{% endif %}
+        {% if "session" in columns %}<th>Session</th>{% endif %}
+        {% if "tags" in columns %}<th>Tags</th>{% endif %}
+        {% if "latency" in columns %}<th class="r" aria-sort="{{ state.sort_state('latency') }}"><a href="{{ state.sort_url('latency') }}">Latency{{ m.icon("i-sort", "ico-sm") }}</a></th>{% endif %}
+        {% if "tokens" in columns %}<th class="r" aria-sort="{{ state.sort_state('tokens') }}"><a href="{{ state.sort_url('tokens') }}">Tokens{{ m.icon("i-sort", "ico-sm") }}</a></th>{% endif %}
+        {% if "cost" in columns %}<th class="r" aria-sort="{{ state.sort_state('cost') }}"><a href="{{ state.sort_url('cost') }}">Cost{{ m.icon("i-sort", "ico-sm") }}</a></th>{% else %}<th class="only-m"></th>{% endif %}
+        {% if "level" in columns %}<th>Status</th>{% endif %}
+        {% if "scores" in columns %}<th>Scores</th>{% endif %}
+        {% if "environment" in columns %}<th>Environment</th>{% endif %}
+        {% if "release" in columns %}<th>Release</th>{% endif %}
+        <th class="only-m"></th>
+      </tr></thead>
+      <tbody id="trace-rows">{% include "traces/_rows.html" %}</tbody>
+    </table>
+  </div>
+  {% include "traces/_pager.html" %}
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block dialogs %}
+{% if can(Perm.ANNOTATE) and not empty_project %}
+<dialog class="dlg" id="save-view" aria-label="Save view">
+  <div class="dialog">
+    {{ m.dialog_head("Save view", "i-bookmark") }}
+    <form method="post" action="/project/{{ project.id }}/views">
+      {{ m.csrf() }}<input type="hidden" name="query" value="{{ state.filter_query }}">
+      <div class="body">
+        <div class="field"><label for="view-name">Name</label><input class="input" id="view-name" name="name" required maxlength="120" placeholder="Errors in production"></div>
+        <div class="hint">Saves the current search, filters and date range. Everyone in this project can apply it.</div>
+      </div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">Save view</button></footer>
+    </form>
+  </div>
+</dialog>
+<dialog class="dlg" id="edit-view" aria-label="Edit view">
+  <div class="dialog">
+    {{ m.dialog_head("Edit view", "i-pencil") }}
+    <form method="post" action="" data-dialog-form>
+      {{ m.csrf() }}<input type="hidden" name="next" value="{{ request_path }}">
+      <div class="body">
+        <div class="field"><label for="edit-view-name">Name</label><input class="input" id="edit-view-name" name="name" required maxlength="120"></div>
+        <div class="field"><label for="edit-view-query">Filters (URL query)</label><input class="input mono" id="edit-view-query" name="query"></div>
+      </div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">Save changes</button></footer>
+    </form>
+  </div>
+</dialog>
+{% endif %}
+{% endblock %}

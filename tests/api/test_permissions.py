@@ -26,7 +26,12 @@ UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
 # Routes that are intentionally reachable without a project role: they authenticate another
 # way (API key) or before a session exists.
 # Routes any signed-in user may call, by design: creating your own organization.
-OPEN_TO_SIGNED_IN_USERS = {("POST", "/orgs/new")}
+# and saving your own display preferences (columns, environment), which every member may do.
+OPEN_TO_SIGNED_IN_USERS = {
+    ("POST", "/orgs/new"),
+    ("POST", "/project/{project_id}/prefs/env"),
+    ("POST", "/project/{project_id}/prefs/columns"),
+}
 PUBLIC_PREFIXES = ("/api/public/", "/login", "/signup", "/logout", "/forgot", "/reset", "/invite")
 
 probe = APIRouter()

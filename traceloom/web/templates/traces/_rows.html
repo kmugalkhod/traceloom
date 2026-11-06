@@ -1,0 +1,21 @@
+{# Table rows for one page of traces. Everything user-supplied is autoescaped. #}
+{% import "_macros.html" as m with context %}
+{% for r in rows %}
+<tr class="{{ r.row_class }}" tabindex="-1" data-row data-href="{{ r.href }}">
+  <td class="lvl"></td>
+  {% if "time" in columns %}<td><div class="cell2"><b>{{ r.day }}</b><span>{{ r.clock }}</span></div></td>{% endif %}
+  <td class="c-name"><div class="cell2"><b>{% if r.bookmarked %}<span title="Bookmarked" class="mark">{{ m.icon("i-bookmark", "ico-sm fill") }}</span> {% endif %}<a class="row-link" href="{{ r.href }}">{{ r.name }}</a></b>
+    <span class="mono">{{ r.short_id }} · {{ r.observation_count }} obs</span></div></td>
+  {% if "user" in columns %}<td>{% if r.user %}<span class="row"><span class="avatar sm {{ r.user_av }}">{{ r.user_initials }}</span>{{ r.user }}</span>{% else %}<span class="muted">–</span>{% endif %}</td>{% endif %}
+  {% if "session" in columns %}<td class="mono">{{ r.session or "–" }}</td>{% endif %}
+  {% if "tags" in columns %}<td>{% for tag in r.tags %}<span class="chip">{{ tag }}</span> {% else %}<span class="muted">–</span>{% endfor %}</td>{% endif %}
+  {% if "latency" in columns %}<td class="num{% if r.level == 'ERROR' %} err-text{% endif %}">{{ r.latency_ms | latency }}</td>{% endif %}
+  {% if "tokens" in columns %}<td class="num">{{ r.tokens | count }}</td>{% endif %}
+  {% if "cost" in columns %}<td class="num c-cost{% if r.level == 'ERROR' %} err-text{% endif %}">{{ r.cost | money }}</td>{% else %}<td class="c-cost only-m num">{{ r.cost | money }}</td>{% endif %}
+  {% if "level" in columns %}<td>{% include "traces/_level.html" %}</td>{% endif %}
+  {% if "scores" in columns %}<td>{% for name, value in r.scores %}<span class="score"><b>{{ name }}</b><span>{{ value }}</span></span> {% else %}<span class="muted">–</span>{% endfor %}{% if r.more_scores %} <span class="hint">+{{ r.more_scores }}</span>{% endif %}</td>{% endif %}
+  {% if "environment" in columns %}<td>{{ r.environment }}</td>{% endif %}
+  {% if "release" in columns %}<td class="mono">{{ r.release or "–" }}</td>{% endif %}
+  <td class="only-m c-meta"><span class="mono">{{ r.clock }}</span>{% if r.user %}<span>{{ r.user }}</span>{% endif %}<span class="mono{% if r.level == 'ERROR' %} err-text{% endif %}">{{ r.latency_ms | latency }}</span><span class="mono">{{ r.tokens | count }} tok</span><span>{% include "traces/_level.html" %}</span></td>
+</tr>
+{% endfor %}
