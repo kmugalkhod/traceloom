@@ -44,3 +44,43 @@ def test_version_rail_stacks_on_a_phone(live, session):
     assert rail.evaluate("el => getComputedStyle(el).flexDirection") == "column"
     assert rail.evaluate("el => el.scrollWidth <= el.clientWidth + 1")
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
+
+
+def test_list_search_button_stays_on_the_filter_row(live, session):
+    seed_support(live)
+    page = session.page
+    page.goto(f"{live.url}/project/{live.account.project_id}/prompts")
+    search = page.get_by_role("button", name="Search").bounding_box()
+    box = page.locator("input[name=q]").bounding_box()
+    assert abs(search["y"] - box["y"]) < 12  # same row at 1280
+
+
+def test_metrics_row_shows_model_latency_tokens_and_cost_on_a_phone(live, session):
+    from datetime import UTC, datetime, timedelta
+
+    from traceloom.db.models import Observation, Trace
+
+    seed_support(live)
+    with live.container.session_factory() as db:
+        start = datetime.now(UTC) - timedelta(minutes=1)
+        db.add(Trace(project_id=live.account.project_id, id="trace-mob", timestamp=start))
+        db.add(
+            Observation(
+                project_id=live.account.project_id, id="o-mob", trace_id="trace-mob",
+                type="generation", start_time=start, end_time=start + timedelta(seconds=2),
+                model="claude-sonnet-5-5", usage_details={"total": 900},
+                cost_details={"total": 0.0061}, prompt_name="support", prompt_version=2,
+            )
+        )  # fmt: skip
+        db.commit()
+    page = session.page
+    page.set_viewport_size({"width": 390, "height": 800})
+    page.goto(f"{live.url}/project/{live.account.project_id}/prompts/support?tab=metrics&version=2")
+    row = page.locator("#metrics-pane tbody tr").first
+    expect(row).to_contain_text("claude-sonnet-5-5")
+    expect(row).to_contain_text("2.00 s")
+    expect(row).to_contain_text("900 tokens")
+    expect(row).to_contain_text("$0.0061")
+    cost, link = row.locator("td.num.m-show").bounding_box(), row.locator("a").bounding_box()
+    assert abs(cost["y"] - link["y"]) < 14  # the cost sits on the first line of the row
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")

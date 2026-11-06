@@ -1053,7 +1053,7 @@ dialog.dlg .dialog{width:100%}
 /* ===== Prompts pages (list and editor) ===== */
 .jc-between{justify-content:space-between}
 .num-r{text-align:right}
-.search-box{max-width:300px}
+.search-box{max-width:300px;flex:1 1 180px}
 .chip-x{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;color:var(--ink-2)}
 .chip-x:hover{background:var(--sunken)}
 .fchip{padding-right:4px}
@@ -1090,7 +1090,8 @@ dialog.dlg .dialog{width:100%}
 .tabs a[role=tab][aria-selected=true]{color:var(--ink);font-weight:600;border-bottom-color:var(--accent-solid)}
 .compare-arrow{align-self:end;padding-bottom:8px}
 .sk-line{height:14px;margin:6px 0}
-.filterbar .select{width:auto;flex:0 0 auto;min-width:130px}
+.filterbar .select{width:auto;flex:0 0 auto;min-width:110px}
+@container app (min-width:1000px){.filterbar{flex-wrap:nowrap}}
 @container app (max-width:760px){.filterbar .select{flex:1 1 40%}}
 
 /* Fixes from the design review: stacked version rail, enabled-looking buttons in dialogs and toasts */
@@ -1099,8 +1100,8 @@ dialog.dlg .dialog{width:100%}
 .toast .btn,.toast .btn-ghost{color:var(--surface);opacity:1}
 .toast .btn:hover,.toast .btn-ghost:hover{background:rgba(127,127,127,.3)}
 .toast .btn-ghost{border-color:rgba(127,127,127,.45)}
-.tbl.cardrows .t-when{display:none}
-@container app (max-width:760px){.tbl.cardrows .t-when{display:inline}}
+.tbl.cardrows .t-meta{display:none}
+@container app (max-width:760px){.tbl.cardrows .t-meta{display:block;grid-column:1;font-size:12.5px;overflow-wrap:anywhere}}
 .menu-wrap .pop .item:focus-visible,.pop .item:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 /* Dialogs whose body and footer sit inside a <form> get the same spacing as direct children */
 .dialog>form>.body{padding:6px 20px 18px;display:flex;flex-direction:column;gap:16px}

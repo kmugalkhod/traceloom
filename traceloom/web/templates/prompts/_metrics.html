@@ -46,7 +46,7 @@ with traceloom_sdk.start_generation("answer", model="...", prompt=prompt):
         <tr>
           <td class="m-show"><a href="/project/{{ project.id }}/traces/{{ g.trace_id | urlencode }}" class="mono">{{ g.trace_id }}</a>
             {% if g.level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif g.level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% endif %}
-            <span class="t-when muted">{{ g.start_time | ago }}</span></td>
+            <span class="t-meta muted">{{ g.start_time | ago }} · {{ g.model or "no model" }} · {{ g.latency_ms | latency }} · {{ g.tokens | count }} tokens{% if version == "all" %} · v{{ g.version }}{% endif %}</span></td>
           <td class="hide-m muted">{{ g.start_time | ago }}</td>
           {% if version == "all" %}<td class="hide-m"><span class="vp">v{{ g.version }}</span></td>{% endif %}
           <td class="hide-m mono">{{ g.model or "–" }}</td>
