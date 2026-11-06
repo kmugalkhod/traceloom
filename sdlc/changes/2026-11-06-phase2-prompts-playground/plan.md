@@ -187,3 +187,4 @@ Also:
 <!-- Appended during build: date — what changed vs the plan — why. -->
 - 2026-11-06 — The `production` protected label is seeded for new projects by a SQLAlchemy `after_insert` mapper event on `Project` (in `db/models.py`), not by explicit code in `services/orgs.py`; `orgs.py` is unchanged. Why: projects are also created by `services/demo.py` and test factories, and one hook covers every path.
 - 2026-11-06 — `tests/conftest.py` sets a throwaway `TRACELOOM_ENCRYPTION_KEY` for the whole suite (`os.environ.setdefault`). Why: `Settings` now requires a key outside dev, and many tests build `Settings(TRACELOOM_ENV="test")`.
+- 2026-11-06 — Added `adapters/full/clickhouse_migrations.sql` (idempotent `ALTER TABLE observations ADD INDEX IF NOT EXISTS idx_prompt_name`), run by `apply_migrations` after `apply_schema`. Why: `CREATE TABLE IF NOT EXISTS` does not add the prompt_name skip index to existing ClickHouse installs.

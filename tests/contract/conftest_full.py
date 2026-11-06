@@ -19,7 +19,11 @@ def open_clickhouse_store() -> Iterator:
     """Yield a ClickHouseTraceStore on a throwaway database, dropped afterwards."""
     import clickhouse_connect
 
-    from traceloom.adapters.full.clickhouse_trace_store import ClickHouseTraceStore, apply_schema
+    from traceloom.adapters.full.clickhouse_trace_store import (
+        ClickHouseTraceStore,
+        apply_migrations,
+        apply_schema,
+    )
 
     client = clickhouse_connect.get_client(
         host=os.environ.get("CLICKHOUSE_HOST", "localhost"),
@@ -29,6 +33,7 @@ def open_clickhouse_store() -> Iterator:
     )
     database = f"traceloom_test_{uuid.uuid4().hex[:10]}"
     apply_schema(client, database)
+    apply_migrations(client, database)
     try:
         yield ClickHouseTraceStore(client, database)
     finally:
