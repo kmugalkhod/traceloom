@@ -1,6 +1,6 @@
 # Plan: Traceloom Phase 1 — tracing core (MVP)
 
-From: spec.md (cf751e2) · Status: accepted · Accepted by: Kunal Mugalkhod
+From: spec.md (cf751e2) · Status: implemented · Accepted by: Kunal Mugalkhod
 
 <!-- Status: draft -> accepted (engineer; tech lead for higher-risk) -> implemented.
      Keep this file in sync with the code: a deviation updates plan.md in the same commit. -->
