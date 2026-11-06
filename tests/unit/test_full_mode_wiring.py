@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 import types
@@ -43,15 +44,17 @@ def test_lite_mode_never_imports_the_full_mode_clients(tmp_path):
         "import sys\n"
         "from traceloom.config import Settings\n"
         "from traceloom.container import build_container\n"
-        f"s = Settings(TRACELOOM_ENV='test', TRACELOOM_MODE='lite', DATABASE_URL='sqlite:///{tmp_path}/x.db',"
-        " TRACELOOM_SECRET_KEY='k'*32)\n"
+        f"s = Settings(TRACELOOM_ENV='test', TRACELOOM_MODE='lite', DATABASE_URL='sqlite:///{tmp_path}/x.db')\n"
         "c = build_container(s)\n"
         "import traceloom.main\n"
         "full = ('boto3', 'redis', 'dramatiq', 'clickhouse_connect', 'traceloom.container_full')\n"
         "bad = [m for m in full if m in sys.modules]\n"
         "assert not bad, bad\n"
     )
-    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=ROOT)
+    env = {**os.environ, "TRACELOOM_SERVER_SECRET": "k" * 32, "TRACELOOM_SECRET_KEY": "k" * 32}
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, cwd=ROOT, env=env
+    )
     assert result.returncode == 0, result.stderr
 
 
@@ -94,13 +97,14 @@ def test_configure_wires_the_full_adapters(monkeypatch, tmp_path):
     module = types.ModuleType("traceloom.ingest.sweeper")
     module.Sweeper = FakeSweeper
     monkeypatch.setitem(sys.modules, "traceloom.ingest.sweeper", module)
+    monkeypatch.setenv("TRACELOOM_SERVER_SECRET", "k" * 32)
+    monkeypatch.setenv("TRACELOOM_SECRET_KEY", "k" * 32)  # old name, until the rename lands
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "x")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "x")
     settings = Settings(
         TRACELOOM_ENV="test",
         TRACELOOM_MODE="full",
         DATABASE_URL=f"sqlite:///{tmp_path}/m.db",
-        TRACELOOM_SECRET_KEY="k" * 32,
         S3_BUCKET="tl-wiring",
     )
     container = Container(settings=settings)
