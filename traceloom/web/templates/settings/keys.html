@@ -61,7 +61,7 @@
       {{ m.csrf() }}
       <div class="body">
         <div class="field"><label for="key-note">Note</label><input class="input" id="key-note" name="note" value="{{ note }}" maxlength="200" placeholder="What is this key for?"><div class="hint">Shown in the list so you can tell keys apart.</div></div>
-        <div class="field"><label><input type="checkbox" name="may_move_protected_labels" value="true"> May move protected prompt labels</label><div class="hint">Lets this key move labels like production through the prompt API. Off by default.</div></div>
+        <div class="field"><label class="check"><input type="checkbox" name="may_move_protected_labels" value="true"> May move protected prompt labels</label><div class="hint">Lets this key move labels like production through the prompt API. Off by default.</div></div>
       </div>
       <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">Create key</button></footer>
     </form>

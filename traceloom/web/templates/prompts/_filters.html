@@ -1,0 +1,28 @@
+{# Search, tag / label / sort pickers and the active-filter chips. Plain GET form. #}
+<form class="filterbar" method="get" action="/project/{{ project.id }}/prompts" role="search">
+  {% if folder %}<input type="hidden" name="folder" value="{{ folder }}">{% endif %}
+  <div class="input-wrap grow search-box">
+    {{ m.icon("i-search") }}
+    <input class="input" type="search" name="q" value="{{ q }}" placeholder="Search name, tag or content" aria-label="Search prompts">
+  </div>
+  <select class="select" name="tag" aria-label="Tag" data-autosubmit>
+    <option value="">Tag: any</option>
+    {% for t in tags %}<option value="{{ t }}"{% if t == tag %} selected{% endif %}>{{ t }}</option>{% endfor %}
+  </select>
+  <select class="select" name="label" aria-label="Label" data-autosubmit>
+    <option value="">Label: any</option>
+    {% for l in labels %}<option value="{{ l }}"{% if l == label %} selected{% endif %}>{{ l }}</option>{% endfor %}
+  </select>
+  <select class="select" name="sort" aria-label="Sort" data-autosubmit>
+    {% for key, text in sorts.items() %}<option value="{{ key }}"{% if key == sort %} selected{% endif %}>Sort: {{ text }}</option>{% endfor %}
+  </select>
+  <button class="btn" type="submit">Search</button>
+</form>
+{% if filtered %}
+<div class="fchips" aria-label="Active filters">
+  {% if q %}<span class="fchip">Search: {{ q }}<a class="chip-x" href="{{ chip_urls.q }}" aria-label="Remove search">{{ m.icon("i-x", "ico-sm") }}</a></span>{% endif %}
+  {% if tag %}<span class="fchip">Tag: {{ tag }}<a class="chip-x" href="{{ chip_urls.tag }}" aria-label="Remove tag filter">{{ m.icon("i-x", "ico-sm") }}</a></span>{% endif %}
+  {% if label %}<span class="fchip">Label: {{ label }}<a class="chip-x" href="{{ chip_urls.label }}" aria-label="Remove label filter">{{ m.icon("i-x", "ico-sm") }}</a></span>{% endif %}
+  <a class="btn btn-sm btn-ghost" href="{{ clear_url }}">Clear all</a>
+</div>
+{% endif %}

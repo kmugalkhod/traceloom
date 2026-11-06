@@ -122,6 +122,8 @@ class PromptSummary:
     latest_version: int
     labels: dict[str, int]
     updated_at: datetime
+    updated_by: str | None = None  # who saved the latest version (user or key id)
+    snippet: str = ""  # the matching line when a search matched the content only
 
     @property
     def folder(self) -> str:
@@ -685,8 +687,15 @@ def list_prompts(
     if tag:
         prompts = [p for p in prompts if tag in (p.tags or [])]
     needle = search.strip().lower()
+    snippets: dict[str, str] = {}
     if needle:
-        prompts = [p for p in prompts if _matches(db, project.id, p, needle)]
+        kept = []
+        for p in prompts:
+            hit, snippet = _match(db, project.id, p, needle)
+            if hit:
+                kept.append(p)
+                snippets[p.id] = snippet
+        prompts = kept
 
     ids = [p.id for p in prompts]
     latest = dict(
@@ -696,6 +705,16 @@ def list_prompts(
             .group_by(PromptVersion.prompt_id)
         ).all()
     )
+    authors = {
+        (prompt_id, version): created_by
+        for prompt_id, version, created_by in db.execute(
+            select(PromptVersion.prompt_id, PromptVersion.version, PromptVersion.created_by).where(
+                PromptVersion.project_id == project.id,
+                PromptVersion.prompt_id.in_(ids),
+                PromptVersion.version.in_({v for v in latest.values()} or {0}),
+            )
+        )
+    }
     labels: dict[str, dict[str, int]] = {}
     for row in db.scalars(
         select(PromptLabel).where(
@@ -711,6 +730,8 @@ def list_prompts(
             latest.get(p.id, 0),
             labels.get(p.id, {}),
             p.updated_at,
+            authors.get((p.id, latest.get(p.id, 0))),
+            snippets.get(p.id, ""),
         )
         for p in prompts
     ]
@@ -734,9 +755,11 @@ def list_prompts(
     )
 
 
-def _matches(db: Session, project_id: str, prompt: Prompt, needle: str) -> bool:
+def _match(db: Session, project_id: str, prompt: Prompt, needle: str) -> tuple[bool, str]:
+    """(matched, snippet). The snippet is the matching content line, only when the name and
+    tags did not already explain the match."""
     if needle in prompt.name.lower() or any(needle in t.lower() for t in prompt.tags or []):
-        return True
+        return True, ""
     latest = db.scalar(
         select(PromptVersion.content)
         .where(PromptVersion.project_id == project_id, PromptVersion.prompt_id == prompt.id)
@@ -744,6 +767,21 @@ def _matches(db: Session, project_id: str, prompt: Prompt, needle: str) -> bool:
         .limit(1)
     )
     if latest is None:
-        return False
-    text = latest if isinstance(latest, str) else " ".join(m.get("content", "") for m in latest)
-    return needle in text.lower()
+        return False, ""
+    text = latest if isinstance(latest, str) else "\n".join(m.get("content", "") for m in latest)
+    for line in text.splitlines():
+        if needle in line.lower():
+            return True, line.strip()[:200]
+    return False, ""
+
+
+def facets(db: Session, project: Project, actor: Actor) -> tuple[list[str], list[str]]:
+    """(tags, labels) in use across the project's prompts, for filter menus."""
+    actor.require(Perm.PROMPTS_READ, "You cannot read prompts in this project.")
+    tags = {
+        t
+        for (row,) in db.execute(select(Prompt.tags).where(Prompt.project_id == project.id))
+        for t in row or []
+    }
+    labels = set(db.scalars(select(PromptLabel.label).where(PromptLabel.project_id == project.id)))
+    return sorted(tags), sorted(labels)
