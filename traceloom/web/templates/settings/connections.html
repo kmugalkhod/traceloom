@@ -34,7 +34,7 @@
       <span class="hint">Stored encrypted. You will only see the last 4 characters afterwards.</span></div>
     <div class="field"><label for="{{ uid }}-hdr">Extra headers <span class="muted">(optional JSON)</span></label>
       <input class="input mono" id="{{ uid }}-hdr" name="headers" placeholder='{"X-Team": "support"}' autocomplete="off"{% if err and err[0] == "headers" %} aria-invalid="true" aria-describedby="e-{{ uid }}-hdr"{% endif %}>{{ field_error(err, "headers", uid ~ "-hdr") }}
-      <span class="hint">{% if editing and row.header_names %}Saved headers: {{ row.header_names | join(", ") }}. Values are never shown; entering new headers replaces them all.{% else %}Header values are stored encrypted.{% endif %}</span></div>
+      <span class="hint"{% if editing and row.header_names %} data-saved-headers{% endif %}>{% if editing and row.header_names %}Saved headers: {{ row.header_names | join(", ") }}. Values are never shown; entering new headers replaces them all.{% else %}Header values are stored encrypted.{% endif %}</span></div>
   {% else %}
     <div class="field"><label for="{{ uid }}-key">API key</label>
       <input class="input mono" id="{{ uid }}-key" name="api_key" type="password" autocomplete="off" placeholder="{{ 'Leave blank to keep the saved key' if editing and not row.needs_reentry else ({'anthropic': 'sk-ant-…', 'openai': 'sk-…', 'google': 'Google AI key'}.get(p, '')) }}"{% if err and err[0] == "api_key" %} aria-invalid="true" aria-describedby="e-{{ uid }}-key"{% endif %}>

@@ -243,3 +243,21 @@ def test_api_patch_production_closing_a_loop_is_400(client, auth):
     assert r.status_code == 400 and "Circular" in r.json()["error"]["message"]
     assert client.get(f"{BASE}/a", headers=auth).json()["version"] == 1  # production did not move
     assert client.get(f"{BASE}/b", headers=auth).status_code == 200
+
+
+def test_api_get_on_a_legacy_loop_in_the_db_is_400_naming_the_cycle(client, auth, db):
+    """AC-8: a loop written before cycle checks existed (hand-inserted here) must not hang or
+    500."""
+    assert post(client, auth, "old/a", "A").status_code == 201
+    assert post(client, auth, "old/b", "B @@@prompt:old/a|label=latest@@@").status_code == 201
+    a_v1 = db.scalar(
+        select(PromptVersion)
+        .join(Prompt, Prompt.id == PromptVersion.prompt_id)
+        .where(Prompt.name == "old/a")
+    )
+    a_v1.content = "A @@@prompt:old/b|label=latest@@@"  # bypasses the write-time check
+    db.commit()
+    r = client.get(f"{BASE}/old/a", headers=auth)
+    assert r.status_code == 400, r.text
+    message = r.json()["error"]["message"]
+    assert "Circular" in message and "old/a" in message and "old/b" in message

@@ -1,5 +1,7 @@
 {% import "_macros.html" as m with context %}
-{# For the traces list: shown to Admin+ only. Carries the list's current filters (state.filter_query). #}
+{# A menu item in the traces list's "..." menu: shown to Admin+ only. Carries the list's current
+   filters (state.filter_query). Destructive, so it is red; the confirm page holds the red button. #}
 {% if can("traces:delete") %}
-<a class="btn btn-danger btn-sm" href="/project/{{ project.id }}/traces-delete-matching?{{ state.filter_query if state is defined else request.url.query }}">{{ m.icon("i-trash") }}Delete matching...</a>
+<div class="sep"></div>
+<a class="item danger" role="menuitem" href="/project/{{ project.id }}/traces-delete-matching?{{ state.filter_query if state is defined else request.url.query }}">{{ m.icon("i-trash", "ico-sm") }}Delete matching traces…</a>
 {% endif %}

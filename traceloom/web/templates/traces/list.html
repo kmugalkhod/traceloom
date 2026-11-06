@@ -19,52 +19,52 @@
   {% include "_onboarding.html" %}
 {% else %}
 {% call m.page_header("Traces", "Every run your agents sent, newest first. Filters live in the URL.") %}
-  <div class="menu-wrap">
-    <button type="button" class="btn" aria-haspopup="true" aria-expanded="false" data-menu-toggle="views-menu">{{ m.icon("i-bookmark") }}Saved views</button>
-    <div class="pop pop-right" id="views-menu" data-menu hidden role="menu" aria-label="Saved views">
-      <div class="hd">Saved views</div>
-      {% for view, owner in views %}
-        <div class="item-row">
-          <a class="item grow" role="menuitem" href="{{ state.base_path }}{{ '?' ~ view.query if view.query else '' }}"><span class="grow"><b>{{ view.name }}</b><div class="hint">by {{ 'you' if view.owner_id == user.id else owner }}</div></span></a>
-          {% if view.owner_id == user.id or can(Perm.SHARE_TOGGLE) %}
-          <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="Edit view {{ view.name }}" title="Edit view"
-                  data-dialog-open="edit-view" data-form-action="/project/{{ project.id }}/views/{{ view.id }}"
-                  data-prefill='{{ {"name": view.name, "query": view.query} | tojson | forceescape }}'>{{ m.icon("i-pencil") }}</button>
-          <form class="inline-form" method="post" action="/project/{{ project.id }}/views/{{ view.id }}/delete" data-confirm="Delete the view {{ view.name }}?">
-            {{ m.csrf() }}<input type="hidden" name="next" value="{{ request_path }}">
-            <button class="btn btn-icon btn-sm btn-ghost" type="submit" aria-label="Delete view {{ view.name }}" title="Delete view">{{ m.icon("i-trash") }}</button>
-          </form>
-          {% endif %}
-        </div>
-      {% else %}
-        <div class="hint">No saved views yet.</div>
-      {% endfor %}
-      {% if can(Perm.ANNOTATE) %}
-      <div class="sep"></div>
-      <button type="button" class="item" data-dialog-open="save-view">{{ m.icon("i-plus", "ico-sm") }}Save current filters as a view…</button>
-      {% endif %}
-      <div class="hint">Applying a view restores its URL. Only its creator or an Admin can edit it.</div>
-    </div>
-  </div>
-
-  <div class="menu-wrap">
-    <button type="button" class="btn" aria-haspopup="true" aria-expanded="false" data-menu-toggle="columns-menu">{{ m.icon("i-columns") }}Columns</button>
-    <div class="pop pop-right" id="columns-menu" data-menu hidden role="menu" aria-label="Columns">
-      <form method="post" action="/project/{{ project.id }}/prefs/columns">
-        {{ m.csrf() }}<input type="hidden" name="next" value="{{ request_path }}">
-        <div class="hd">Columns <span class="hint">saved for you in this project</span></div>
-        {% for key, label in all_columns %}
-          <label class="item check"><input type="checkbox" name="col" value="{{ key }}"{% if key in columns %} checked{% endif %} data-autosubmit><i>{{ m.icon("i-check", "ico-sm") }}</i>{{ label }}</label>
-        {% endfor %}
-        <noscript><button class="btn btn-sm" type="submit">Save columns</button></noscript>
-      </form>
-    </div>
-  </div>
-
-  {% include "traces/_delete_matching_button.html" %}
+  {# One primary action (Save view); saved views, columns and delete matching live in "...". #}
   {% if can(Perm.ANNOTATE) %}
   <button type="button" class="btn btn-primary" data-dialog-open="save-view">{{ m.icon("i-plus") }}Save view</button>
   {% endif %}
+  <div class="menu-wrap">
+    <button type="button" class="btn btn-icon" aria-haspopup="true" aria-expanded="false" data-menu-toggle="list-menu" title="Saved views, columns{{ ', delete matching' if can('traces:delete') }}">{{ m.icon("i-more-h") }}<span class="sr">More actions: saved views, columns{{ ", delete matching" if can("traces:delete") }}</span></button>
+    <div class="pop pop-right pop-more" id="list-menu" data-menu hidden role="menu" aria-label="List actions">
+      <div class="more-cols">
+        <div class="more-sec" role="group" aria-label="Saved views">
+          <div class="hd">Saved views</div>
+          {% for view, owner in views %}
+            <div class="item-row">
+              <a class="item grow" role="menuitem" href="{{ state.base_path }}{{ '?' ~ view.query if view.query else '' }}"><span class="grow"><b>{{ view.name }}</b><div class="hint">by {{ 'you' if view.owner_id == user.id else owner }}</div></span></a>
+              {% if view.owner_id == user.id or can(Perm.SHARE_TOGGLE) %}
+              <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="Edit view {{ view.name }}" title="Edit view"
+                      data-dialog-open="edit-view" data-form-action="/project/{{ project.id }}/views/{{ view.id }}"
+                      data-prefill='{{ {"name": view.name, "query": view.query} | tojson | forceescape }}'>{{ m.icon("i-pencil") }}</button>
+              <form class="inline-form" method="post" action="/project/{{ project.id }}/views/{{ view.id }}/delete" data-confirm="Delete the view {{ view.name }}?">
+                {{ m.csrf() }}<input type="hidden" name="next" value="{{ request_path }}">
+                <button class="btn btn-icon btn-sm btn-ghost" type="submit" aria-label="Delete view {{ view.name }}" title="Delete view">{{ m.icon("i-trash") }}</button>
+              </form>
+              {% endif %}
+            </div>
+          {% else %}
+            <div class="hint more-pad">No saved views yet.</div>
+          {% endfor %}
+          {% if can(Perm.ANNOTATE) %}
+          <button type="button" class="item" role="menuitem" data-dialog-open="save-view">{{ m.icon("i-plus", "ico-sm") }}Save current filters as a view…</button>
+          {% endif %}
+          <div class="hint more-pad">Applying a view restores its URL. Only its creator or an Admin can edit it.</div>
+        </div>
+        <div class="more-sec" role="group" aria-label="Columns">
+          <form method="post" action="/project/{{ project.id }}/prefs/columns">
+            {{ m.csrf() }}<input type="hidden" name="next" value="{{ request_path }}">
+            <div class="hd">Columns</div>
+            <div class="hint more-pad">Saved for you in this project.</div>
+            {% for key, label in all_columns %}
+              <label class="item check"><input type="checkbox" name="col" value="{{ key }}"{% if key in columns %} checked{% endif %} data-autosubmit><i>{{ m.icon("i-check", "ico-sm") }}</i>{{ label }}</label>
+            {% endfor %}
+            <noscript><button class="btn btn-sm" type="submit">Save columns</button></noscript>
+          </form>
+        </div>
+      </div>
+      {% include "traces/_delete_matching_button.html" %}
+    </div>
+  </div>
 {% endcall %}
 
 <div class="statrow" aria-label="Totals for this filter">

@@ -236,3 +236,57 @@ def test_status_chips_report_done_and_error(pg):
     expect(columns.nth(0).locator("[data-v-status]")).to_have_text("Done")
     expect(columns.nth(1).locator("[data-v-status]")).to_have_text("Error")
     expect(columns.nth(1).locator("[data-v-status]")).to_have_attribute("data-state", "error")
+
+
+def test_the_compare_menu_item_reads_exit_compare_while_compare_is_on(pg):
+    page = pg.page
+    page.click("[data-menu-toggle=pg-menu]")
+    expect(page.locator("[data-pg-action=compare]")).to_have_text("Compare variants")
+    page.click("[data-pg-action=compare]")
+    expect(page.locator("#pg-root")).to_have_attribute("data-mode", "compare")
+    page.click("[data-menu-toggle=pg-menu]")
+    item = page.get_by_role("menuitem", name="Exit compare")
+    expect(item).to_be_visible()
+    item.click()
+    expect(page.locator("#pg-root")).to_have_attribute("data-mode", "single")
+    page.click("[data-menu-toggle=pg-menu]")
+    expect(page.get_by_role("menuitem", name="Compare variants")).to_be_visible()
+
+
+def cut_before_done(page) -> None:
+    """Let the real run (real server, fake provider) through, but drop its final `done` event, as
+    a proxy or a dropped connection would."""
+
+    def handle(route):
+        response = route.fetch()
+        blocks = [b for b in response.text().split("\n\n") if b.strip()]
+        assert blocks[-1].startswith("event: done"), blocks[-1]
+        route.fulfill(response=response, body="\n\n".join(blocks[:-1]) + "\n\n")
+
+    page.route("**/playground/run", handle)
+
+
+def test_a_stream_without_done_says_it_ended_early(pg):
+    page = pg.page
+    cut_before_done(page)
+    page.click("#pg-run")
+    expect(page.locator("#pg-out")).to_contain_text(f"{MODELS[0]} says hello")
+    expect(page.locator("#pg-out")).to_contain_text("The stream ended early")
+    expect(page.locator("#pg-status")).to_have_text("Ended early")
+    expect(page.locator("#pg-status")).not_to_have_text("Done")
+
+
+def test_a_compare_column_without_done_says_it_ended_early(pg):
+    page = pg.page
+    cut_before_done(page)
+    open_compare(page)
+    columns = page.locator("[data-variant]")
+    columns.nth(0).locator("[data-v-model]").fill(MODELS[0])
+    columns.nth(1).locator("[data-v-model]").fill(MODELS[1])
+    page.click("[data-run-all]")
+    for i in range(2):
+        col = columns.nth(i)
+        expect(col.locator("[data-v-text]")).to_contain_text(f"{MODELS[i]} says hello")
+        expect(col.locator("[data-v-status]")).to_have_text("Ended early")
+        expect(col.locator("[data-v-status]")).to_have_attribute("data-state", "early")
+        expect(col.locator("[data-v-error]")).to_contain_text("The stream ended early")

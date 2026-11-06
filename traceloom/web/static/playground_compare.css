@@ -27,3 +27,4 @@
 .variant-h .stat-chip{flex:none}
 .stat-chip[data-state="waiting"],.stat-chip[data-state="streaming"]{color:var(--accent)}
 .stat-chip[data-state="error"]{color:var(--err)}
+.stat-chip[data-state="early"]{color:var(--warn)}

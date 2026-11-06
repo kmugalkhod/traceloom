@@ -9,9 +9,9 @@
 <script src="/static/charts.js" defer></script>
 {{ m.page_header("Dashboard", "Cost, tokens, latency and errors" ~ (" for " ~ environment if environment else "") ~ " over the last " ~ range_label ~ ".") }}
 
-{% macro lat_table(title, label, rows) %}
-<section class="panel c6" aria-label="{{ title }}">
-  <div class="panel-h"><h2>{{ title }}</h2></div>
+{# One Breakdown tab body. Each keeps the name of the panel it replaced as its label. #}
+{% macro lat_table(id, title, label, rows, selected=False) %}
+<div class="tabpanel" role="tabpanel" id="bd-{{ id }}" aria-label="{{ title }}" tabindex="0"{% if not selected %} hidden{% endif %}>
   {% if rows %}
   <div class="rack">
     <table class="tbl tbl-flat keepcols">
@@ -28,12 +28,11 @@
     </table>
   </div>
   {% else %}<div class="panel-b"><p class="hint">No data in this range.</p></div>{% endif %}
-</section>
+</div>
 {% endmacro %}
 
-{% macro bars(title, hint, rows, kind) %}
-<section class="panel c6" aria-label="{{ title }}">
-  <div class="panel-h"><h2>{{ title }}</h2><span class="hint">{{ hint }}</span></div>
+{% macro bars(id, title, rows, kind, selected=False) %}
+<div class="tabpanel" role="tabpanel" id="bd-{{ id }}" aria-label="{{ title }}" tabindex="0"{% if not selected %} hidden{% endif %}>
   <div class="panel-b">
     {% for r in rows %}
       <div class="hbar">
@@ -43,7 +42,7 @@
       </div>
     {% else %}<p class="hint">No model usage in this range.</p>{% endfor %}
   </div>
-</section>
+</div>
 {% endmacro %}
 
 {% if empty %}
@@ -88,10 +87,20 @@
     </div>
   </section>
 
-  {{ bars("Cost by model", "USD", v.cost_rows, "cost") }}
-  {{ bars("Tokens by model", "tokens", v.token_rows, "tokens") }}
-  {{ lat_table("Latency by trace name", "Trace name", v.latency_names) }}
-  {{ lat_table("Latency by model", "Model", v.latency_models) }}
+  <section class="panel c12" aria-label="Breakdown">
+    <div class="panel-h">
+      <h2 id="bd-title">Breakdown</h2>
+      <div class="seg right bd-tabs" role="tablist" aria-labelledby="bd-title" data-tabs>
+        {% for id, name in [("cost", "Cost"), ("tokens", "Tokens"), ("latm", "Latency by model"), ("latn", "Latency by trace")] %}
+        <button type="button" role="tab" id="bd-tab-{{ id }}" aria-controls="bd-{{ id }}" aria-selected="{{ 'true' if loop.first else 'false' }}" tabindex="{{ '0' if loop.first else '-1' }}">{{ name }}</button>
+        {% endfor %}
+      </div>
+    </div>
+    {{ bars("cost", "Cost by model", v.cost_rows, "cost", selected=True) }}
+    {{ bars("tokens", "Tokens by model", v.token_rows, "tokens") }}
+    {{ lat_table("latm", "Latency by model", "Model", v.latency_models) }}
+    {{ lat_table("latn", "Latency by trace name", "Trace name", v.latency_names) }}
+  </section>
 
   <section class="panel c12" aria-label="Top users by cost">
     <div class="panel-h"><h2>Top users by cost</h2><a class="right" href="{{ base }}/users">All users</a></div>

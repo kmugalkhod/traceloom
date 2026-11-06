@@ -129,7 +129,7 @@
 
   // --- running -----------------------------------------------------------------------------------
 
-  var LABELS = { ready: 'Ready', waiting: 'Waiting', streaming: 'Streaming', done: 'Done', error: 'Error', stopped: 'Stopped' };
+  var LABELS = { ready: 'Ready', waiting: 'Waiting', streaming: 'Streaming', done: 'Done', early: 'Ended early', error: 'Error', stopped: 'Stopped' };
   function setStatus(v, state) {
     var chip = $(v, '[data-v-status]');
     chip.setAttribute('data-state', state);
@@ -235,10 +235,11 @@
       handle(v, textNode, ev.name, ev.data);
     }, controller.signal).then(function (result) {
       if (!result.ok && !result.aborted) { showError(v, result.message || 'The run failed.'); }
+      else if (result.endedEarly && !v.__errored) { showError(v, 'The stream ended early. The text above is what arrived before the connection closed.'); }
       if (controllers.get(v) !== controller) { return; } // stopped or replaced meanwhile
       controllers.delete(v);
       $(v, '[data-variant-stop]').hidden = true;
-      setStatus(v, result.aborted ? 'stopped' : (!result.ok || v.__errored) ? 'error' : 'done');
+      setStatus(v, result.aborted ? 'stopped' : (!result.ok || v.__errored) ? 'error' : result.endedEarly ? 'early' : 'done');
       updateStopAll();
     });
   }

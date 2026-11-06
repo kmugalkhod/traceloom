@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from tests.helpers_web import T0
@@ -107,6 +109,44 @@ def test_rerun_sends_the_source_request_to_the_provider(login, client, world, ge
         {"role": "user", "content": [
             {"type": "tool_result", "tool_use_id": "tu1", "content": "sunny"}]},
     ]  # fmt: skip
+
+
+def test_rerun_of_a_claude5_generation_drops_temperature(login, client, world, container, conn_id):
+    """AC-4 (owner decision): a 5-family replay carries messages, model and tools; temperature,
+    which those models reject, is dropped. The haiku-4-5 test above is the pass-through case."""
+    trace = TraceRow(id="t5", timestamp=T0, name="t5", event_ts=T0)
+    obs = ObservationRow(
+        id="g5", trace_id="t5", start_time=T0, type="generation", model="claude-sonnet-5-5",
+        input=INPUT, model_parameters={"temperature": 0.2, "tools": PARAMS["tools"]}, event_ts=T0,
+    )  # fmt: skip
+    container.trace_store.upsert(world.project.id, [trace], [obs], [])
+    member = login(client, world.users[Role.MEMBER])
+    fill = fetch(member, world, obs="g5", trace="t5").json()
+    assert fill["model"] == "claude-sonnet-5-5" and fill["params"] == {"temperature": 0.2}
+    script = _script("anthropic")
+    script.reply(**anthropic_events(("text", ["ok"])))
+    providers.register("anthropic", lambda cfg: AnthropicProvider(cfg, http_client=script.http()))
+    run = {k: fill[k] for k in ("model", "messages", "params", "tools", "connection_id")}
+    r = member.post(f"/project/{world.project.id}/playground/run", json=run)
+    assert r.status_code == 200
+    sent = script.body
+    assert sent["model"] == "claude-sonnet-5-5"
+    assert sent["tools"] == PARAMS["tools"]
+    assert sent["messages"] == [
+        {"role": "user", "content": "What is the weather in Paris?"},
+        {"role": "assistant", "content": [
+            {"type": "text", "text": "Checking."},
+            {"type": "tool_use", "id": "tu1", "name": "weather", "input": {"city": "Paris"}}]},
+        {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "tu1", "content": "sunny"}]},
+    ]  # fmt: skip
+    assert "temperature" not in sent and "top_p" not in sent
+    usage = next(
+        json.loads(block.partition("\ndata: ")[2])
+        for block in r.text.strip().split("\n\n")
+        if block.startswith("event: usage")
+    )
+    assert usage["cost"] > 0 and usage["cost_source"] == "calculated"
 
 
 def test_openai_shaped_generation(container, login, client, world):

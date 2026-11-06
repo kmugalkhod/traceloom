@@ -8,7 +8,15 @@
 <div class="page-h"><div class="crumbs"><a href="/project/{{ project.id }}/users">Users</a>{{ m.icon("i-chev-r", "ico-sm") }}<span class="mono">{{ u.user_id }}</span></div></div>
 <div class="th-title">
   <h1 class="mono">{{ u.user_id }}</h1>
-  <span class="right row-wrap"><a class="btn" href="{{ traces_href }}">{{ m.icon("i-traces") }}View traces</a></span>
+  <span class="right row-wrap">
+    <a class="btn" href="{{ traces_href }}">{{ m.icon("i-traces") }}View traces</a>
+    <span class="menu-wrap">
+      <button type="button" class="btn btn-icon" aria-label="More user actions" aria-haspopup="true" aria-expanded="false" data-menu-toggle="user-menu">{{ m.icon("i-more-h") }}</button>
+      <span class="pop pop-right" id="user-menu" data-menu hidden role="menu" aria-label="User actions">
+        <button type="button" class="item" role="menuitem" data-copy="{{ u.user_id }}">{{ m.icon("i-copy", "ico-sm") }}Copy user id</button>
+      </span>
+    </span>
+  </span>
 </div>
 <div class="statrow">
   <div class="stat"><div class="top">Traces</div><b>{{ u.trace_count | intcomma }}</b><span class="sub">all time</span></div>

@@ -67,6 +67,23 @@ def assert_inside_viewport(page, menu) -> None:
     assert box["y"] + box["height"] <= size["height"] + 0.5, (box, size)
 
 
+def assert_not_clipped(menu) -> None:
+    """The open menu is the topmost thing at its edges and near its corners: no panel's
+    overflow:hidden (connections and webhooks sit in rounded panels) cuts it off and nothing
+    covers it. Points sit 16px in so the menu's own rounded corners do not count."""
+    hidden = menu.evaluate(
+        """m => {
+          const r = m.getBoundingClientRect(), i = 16, cx = (r.left + r.right) / 2,
+            cy = (r.top + r.bottom) / 2;
+          const pts = [[r.left + i, r.top + i], [r.right - i, r.top + i],
+            [r.left + i, r.bottom - i], [r.right - i, r.bottom - i], [cx, r.top + 4],
+            [cx, r.bottom - 4], [r.left + 4, cy], [r.right - 4, cy]];
+          return pts.filter(([x, y]) => !m.contains(document.elementFromPoint(x, y)));
+        }"""
+    )
+    assert hidden == [], hidden
+
+
 @pytest.mark.parametrize(("width", "height"), SIZES)
 @pytest.mark.parametrize(
     ("path", "toggle", "item", "dialog"),
@@ -84,6 +101,7 @@ def test_row_menus_are_inside_the_viewport_and_clickable(
     page.goto(f"{live.url}/project/{live.account.project_id}/{path}")
     menu = open_menu(page, toggle)
     assert_inside_viewport(page, menu)
+    assert_not_clipped(menu)
     # The popup is on top of the page (not covered or clipped): clicking its item reaches it.
     menu.get_by_role("menuitem", name=item).click()
     expect(page.locator(dialog)).to_have_count(1)

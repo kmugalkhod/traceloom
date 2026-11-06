@@ -125,16 +125,17 @@ def test_add_openai_compatible_needs_a_base_url_and_allows_a_keyless_server(admi
         name="vLLM",
         base_url="http://127.0.0.1:8000/v1",
         custom_models="llama-3.3-70b",
-        headers='{"X-Team": "support"}',
+        headers='{"X-Team": "hdr-value-7f3e"}',
     )
     assert ok.status_code == 303
     row = db.scalar(select(LLMConnection))
     assert row.base_url == "http://127.0.0.1:8000/v1" and row.custom_models == ["llama-3.3-70b"]
     page = admin.get(url(world), headers=HTML).text
-    assert (
-        "OpenAI-compatible" in page
-        and "X-Team" not in page.split("Saved headers")[0].split("vLLM")[-1][:0] + "x"
-    )
+    assert "OpenAI-compatible" in page
+    # The edit dialog lists the saved header names; the header values are never rendered.
+    saved = re.findall(r"<span class=\"hint\" data-saved-headers>(.*?)</span>", page, re.S)
+    assert len(saved) == 1 and "Saved headers: X-Team." in saved[0], saved
+    assert "hdr-value-7f3e" not in page
 
 
 def test_add_azure(admin, world, db):

@@ -1136,3 +1136,17 @@ dialog.dlg .dialog{width:100%}
 .mcard .msg-id{display:flex;flex-direction:column;gap:4px}
 .mcard .msg-calls>summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--ink-2)}
 .mcard.tool>header{background:var(--surface-2)}
+
+/* ===== v3.1 Phase 1 pass: dashboard Breakdown tabs, "..." menus ===== */
+.bd-tabs{max-width:100%;overflow-x:auto}
+@container app (max-width:760px){.bd-tabs{width:100%;display:grid;grid-template-columns:1fr 1fr}.bd-tabs button{justify-content:center}}
+.tabpanel:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.pop-more{min-width:260px}
+.more-cols{display:grid;grid-template-columns:minmax(220px,280px) minmax(180px,220px);gap:4px 12px}
+.more-sec{display:flex;flex-direction:column;gap:2px;min-width:0}
+.more-sec+.more-sec{border-left:1px solid var(--line);padding-left:12px}
+.more-pad{padding:4px 8px}
+@container app (max-width:760px){.more-cols{grid-template-columns:1fr}.more-sec+.more-sec{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:6px}}
+.share-item{cursor:default}
+.share-item form{width:100%;justify-content:space-between;color:var(--ink)}
+.share-item .dim{color:var(--ink)}

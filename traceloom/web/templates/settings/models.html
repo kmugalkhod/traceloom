@@ -45,24 +45,28 @@
     <div class="panel-h"><h2>Model definitions</h2><span class="hint">USD per 1M tokens</span><span class="grow"></span>
       <a class="btn btn-primary btn-sm" href="/project/{{ project.id }}/settings/models?new=1">{{ m.icon("i-plus") }}Add model</a></div>
     <div class="rack">
-      <table class="tbl tbl-flat keepcols">
+      <table class="tbl tbl-flat stack-m">
         <thead><tr><th>Match</th><th>Scope</th><th class="r">Input</th><th class="r">Output</th><th class="hide-m">Valid from</th><th class="r"><span class="sr">Actions</span></th></tr></thead>
         <tbody>
         {% for d in definitions %}
           <tr>
-            <td class="mono name">{{ d.model_name }}</td>
+            <td class="mono name c-name">{{ d.model_name }}</td>
             <td>{% if d.project_id %}<span class="src calc">Project</span>{% if d.id in overrides %} <span class="hint">overrides the built-in price</span>{% endif %}{% else %}<span class="src">Built-in</span>{% endif %}</td>
             <td class="num">${{ (d.prices or {}).get("input") | per_million }}</td>
             <td class="num">${{ (d.prices or {}).get("output") | per_million }}</td>
             <td class="hide-m muted">{{ d.valid_from | date }}</td>
             <td class="r">
               {% if d.project_id %}
-              <span class="row jc-end gap-4">
-                <a class="btn btn-sm" href="/project/{{ project.id }}/settings/models?edit={{ d.id }}">{{ m.icon("i-pencil") }}Edit</a>
-                <form class="inline-form" method="post" action="/project/{{ project.id }}/settings/models/{{ d.id }}/delete" data-confirm="Delete the definition for {{ d.model_name }}?">
-                  {{ m.csrf() }}<button class="btn btn-icon btn-sm btn-ghost" type="submit" aria-label="Delete definition" title="Delete definition">{{ m.icon("i-trash") }}</button>
-                </form>
-              </span>
+              <div class="menu-wrap">
+                <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="More actions for {{ d.model_name }}" aria-haspopup="true" aria-expanded="false" data-menu-toggle="md-menu-{{ d.id }}">{{ m.icon("i-more-h") }}</button>
+                <div class="pop pop-right" id="md-menu-{{ d.id }}" data-menu hidden role="menu" aria-label="Definition actions">
+                  <a class="item" role="menuitem" href="/project/{{ project.id }}/settings/models?edit={{ d.id }}">{{ m.icon("i-pencil", "ico-sm") }}Edit</a>
+                  <div class="sep"></div>
+                  <form method="post" action="/project/{{ project.id }}/settings/models/{{ d.id }}/delete" data-confirm="Delete the definition for {{ d.model_name }}?">
+                    {{ m.csrf() }}<button class="item danger" type="submit" role="menuitem">{{ m.icon("i-trash", "ico-sm") }}Delete definition</button>
+                  </form>
+                </div>
+              </div>
               {% else %}
               <a class="btn btn-sm" href="/project/{{ project.id }}/settings/models?override={{ d.id }}">{{ m.icon("i-plus") }}Override</a>
               {% endif %}

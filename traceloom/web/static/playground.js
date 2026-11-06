@@ -116,19 +116,21 @@
             return { ok: false, status: response.status, message: message, retryAfter: Number(response.headers.get('Retry-After')) || null };
           });
         }
-        var reader = response.body.getReader(), decoder = new TextDecoder(), buffer = '';
+        // The server always ends a run with `done`; a stream that closes without one was cut off.
+        var reader = response.body.getReader(), decoder = new TextDecoder(), buffer = '', sawDone = false;
+        function emit(ev) { if (ev.name === 'done') { sawDone = true; } onEvent(ev); }
         function pump() {
           return reader.read().then(function (chunk) {
             if (chunk.done) {
               buffer += decoder.decode();
               var last = parseBlock(buffer.replace(/\r/g, ''));
-              if (last) { onEvent(last); }
-              return { ok: true, status: response.status };
+              if (last) { emit(last); }
+              return { ok: true, status: response.status, endedEarly: !sawDone };
             }
             buffer += decoder.decode(chunk.value, { stream: true }).replace(/\r/g, '');
             var parts = buffer.split('\n\n');
             buffer = parts.pop();
-            parts.forEach(function (part) { var ev = parseBlock(part); if (ev) { onEvent(ev); } });
+            parts.forEach(function (part) { var ev = parseBlock(part); if (ev) { emit(ev); } });
             return pump();
           });
         }
@@ -530,6 +532,9 @@
     } else if (session.error) {
       setStatus('err', 'Failed');
       outEl.appendChild(banner('err', 'The provider returned an error.', session.error));
+    } else if (result.endedEarly) {
+      setStatus('', ''); setStatus('warn', 'Ended early');
+      outEl.appendChild(banner('warn', 'The stream ended early.', 'The connection closed before the run finished. The text above is what arrived; run it again for the full response.'));
     } else {
       setStatus('ok', 'Done');
       if (session.traceId) {
@@ -593,6 +598,8 @@
     // #pg-grid stays on screen in compare mode: the shared messages and inputs are what the columns
     // follow. CSS (playground_compare.css) hides the single Response panel instead.
     $('pg-compare-mount').hidden = mode !== 'compare';
+    var label = document.querySelector('[data-compare-label]');
+    if (label) { label.textContent = mode === 'compare' ? 'Exit compare' : 'Compare variants'; }
   }
 
   // ---- from a trace ---------------------------------------------------------------------------------

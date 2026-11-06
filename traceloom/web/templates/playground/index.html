@@ -35,7 +35,7 @@
       <div class="menu-wrap">
         <button type="button" class="btn btn-icon" aria-label="More actions" aria-haspopup="true" aria-expanded="false" data-menu-toggle="pg-menu">{{ m.icon("i-more-h") }}</button>
         <div class="pop pop-right" id="pg-menu" data-menu hidden role="menu" aria-label="Playground actions">
-          <button type="button" class="item" role="menuitem" data-pg-action="compare">{{ m.icon("i-columns", "ico-sm") }}Compare variants</button>
+          <button type="button" class="item" role="menuitem" data-pg-action="compare">{{ m.icon("i-columns", "ico-sm") }}<span data-compare-label>Compare variants</span></button>
           <button type="button" class="item" role="menuitem" data-pg-action="load-prompt">{{ m.icon("i-prompt", "ico-sm") }}Load prompt</button>
           {% if can_write %}<button type="button" class="item" role="menuitem" data-pg-action="save-as-prompt">{{ m.icon("i-versions", "ico-sm") }}Save as prompt</button>{% endif %}
         </div>

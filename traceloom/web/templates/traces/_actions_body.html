@@ -11,9 +11,34 @@
     {% elif trace.bookmarked %}
       <span class="chip">{{ m.icon("i-bookmark", "ico-sm") }}Bookmarked</span>
     {% endif %}
-    {% include "traces/_share_toggle.html" %}
-    {% if can("traces:delete") %}
-      <button type="button" class="btn btn-danger btn-sm" data-dialog-open="delete-trace">{{ m.icon("i-trash") }}Delete</button>
+    {% if request.headers.get("HX-Request") == "true" %}
+      {# On the detail page (loaded by HTMX) the rare actions sit in "...". Viewers get no menu:
+         nothing in it is theirs to use except copying, which the trace id row already offers. #}
+      {% if can("traces:annotate") %}
+      <div class="menu-wrap">
+        <button type="button" class="btn btn-icon" aria-label="More trace actions" aria-haspopup="true" aria-expanded="false" data-menu-toggle="trace-menu">{{ m.icon("i-more-h") }}</button>
+        <div class="pop pop-right" id="trace-menu" data-menu hidden role="menu" aria-label="Trace actions">
+          {% if can("traces:share") %}
+          <div class="item share-item">{% include "traces/_share_toggle.html" %}</div>
+          {% if trace.public %}<button type="button" class="item" role="menuitem" data-copy="#share-url">{{ m.icon("i-link", "ico-sm") }}Copy share link</button>{% endif %}
+          <div class="sep"></div>
+          {% endif %}
+          <button type="button" class="item" role="menuitem" data-copy="{{ trace.id }}">{{ m.icon("i-copy", "ico-sm") }}Copy trace id</button>
+          {% if trace.session_id %}<button type="button" class="item" role="menuitem" data-copy="{{ trace.session_id }}">{{ m.icon("i-copy", "ico-sm") }}Copy session id</button>{% endif %}
+          {% if trace.user_id %}<button type="button" class="item" role="menuitem" data-copy="{{ trace.user_id }}">{{ m.icon("i-copy", "ico-sm") }}Copy user id</button>{% endif %}
+          {% if can("traces:delete") %}
+          <div class="sep"></div>
+          <button type="button" class="item danger" role="menuitem" data-dialog-open="delete-trace">{{ m.icon("i-trash", "ico-sm") }}Delete trace…</button>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    {% else %}
+      {# The fragment on its own (no JavaScript): every control inline. #}
+      {% include "traces/_share_toggle.html" %}
+      {% if can("traces:delete") %}
+        <button type="button" class="btn btn-danger btn-sm" data-dialog-open="delete-trace">{{ m.icon("i-trash") }}Delete</button>
+      {% endif %}
     {% endif %}
   </div>
 
