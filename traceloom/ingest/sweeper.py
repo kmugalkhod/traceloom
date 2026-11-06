@@ -55,6 +55,9 @@ class Sweeper:
             log.info("sweeper re-enqueued %d pending batch(es)", enqueued)
         return enqueued + self._replay_deliveries()
 
+    def set_due_deliveries(self, source: Callable[[], Iterable[Mapping[str, Any]]]) -> None:
+        self._due_deliveries = source
+
     def _replay_deliveries(self) -> int:
         if self._due_deliveries is None:
             return 0

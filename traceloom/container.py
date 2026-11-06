@@ -35,6 +35,9 @@ class Container:
     mailer: Mailer | None = None
     models: ModelRegistry | None = None
     sweeper: Any = None
+    # Test seams for webhook delivery (None: real network and DNS).
+    webhook_transport: Any = None
+    webhook_resolver: Any = None
     # Lifecycle hooks and health probes registered by feature modules.
     startup_hooks: list[Callable[[Container], None]] = field(default_factory=list)
     shutdown_hooks: list[Callable[[Container], None]] = field(default_factory=list)
@@ -63,11 +66,21 @@ def _blob_ok(container: Container) -> bool:
     return True
 
 
+def register_webhook_handler(container: Container) -> None:
+    """Route webhook_delivery messages to the delivery worker; the sweeper replays due ones."""
+    from traceloom.queue_registry import WEBHOOK_DELIVERY
+    from traceloom.webhooks import deliver
+
+    container.queue.register(WEBHOOK_DELIVERY, lambda m: deliver.handle(container, m))
+    container.sweeper.set_due_deliveries(lambda: deliver.due_messages(container.session_factory))
+
+
 def _start_ingestion(container: Container) -> None:
     """Start the queue consumer, replay anything left pending by a previous run, then keep
     sweeping. Registered after migrate and seed."""
     from traceloom.ingest.process import process_message
 
+    register_webhook_handler(container)
     container.queue.start(lambda message: process_message(container, message))
     container.sweeper.run_once(min_age=0)
     container.sweeper.start()
