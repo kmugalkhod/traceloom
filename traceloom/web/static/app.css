@@ -663,6 +663,9 @@ dialog.dlg .dialog{width:100%}
 .pager .btn{margin-left:auto}
 .err-text{color:var(--err)}
 .menu-wrap{position:relative}
+/* A copy chosen from a "..." menu: the menu closes, so its button says "Copied" for a moment. */
+[data-menu-toggle][data-copied]{position:relative;border-color:var(--ok-line);color:var(--ok)}
+[data-menu-toggle][data-copied]::after{content:"Copied";position:absolute;top:calc(100% + 4px);right:0;padding:2px 8px;border:1px solid var(--ok-line);border-radius:var(--r-1);background:var(--ok-bg);color:var(--ok);font-size:var(--fs-label);font-weight:600;white-space:nowrap;pointer-events:none;z-index:5}
 .tbl th a{display:inline-flex;gap:4px;align-items:center;color:inherit;font:inherit;text-transform:inherit;letter-spacing:inherit}
 .tbl th a:hover{text-decoration:none;color:var(--ink)}
 .tbl td a.row-link{color:inherit}

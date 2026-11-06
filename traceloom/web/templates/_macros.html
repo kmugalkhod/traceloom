@@ -41,7 +41,7 @@
 {%- endmacro %}
 
 {% macro copy_button(target, label="Copy") -%}
-<button type="button" class="btn btn-sm" data-copy="{{ target }}">{{ icon("i-copy") }}<span data-copy-label>{{ label }}</span></button>
+<button type="button" class="btn btn-sm" data-copy-from="{{ target }}">{{ icon("i-copy") }}<span data-copy-label>{{ label }}</span></button>
 {%- endmacro %}
 
 {% macro dialog_head(title, icon_name=None) -%}

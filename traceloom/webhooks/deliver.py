@@ -223,7 +223,8 @@ class DeliveryPool:
     """A few daemon threads that run deliveries off the queue consumer's threads.
 
     `submit` never blocks: when `backlog` deliveries are already waiting, the message is dropped
-    (logged) and the sweeper sends it later, since its row is still pending and due. Used in full
+    (logged) and the sweeper sends it later, since its row is still pending and due. A delivery id
+    that is already waiting is skipped, so a sweep and a kick never queue it twice. Used in full
     mode; the lite in-process queue gives webhook messages a lane of its own instead.
     """
 
@@ -235,6 +236,8 @@ class DeliveryPool:
     ) -> None:
         self._handler = handler
         self._queue: queue.Queue[Mapping[str, Any] | None] = queue.Queue(maxsize=backlog)
+        self._waiting: set[Any] = set()  # delivery ids queued and not yet picked up
+        self._lock = threading.Lock()
         self._threads = [
             threading.Thread(target=self._run, name=f"traceloom-webhooks-{i}", daemon=True)
             for i in range(workers)
@@ -243,10 +246,17 @@ class DeliveryPool:
             thread.start()
 
     def submit(self, message: Mapping[str, Any]) -> None:
-        try:
-            self._queue.put_nowait(dict(message))
-        except queue.Full:
-            log.warning("webhook delivery pool is full; the sweeper will retry")
+        delivery_id = message.get("delivery_id")
+        with self._lock:
+            if delivery_id is not None and delivery_id in self._waiting:
+                return
+            try:
+                self._queue.put_nowait(dict(message))
+            except queue.Full:
+                log.warning("webhook delivery pool is full; the sweeper will retry")
+                return
+            if delivery_id is not None:
+                self._waiting.add(delivery_id)
 
     def join(self) -> None:
         """Wait until every submitted delivery has been handled."""
@@ -267,6 +277,8 @@ class DeliveryPool:
             try:
                 if message is None:
                     return
+                with self._lock:
+                    self._waiting.discard(message.get("delivery_id"))
                 self._handler(message)
             except Exception:
                 log.exception("webhook delivery failed")

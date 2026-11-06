@@ -15,7 +15,7 @@
         <button type="button" class="btn btn-icon" aria-label="More actions" aria-haspopup="true" aria-expanded="false" data-menu-toggle="prompt-menu">{{ m.icon("i-more-h") }}</button>
         <div class="pop pop-right" id="prompt-menu" data-menu hidden role="menu" aria-label="Prompt actions">
           {% if can_playground %}<a class="item" role="menuitem" href="{{ playground_url }}">{{ m.icon("i-flask", "ico-sm") }}Open in playground</a>{% endif %}
-          <button type="button" class="item" role="menuitem" data-copy="#sdk-snippet">{{ m.icon("i-copy", "ico-sm") }}<span data-copy-label>Copy SDK snippet</span></button>
+          <button type="button" class="item" role="menuitem" data-copy-from="#sdk-snippet">{{ m.icon("i-copy", "ico-sm") }}<span data-copy-label>Copy SDK snippet</span></button>
           {% if can_write %}
           <div class="sep"></div>
           <form method="post" action="{{ base }}/labels" class="menu-form">

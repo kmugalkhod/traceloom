@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ValidationError
 
 from traceloom.auth.api_keys import ResolvedKey
 from traceloom.auth.deps import enforce_ingest_rate_limit, project_key
@@ -30,6 +34,23 @@ async def read_body(request: Request, max_bytes: int) -> bytes:
         if len(body) > max_bytes:
             raise BatchTooLarge(f"Request body exceeds {max_bytes} bytes.")
     return bytes(body)
+
+
+def json_body[M: BaseModel](model: type[M], max_bytes: int) -> Callable[[Request], Awaitable[M]]:
+    """A dependency that reads at most `max_bytes` (413 beyond) and parses them as `model`.
+    FastAPI would otherwise buffer and parse a body of any size before the route runs."""
+
+    async def parse(request: Request) -> M:
+        try:
+            raw = await read_body(request, max_bytes)
+        except BatchTooLarge as exc:
+            raise HTTPException(413, str(exc)) from None
+        try:
+            return model.model_validate_json(raw)
+        except ValidationError as exc:
+            raise RequestValidationError(exc.errors(include_url=False)) from None
+
+    return parse
 
 
 @router.post("/ingestion", status_code=207)

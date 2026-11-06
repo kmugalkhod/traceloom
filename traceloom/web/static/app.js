@@ -107,11 +107,12 @@
       return;
     }
     var inMenu = t.closest('[data-menu]');
+    var owner = null; // the "..." button of the menu an action was chosen from
     if (!inMenu) { closeMenus(); }
     else if (t.closest('[role=menuitem]') && !t.closest('.menu-form')) {
       // An action was chosen: close its menu and put focus back on the "..." button, so a dialog
       // the action opens hands focus back there when it closes. The action itself still runs.
-      var owner = document.querySelector('[data-menu-toggle="' + inMenu.id + '"]');
+      owner = document.querySelector('[data-menu-toggle="' + inMenu.id + '"]');
       closeMenus();
       if (owner && inMenu.contains(document.activeElement)) { owner.focus(); }
     }
@@ -138,21 +139,29 @@
     if (close) { var d = close.closest('dialog'); if (d) { d.close(); } return; }
     if (t.tagName === 'DIALOG' && t.open) { t.close(); return; } // click on the backdrop
 
-    var copy = t.closest('[data-copy]');
+    // data-copy is always the literal value; data-copy-from="#id" copies that element's text.
+    var copy = t.closest('[data-copy], [data-copy-from]');
     if (copy) {
-      var src = copy.getAttribute('data-copy');
-      var text = src.charAt(0) === '#' ? (document.querySelector(src) || {}).textContent : src;
-      copyText(text || '', copy);
+      var text = copy.hasAttribute('data-copy') ? copy.getAttribute('data-copy')
+        : (document.querySelector(copy.getAttribute('data-copy-from')) || {}).textContent;
+      copyText(text || '', owner || copy); // from a menu: the feedback goes on its "..." button
     }
   });
 
   function copyText(text, button) {
     function done() {
+      if (button.hasAttribute('data-copied')) { return; } // still showing the last copy
       var label = button.querySelector('[data-copy-label]');
       var old = label ? label.textContent : null;
+      var aria = button.getAttribute('aria-label');
       if (label) { label.textContent = 'Copied'; }
+      if (aria !== null) { button.setAttribute('aria-label', 'Copied'); }
       button.setAttribute('data-copied', 'true');
-      setTimeout(function () { if (label && old !== null) { label.textContent = old; } button.removeAttribute('data-copied'); }, 1600);
+      setTimeout(function () {
+        if (label && old !== null) { label.textContent = old; }
+        if (aria !== null) { button.setAttribute('aria-label', aria); }
+        button.removeAttribute('data-copied');
+      }, 1600);
     }
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(text).then(done, function () { legacyCopy(text); done(); });

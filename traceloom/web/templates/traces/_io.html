@@ -6,7 +6,7 @@
     <h2>{{ pane.title }}</h2>
     {% if pane.level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif pane.level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% endif %}
     {% if pane.kind == "observation" %}{% include "traces/_io_header.html" %}{% endif %}
-    <span class="right row mono muted"><span id="pane-id">{{ pane.id }}</span><button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="Copy id" title="Copy id" data-copy="#pane-id">{{ m.icon("i-copy") }}</button></span>
+    <span class="right row mono muted"><span id="pane-id">{{ pane.id }}</span><button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="Copy id" title="Copy id" data-copy-from="#pane-id">{{ m.icon("i-copy") }}</button></span>
   </div>
   {% if pane.kind == "observation" %}
   <dl class="kv">

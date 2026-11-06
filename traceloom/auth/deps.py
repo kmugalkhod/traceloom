@@ -221,10 +221,11 @@ def enforce_auth_rate_limit(request: Request, email: str) -> None:
         )
 
 
-def enforce_ingest_rate_limit(request: Request, key: ResolvedKey) -> None:
-    """Per API key limit for ingestion (TRACELOOM_RATE_INGEST)."""
+def enforce_ingest_rate_limit(request: Request, key: ResolvedKey, scope: str = "ingest") -> None:
+    """Per API key limit for ingestion and the other public writes (TRACELOOM_RATE_INGEST).
+    Each `scope` counts in its own bucket, so prompt writes never use up the ingestion budget."""
     container = get_container(request)
-    result = container.limiter.hit(f"ingest:{key.key_id}", container.settings.rate_ingest)
+    result = container.limiter.hit(f"{scope}:{key.key_id}", container.settings.rate_ingest)
     if not result.allowed:
         raise HTTPException(
             429,

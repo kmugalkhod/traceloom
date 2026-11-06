@@ -129,7 +129,7 @@ def test_header_shows_trace_facts(client, world, login, run):
     login(client, world.user(Role.VIEWER))
     html = client.get(url(world), headers=H).text
     assert "<h1>support-agent</h1>" in html and 'class="lv ERROR"' in html
-    assert 'data-copy="#trace-id"' in html and ">tr1<" in html
+    assert 'data-copy-from="#trace-id"' in html and ">tr1<" in html
     assert (
         f'/project/{world.project.id}/users/usr_maria"' in html
         and f'/project/{world.project.id}/sessions/sess-1"' in html

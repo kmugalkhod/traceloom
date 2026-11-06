@@ -20,7 +20,7 @@
         <div class="pop pop-right" id="trace-menu" data-menu hidden role="menu" aria-label="Trace actions">
           {% if can("traces:share") %}
           <div class="item share-item">{% include "traces/_share_toggle.html" %}</div>
-          {% if trace.public %}<button type="button" class="item" role="menuitem" data-copy="#share-url">{{ m.icon("i-link", "ico-sm") }}Copy share link</button>{% endif %}
+          {% if trace.public %}<button type="button" class="item" role="menuitem" data-copy-from="#share-url">{{ m.icon("i-link", "ico-sm") }}Copy share link</button>{% endif %}
           <div class="sep"></div>
           {% endif %}
           <button type="button" class="item" role="menuitem" data-copy="{{ trace.id }}">{{ m.icon("i-copy", "ico-sm") }}Copy trace id</button>

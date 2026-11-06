@@ -254,3 +254,20 @@ def test_normal_includes_within_the_limits_still_work():
         "@@@prompt:l0|label=production@@@", store(**_fan_out(width=4, levels=3))
     )
     assert text == "leaf " * 64
+
+
+def test_expansion_fails_fast_on_the_running_size():
+    from traceloom.prompts.composition import MAX_EXPANDED_CHARS
+
+    calls = []
+    big = "x" * (MAX_EXPANDED_CHARS // 2 + 1)
+    inner = store(a=(1, "text", big), b=(1, "text", big), c=(1, "text", big))
+
+    def counting(ref):
+        calls.append(ref.name)
+        return inner(ref)
+
+    refs = "".join(f"@@@prompt:{n}|label=production@@@" for n in "abc")
+    with pytest.raises(CompositionError, match="longer than"):
+        resolve_text(refs, counting)
+    assert calls == ["a", "b"]  # stopped as soon as the total passed the cap

@@ -4,9 +4,12 @@ Credentials: `api_key` is the secret access key; `secrets["access_key_id"]` the 
 optionally `secrets["session_token"]`; `config["region"]` the region. All of them are scrubbed
 from errors. Params understood: `max_tokens`, `temperature`, `top_p`, `stop`.
 
-A custom endpoint (`base_url`) goes through the SSRF guard each time a client is built; botocore
-sends with `Retry(False)`, so it never follows a redirect. boto3 resolves the name itself, so
-the address cannot be pinned the way the httpx-based adapters pin theirs.
+A custom endpoint (`base_url`) must be `https://` on an AWS-owned name (`*.amazonaws.com` or
+`*.amazonaws.com.cn`, which covers regional and VPC-interface endpoints): boto3 resolves the name
+itself at connect time, so the address cannot be pinned the way the httpx-based adapters pin
+theirs, and only a name AWS controls is safe against DNS rebinding. It also goes through the SSRF
+guard each time a client is built. botocore sends with `Retry(False)`, so it never follows a
+redirect, and `proxies={}` keeps HTTPS_PROXY / NO_PROXY from routing the request elsewhere.
 """
 
 from __future__ import annotations
@@ -14,6 +17,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator, Mapping, Sequence
 from typing import Any
+from urllib.parse import urlsplit
 
 from traceloom.llm.providers.base import (
     BaseProvider,
@@ -25,7 +29,20 @@ from traceloom.llm.providers.base import (
     UsageDelta,
     split_system,
 )
-from traceloom.llm.ssrf import resolve_target
+from traceloom.llm.ssrf import BlockedAddress, resolve_target
+
+AWS_SUFFIXES = (".amazonaws.com", ".amazonaws.com.cn")
+
+
+def check_endpoint(url: str) -> None:
+    """Raise BlockedAddress unless `url` is https:// on an AWS-owned host name."""
+    parts = urlsplit(url)
+    host = (parts.hostname or "").rstrip(".")
+    if parts.scheme != "https" or not host.endswith(AWS_SUFFIXES):
+        raise BlockedAddress(
+            "a custom Bedrock endpoint must be an https:// AWS endpoint "
+            "(a host ending in .amazonaws.com or .amazonaws.com.cn)"
+        )
 
 
 def map_messages(messages: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -69,6 +86,7 @@ class BedrockProvider(BaseProvider):
         if self._client_override is not None:
             return self._client_override
         if self.cfg.base_url:
+            check_endpoint(self.cfg.base_url)
             resolve_target(
                 self.cfg.base_url,
                 allow_private=self.cfg.allow_private,
@@ -85,7 +103,9 @@ class BedrockProvider(BaseProvider):
             aws_session_token=self.cfg.secrets.get("session_token") or None,
             endpoint_url=self.cfg.base_url or None,
             config=Config(
-                read_timeout=self.cfg.timeout, retries={"max_attempts": 1, "mode": "standard"}
+                read_timeout=self.cfg.timeout,
+                retries={"max_attempts": 1, "mode": "standard"},
+                proxies={},  # never route through an environment proxy
             ),
         )
 

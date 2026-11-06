@@ -4,6 +4,8 @@
 provider SDK's blocking iterator runs in the thread pool and never on the event loop. Provider
 output travels as JSON inside SSE events; the page renders it with `textContent`. The route
 decrypts the connection while it still holds its DB session; the stream itself never touches it.
+Run and save bodies are read with a size limit before they are parsed (413 beyond
+`MAX_BODY_BYTES`), and the parsed bodies are bounded again by count and character totals.
 """
 
 from __future__ import annotations
@@ -15,13 +17,14 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
 from traceloom.api.errors import error_body
+from traceloom.api.ingestion import json_body
 from traceloom.auth.deps import Access, get_container, require
 from traceloom.auth.permissions import Perm
 from traceloom.container import Container
@@ -33,12 +36,19 @@ from traceloom.llm.models import models_for
 from traceloom.llm.run import Event, Run, RunSpec
 from traceloom.prompts import service as prompts
 from traceloom.prompts.service import Actor, NotAllowed, PromptConflict, PromptError
+from traceloom.prompts.variables import VARIABLE_RE
 from traceloom.webhooks import deliver
 
 router = APIRouter(tags=["playground"])
 
+MAX_BODY_BYTES = 2_000_000  # run and save bodies; 413 beyond
 MAX_MESSAGES = 200
-MAX_CONTENT = 200_000
+MAX_CONTENT = 200_000  # one message
+MAX_TOTAL_CHARS = 1_000_000  # all messages together, and all variable values together
+MAX_RENDERED_CHARS = 2_000_000  # the messages once variables are substituted
+MAX_VARIABLES = 100
+MAX_PARAMS = 50
+MAX_TOOLS = 64
 
 
 class Message(BaseModel):
@@ -48,17 +58,53 @@ class Message(BaseModel):
     tool_call_id: str | None = None
 
 
+def _total_chars(messages: list[Message]) -> list[Message]:
+    if sum(len(m.content) for m in messages) > MAX_TOTAL_CHARS:
+        raise ValueError(f"Messages can have at most {MAX_TOTAL_CHARS:,} characters in all.")
+    return messages
+
+
+def _rendered_chars(messages: list[Message], variables: dict[str, str]) -> int:
+    """How long the messages get once variables are substituted, without substituting them."""
+    total = 0
+    for m in messages:
+        total += len(m.content)
+        for match in VARIABLE_RE.finditer(m.content):
+            if match.group(1) in variables:
+                total += len(variables[match.group(1)]) - len(match.group(0))
+    return total
+
+
 class RunBody(BaseModel):
     connection_id: str
     model: str = Field(min_length=1, max_length=200)
     messages: list[Message] = Field(max_length=MAX_MESSAGES)
-    variables: dict[str, str] = Field(default_factory=dict)
-    params: dict[str, Any] = Field(default_factory=dict)
-    tools: list[dict[str, Any]] = Field(default_factory=list, max_length=64)
+    variables: dict[str, str] = Field(default_factory=dict, max_length=MAX_VARIABLES)
+    params: dict[str, Any] = Field(default_factory=dict, max_length=MAX_PARAMS)
+    tools: list[dict[str, Any]] = Field(default_factory=list, max_length=MAX_TOOLS)
     response_schema: dict[str, Any] | None = None
     trace: bool = False
     prompt_name: str | None = Field(None, max_length=200)
     prompt_version: int | None = None
+
+    _messages_total = field_validator("messages")(_total_chars)
+
+    @field_validator("variables")
+    @classmethod
+    def _variables_size(cls, value: dict[str, str]) -> dict[str, str]:
+        if any(len(name) > 200 for name in value):
+            raise ValueError("A variable name can have at most 200 characters.")
+        if sum(len(v) for v in value.values()) > MAX_TOTAL_CHARS:
+            raise ValueError(f"Variable values can have at most {MAX_TOTAL_CHARS:,} characters.")
+        return value
+
+    @model_validator(mode="after")
+    def _rendered_size(self) -> RunBody:
+        if _rendered_chars(self.messages, self.variables) > MAX_RENDERED_CHARS:
+            raise ValueError(
+                f"With variables filled in, the messages exceed {MAX_RENDERED_CHARS:,} characters."
+            )
+        return self
 
 
 class SaveBody(BaseModel):
@@ -69,9 +115,11 @@ class SaveBody(BaseModel):
         "auto"  # new: the name must be free; version: it must exist
     )
     model: str | None = None
-    params: dict[str, Any] = Field(default_factory=dict)
-    tools: list[dict[str, Any]] = Field(default_factory=list, max_length=64)
+    params: dict[str, Any] = Field(default_factory=dict, max_length=MAX_PARAMS)
+    tools: list[dict[str, Any]] = Field(default_factory=list, max_length=MAX_TOOLS)
     labels: list[str] = Field(default_factory=list)
+
+    _messages_total = field_validator("messages")(_total_chars)
 
 
 def sse(event: Event) -> bytes:
@@ -108,8 +156,8 @@ def _limit(container: Container, access: Access) -> JSONResponse | None:
 @router.post("/project/{project_id}/playground/run")
 def run(
     request: Request,
-    body: RunBody,
-    access: Access = Depends(require(Perm.PLAYGROUND_RUN)),
+    access: Access = Depends(require(Perm.PLAYGROUND_RUN)),  # before the body: no access, no read
+    body: RunBody = Depends(json_body(RunBody, MAX_BODY_BYTES)),
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
 ) -> Response:
@@ -165,8 +213,8 @@ def run(
 
 @router.post("/project/{project_id}/playground/save")
 def save(
-    body: SaveBody,
-    access: Access = Depends(require(Perm.PLAYGROUND_RUN)),
+    access: Access = Depends(require(Perm.PLAYGROUND_RUN)),  # before the body: no access, no read
+    body: SaveBody = Depends(json_body(SaveBody, MAX_BODY_BYTES)),
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
 ) -> JSONResponse:

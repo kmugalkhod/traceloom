@@ -157,3 +157,30 @@ def test_full_mode_delivery_pool_runs_off_the_consumer_and_never_blocks_it():
     finally:
         release.set()
         pool.stop()
+
+
+def test_delivery_pool_skips_an_id_already_waiting():
+    import threading
+
+    from traceloom.webhooks.deliver import DeliveryPool
+
+    release, done = threading.Event(), []
+
+    def slow(message):
+        release.wait(5)
+        done.append(message["delivery_id"])
+
+    pool = DeliveryPool(slow, workers=1, backlog=10)
+    try:
+        pool.submit({"type": WEBHOOK_DELIVERY, "delivery_id": "first"})
+        for _ in range(3):  # the sweeper and a kick both hand over the same pending row
+            pool.submit({"type": WEBHOOK_DELIVERY, "delivery_id": "dup"})
+        release.set()
+        pool.join()
+        assert done == ["first", "dup"]
+        pool.submit({"type": WEBHOOK_DELIVERY, "delivery_id": "dup"})  # handled: may come again
+        pool.join()
+        assert done == ["first", "dup", "dup"]
+    finally:
+        release.set()
+        pool.stop()

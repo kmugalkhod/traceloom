@@ -27,6 +27,7 @@ from traceloom.llm import providers
 from traceloom.llm.crypto import CryptoError, SecretBox, hint
 from traceloom.llm.models import models_for
 from traceloom.llm.providers import ErrorDelta, ProviderConfig, scrub
+from traceloom.llm.providers.bedrock import check_endpoint as check_bedrock_endpoint
 from traceloom.llm.ssrf import BlockedAddress, Resolver, resolve_target, system_resolver
 from traceloom.prompts.service import Actor
 from traceloom.services import audit
@@ -172,6 +173,11 @@ def _validate_shape(provider: str, base_url: str | None, config: dict, secrets: 
             bool(secrets.access_key_id and secrets.api_key), "An access key and secret are needed."
         )
         need(bool(config.get("region")), "The region is required.")
+        if base_url:
+            try:
+                check_bedrock_endpoint(base_url)
+            except BlockedAddress as exc:
+                raise ConnectionInvalid(f"This endpoint is not allowed: {exc}.") from None
 
 
 def _public_config(provider: str, config: Mapping[str, Any] | None) -> dict[str, Any]:

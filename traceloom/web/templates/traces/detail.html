@@ -13,7 +13,7 @@
     <span class="right row-wrap">{% include "traces/_actions.html" ignore missing %}</span>
   </div>
   <dl class="kv">
-    <div><dt>Trace id</dt><dd class="mono row"><span id="trace-id">{{ trace.id }}</span><button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="Copy trace id" title="Copy trace id" data-copy="#trace-id">{{ m.icon("i-copy") }}</button></dd></div>
+    <div><dt>Trace id</dt><dd class="mono row"><span id="trace-id">{{ trace.id }}</span><button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="Copy trace id" title="Copy trace id" data-copy-from="#trace-id">{{ m.icon("i-copy") }}</button></dd></div>
     <div><dt>User</dt><dd>{% if trace.user_id %}<a href="/project/{{ project.id }}/users/{{ trace.user_id | urlencode }}">{{ trace.user_id }}</a>{% else %}<span class="muted">–</span>{% endif %}</dd></div>
     <div><dt>Session</dt><dd>{% if trace.session_id %}<a href="/project/{{ project.id }}/sessions/{{ trace.session_id | urlencode }}">{{ trace.session_id }}</a>{% else %}<span class="muted">–</span>{% endif %}</dd></div>
     <div><dt>Latency</dt><dd class="mono">{{ kv.latency }}</dd></div>

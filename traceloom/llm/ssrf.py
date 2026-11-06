@@ -50,8 +50,8 @@ class PinnedTarget:
 
     @property
     def host_header(self) -> str:
-        default = SCHEMES[self.scheme]
-        return self.host if self.port == default else f"{self.host}:{self.port}"
+        host = f"[{self.host}]" if ":" in self.host else self.host  # an IPv6 literal
+        return host if self.port == SCHEMES[self.scheme] else f"{host}:{self.port}"
 
 
 def system_resolver(host: str, port: int) -> list[str]:
