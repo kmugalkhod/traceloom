@@ -1,4 +1,4 @@
-"""Trace detail tags (FR-TD2): shown once as chips, editable inline for Members, chips only for Viewers."""
+"""Trace detail tags (FR-TD2): one set of chips, inline edit for Members, none for Viewers."""
 
 from __future__ import annotations
 
