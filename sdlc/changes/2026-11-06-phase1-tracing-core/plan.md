@@ -164,3 +164,8 @@ Also: `api/test_security.py` covers CSRF rejection without a token, login rate l
   - The mail console fallback logs the message (FR-A2 needs the reset link) with API secrets, `SMTP_PASSWORD` and `TRACELOOM_SECRET_KEY` scrubbed.
   - The route-table permission sweep enumerates routes from the OpenAPI schema (FastAPI nests included routers privately), so routes with `include_in_schema=False` are not swept.
   - `ruff` excludes `.sdlc/` (governance scripts).
+- 2026-11-06 — S-3 ingestion, cost, OTLP-ready core:
+  - `TraceStore.get_existing` returns row dataclasses keyed kind -> id; `add_score` was added to the port, and `BlobStoreError` / `BlobNotFound` to `ports.py`. `SqlTraceStore.upsert` replaces a stored row when the incoming `event_ts` is not older and never overwrites the computed aggregates; field-level merging happens in `ingest/merge.py` (ADR-0008), not in the adapter. Delete-by-filter needs the read path (`_trace_ids_for_query`, raises until then).
+  - Merge nuances: `input`/`output` are replaced whole (only `metadata` and `model_parameters` merge by key). Provided `usage_details` / `cost_details` replace derived (tokenizer / calculated) data. A bare observation id is provisional: an explicit `trace_id` later wins. Stub traces carry `event_ts` = epoch, so any real trace event overwrites them.
+  - `Container` also has `models` (ModelRegistry, seeded at startup in both modes) and `sweeper`. In lite mode startup runs migrate, then seed, then starts the queue consumer, replays pending blobs and starts the sweeper. The in-process queue has `pause/resume/discard/drain`.
+  - The model seed has no Claude 5-family entries because no list prices were available. Add them to `traceloom/seed/models.yaml` or as project definitions.
