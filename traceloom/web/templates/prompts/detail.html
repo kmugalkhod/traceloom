@@ -2,11 +2,12 @@
 {% import "_macros.html" as m with context %}
 {% block title %}{{ name }}{% endblock %}
 {% block ctx_m %}{% endblock %}
+{% block crumbs %}{% set folder_path = name.rsplit('/', 1)[0] if '/' in name else '' %}{{ m.crumbs([{"label": "Prompts", "href": "/project/" ~ project.id ~ "/prompts"}] + ([{"label": folder_path, "href": "/project/" ~ project.id ~ "/prompts?folder=" ~ (folder_path | urlencode)}] if folder_path else []) + [{"label": name.rsplit('/', 1)[-1]}]) }}{% endblock %}
 {% block daterange %}{% if tab == "metrics" %}{% include "_range_picker.html" %}{% endif %}{% endblock %}
 {% block scripts %}<script src="/static/prompt_detail.js" defer></script>{% endblock %}
 {% block content %}
 <div class="stack">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="/project/{{ project.id }}/prompts">Prompts</a>{% if name.rsplit('/', 1)|length > 1 %}<span aria-hidden="true">/</span><a href="/project/{{ project.id }}/prompts?folder={{ name.rsplit('/', 1)[0] | urlencode }}">{{ name.rsplit('/', 1)[0] }}</a>{% endif %}</nav>
+  <div class="crumbs-m">{{ self.crumbs() }}</div>
   <div class="page-h">
     <div class="grow"><h1>{{ name }}</h1></div>
     <div class="row-wrap">

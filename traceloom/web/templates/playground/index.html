@@ -12,19 +12,16 @@
   {{ m.page_header("Playground") }}
   {% if notice %}{{ m.banner("warn", notice) }}{% endif %}
   <div class="panel">
-    <div class="empty">
-      {{ m.icon("i-plug", "ico-lg") }}
-      {% if can_manage %}
-        <h2>Connect a model provider to use the playground</h2>
-        <p>The playground runs prompts against your own provider keys. Add one in Settings and Members can start right away.</p>
-        <a class="btn btn-primary" href="{{ settings_url }}">{{ m.icon("i-plus") }}Add an LLM connection</a>
-        <span class="hint">Settings &rarr; LLM connections</span>
-      {% else %}
-        <h2>No LLM connections yet</h2>
-        <p>This project has no model provider set up, so there is nothing to run. Ask an Admin to add a connection under Settings &rarr; LLM connections.{% if admins %} {{ admins | join(" and ") }} {{ "is an Admin" if admins | length == 1 else "are Admins" }} here.{% endif %}</p>
-        <span class="hint">You can still edit prompts. Runs will work as soon as a connection exists.</span>
-      {% endif %}
-    </div>
+    {% if can_manage %}
+    {% call m.empty_state("i-plug", "Connect a model provider to use the playground", "The playground runs prompts against your own provider keys. Add one in Settings and Members can start right away.") %}
+      <div class="acts"><a class="btn btn-primary" href="{{ settings_url }}">{{ m.icon("i-plus") }}Add an LLM connection</a></div>
+      <span class="hint">Settings &rarr; LLM connections</span>
+    {% endcall %}
+    {% else %}
+    {% call m.empty_state("i-plug", "No LLM connections yet", "This project has no model provider set up, so there is nothing to run. Ask an Admin to add a connection under Settings → LLM connections." ~ ((" " ~ (admins | join(" and ")) ~ (" is an Admin" if admins | length == 1 else " are Admins") ~ " here.") if admins else "")) %}
+      <span class="hint">You can still edit prompts. Runs will work as soon as a connection exists.</span>
+    {% endcall %}
+    {% endif %}
   </div>
 {% else %}
 <div id="pg-root" data-mode="single">

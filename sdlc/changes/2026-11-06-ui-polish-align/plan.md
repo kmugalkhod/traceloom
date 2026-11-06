@@ -116,7 +116,8 @@ Existing class-name assertions (spec "Components and changes") are kept by const
   - run the existing tag flow tests.
 - **Cascade conflicts:** the v3.2 layer overrides older `app.css` rules, and specificity fights can leave a rule that silently doesn't apply. Mitigation:
   - every AC is asserted on computed style, not class presence;
-  - `ui/base.css` uses the same selectors as `app.css`, not `!important`.
+  - `ui/base.css` uses the same selectors as `app.css`, not `!important`. One departure: `app.css` marked `.err-text` as `!important`, which no later rule can beat, so T-2 dropped that `!important` there (the same rule already exists without it) and `ui/base.css` sets `.tbl td.err-text` to `--ink`.
+- **Empty-state tile:** the `empty_state` macro now wraps its icon in `<span class="tile">` so `.empty .tile` can draw the 40px tinted tile.
 - **Breadcrumb move:** this could break `test_mobile_context.py` ("no context row on detail pages"). Mitigation: the crumbs live in the desktop `.ctxbar` only. On mobile, the crumbs stay at the top of the page body (CSS shows and hides the two copies; the hidden copy is `hidden` / `display:none`, so it is not doubled for screen readers).
 - **Flaky pixel tests:** use fixed viewports, `fonts.ready`, and ±1–2px tolerances.
 - **Phase 2 still in review:** if its branch changes, rebase this one onto it before the merge.
