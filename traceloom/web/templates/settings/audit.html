@@ -1,0 +1,33 @@
+{% extends "settings/base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Audit log{% endblock %}
+{% block settings_body %}
+<section class="panel" aria-label="Audit log">
+  <div class="panel-h"><h2>Audit log</h2><span class="hint">Newest first</span></div>
+  {% if entries %}
+
+    <table class="tbl tbl-flat">
+      <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th><th>Details</th></tr></thead>
+      <tbody>
+      {% for e in entries %}
+        <tr>
+          <td class="nowrap"><time datetime="{{ e.when.isoformat() }}" title="{{ e.when.isoformat() }}">{{ e.when | date("%b %-d, %Y %H:%M:%S") }}</time></td>
+          <td>{{ e.actor }}</td>
+          <td><span class="chip mono">{{ e.action }}</span></td>
+          <td class="mono">{{ e.target }}</td>
+          <td>{{ e.summary }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  <div class="panel-b row">
+    {% if prev_href %}<a class="btn btn-sm" href="{{ prev_href }}">Newer</a>{% endif %}
+    <span class="hint">Page {{ page }}</span>
+    {% if next_href %}<a class="btn btn-sm right" href="{{ next_href }}">Older</a>{% endif %}
+  </div>
+  {% else %}
+  <div class="panel-b"><p class="hint">Nothing recorded yet. Deletes, sharing changes, key changes and member changes appear here.</p></div>
+  {% endif %}
+</section>
+<link rel="stylesheet" href="/static/pages.css">
+{% endblock %}

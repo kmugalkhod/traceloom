@@ -493,3 +493,26 @@ def test_update_flags_and_delete():
     assert ClickHouseTraceStore(client2, "db").delete_traces(PID, TraceQuery(name="x")) == 2
     assert_project_scoped(*client2.queries[0])
     assert "name = {name:String}" in client2.queries[0][0]
+
+
+def test_add_score_inserts_one_score_row():
+    from traceloom.ports import ScoreRow
+
+    client = FakeClient()
+    ClickHouseTraceStore(client, "db").add_score(
+        PID,
+        ScoreRow(id="s1", name="q", timestamp=T0, trace_id="t1", value=1.0, source="ANNOTATION"),
+    )
+    ((table, data, columns),) = client.inserts
+    assert table == "db.scores"
+    row = dict(zip(columns, data[0], strict=True))
+    assert (row["project_id"], row["trace_id"], row["source"]) == (PID, "t1", "ANNOTATION")
+
+
+def test_matching_trace_ids_is_scoped_and_filtered():
+    client = FakeClient({"SELECT id FROM": (["id"], [["a"], ["b"]])})
+    ids = ClickHouseTraceStore(client, "db").matching_trace_ids(PID, TraceQuery(name="drop"))
+    assert ids == ["a", "b"]
+    sql, params = client.queries[0]
+    assert_project_scoped(sql, params)
+    assert "name = {name:String}" in sql and params["name"] == "drop"

@@ -1,0 +1,5 @@
+{% import "_macros.html" as m with context %}
+{# For the traces list: shown to Admin+ only. Carries the list's current query string. #}
+{% if can("traces:delete") %}
+<a class="btn btn-danger btn-sm" href="/project/{{ project.id }}/traces-delete-matching?{{ request.url.query }}">{{ m.icon("i-trash") }}Delete matching...</a>
+{% endif %}

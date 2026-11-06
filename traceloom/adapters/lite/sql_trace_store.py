@@ -248,6 +248,10 @@ class SqlTraceStore(SqlReadMixin, SqlAnalyticsMixin):
                 ).rowcount
         return deleted
 
+    def matching_trace_ids(self, project_id: str, query: TraceQuery) -> list[str]:
+        """Ids of every trace matching the filter (for counts and delete-by-filter)."""
+        return self._trace_ids_for_query(project_id, query)
+
     def _trace_ids_for_query(self, project_id: str, query: TraceQuery) -> list[str]:
         """Ids of every trace matching the filter (sort, cursor and page size do not apply)."""
         stmt = select(Trace.id).where(*trace_filter_clauses(project_id, query))

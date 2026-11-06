@@ -722,9 +722,15 @@ class ClickHouseTraceStore:
         self._insert("traces", project_id, [trace])
         return True
 
+    def add_score(self, project_id: str, score: ScoreRow) -> None:
+        self.upsert(project_id, [], [], [score])
+
+    def matching_trace_ids(self, project_id: str, query: TraceQuery) -> list[str]:
+        return [r["id"] for r in self._select(build_trace_ids(project_id, query, self.traces))]
+
     def delete_traces(self, project_id: str, target: Sequence[str] | TraceQuery) -> int:
         if isinstance(target, TraceQuery):
-            ids = [r["id"] for r in self._select(build_trace_ids(project_id, target, self.traces))]
+            ids = self.matching_trace_ids(project_id, target)
         else:
             wanted = list(dict.fromkeys(target))
             found = self.get_existing(project_id, {"trace": wanted})["trace"]

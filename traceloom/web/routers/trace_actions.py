@@ -120,7 +120,7 @@ def _actions_response(
     ctx.update(
         error=error,
         counts=_counts(db, detail, access.project.id),
-        share_path=f"/share/{access.project.id}/{detail.trace.id}",
+        share_path=f"{container.settings.base_url.rstrip('/')}/share/{access.project.id}/{detail.trace.id}",
     )
     return render(request, "traces/_actions.html", ctx, status=status)
 
@@ -237,7 +237,7 @@ def delete_comment(
     request: Request,
     trace_id: str,
     comment_id: str,
-    access: Access = Depends(require(Perm.TRACES_READ)),
+    access: Access = Depends(require(Perm.ANNOTATE)),
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
 ):

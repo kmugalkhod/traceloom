@@ -11,13 +11,7 @@
     {% elif trace.bookmarked %}
       <span class="chip">{{ m.icon("i-bookmark", "ico-sm") }}Bookmarked</span>
     {% endif %}
-    {% if can("traces:share") %}
-      <form method="post" action="{{ base }}/share" hx-post="{{ base }}/share" hx-target="#trace-actions" hx-swap="innerHTML" class="inline-form">
-        {{ m.csrf() }}<input type="hidden" name="enabled" value="{{ '0' if trace.public else '1' }}">
-        <span class="dim">Public share</span>
-        <button class="switch" type="submit" role="switch" aria-checked="{{ 'true' if trace.public else 'false' }}" aria-label="Public share"></button>
-      </form>
-    {% endif %}
+    {% include "traces/_share_toggle.html" %}
     {% if can("traces:delete") %}
       <button type="button" class="btn btn-danger btn-sm" data-dialog-open="delete-trace">{{ m.icon("i-trash") }}Delete</button>
     {% endif %}
@@ -48,9 +42,7 @@
   </div>
   {% if error %}{{ m.banner("err", error) }}{% endif %}
 
-  {% if can("traces:share") and trace.public %}
-    <div class="banner ok share-link">{{ m.icon("i-link") }}<span class="mono grow trunc" id="share-url">{{ share_path }}</span>{{ m.copy_button("#share-url", "Copy link") }}</div>
-  {% endif %}
+  {% include "traces/_share_link.html" %}
 </div>
 
 {% if can("traces:delete") %}

@@ -1,0 +1,4 @@
+{% import "_macros.html" as m with context %}
+{% if can("traces:share") and trace.public %}
+  <div class="banner ok share-link">{{ m.icon("i-link") }}<span class="mono grow trunc" id="share-url">{{ share_path }}</span>{{ m.copy_button("#share-url", "Copy link") }}</div>
+{% endif %}
