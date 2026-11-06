@@ -9,6 +9,15 @@
 <title>{% block title %}Traceloom{% endblock %} · Traceloom</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/ui/base.css">
+<link rel="stylesheet" href="/static/ui/traces.css">
+<link rel="stylesheet" href="/static/ui/trace-detail.css">
+<link rel="stylesheet" href="/static/ui/trace-tree.css">
+<link rel="stylesheet" href="/static/ui/trace-io.css">
+<link rel="stylesheet" href="/static/ui/dashboard.css">
+<link rel="stylesheet" href="/static/ui/prompts.css">
+<link rel="stylesheet" href="/static/ui/playground.css">
+<link rel="stylesheet" href="/static/ui/settings.css">
 <script src="/static/app.js"></script>
 </head>
 <body hx-boost="false">
@@ -79,6 +88,7 @@
 
   <div class="card">
     <div class="ctxbar">
+      {% block crumbs %}{% endblock %}
       {% include "_env_switcher.html" ignore missing %}
       {% block daterange %}{% endblock %}
       <button type="button" class="btn btn-icon" aria-label="Keyboard shortcuts (?)" data-help-open>{{ m.icon("i-kbd") }}</button>

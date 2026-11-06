@@ -48,3 +48,21 @@
 <header>{% if icon_name %}{{ icon(icon_name) }}{% endif %}<h2>{{ title }}</h2>
   <button type="button" class="btn btn-icon btn-ghost btn-sm right" aria-label="Close" data-dialog-close>{{ icon("i-x") }}</button></header>
 {%- endmacro %}
+
+{% macro crumbs(items) -%}
+<nav class="crumbs" aria-label="Breadcrumb">
+  {%- for item in items %}
+  {%- if not loop.last and item.href %}<a href="{{ item.href }}">{{ item.label }}</a><span class="crumb-sep" aria-hidden="true">/</span>
+  {%- else %}<span{% if loop.last %} aria-current="page"{% endif %}>{{ item.label }}</span>{% if not loop.last %}<span class="crumb-sep" aria-hidden="true">/</span>{% endif %}
+  {%- endif %}
+  {%- endfor %}
+</nav>
+{%- endmacro %}
+
+{% macro empty_state(icon, title, body="") -%}
+<div class="empty">
+  {% if icon %}<svg class="ico" aria-hidden="true"><use href="#{{ icon }}"/></svg>{% endif %}
+  <h2>{{ title }}</h2>
+  {% if body %}<p>{{ body }}</p>{% endif %}
+</div>
+{%- endmacro %}
