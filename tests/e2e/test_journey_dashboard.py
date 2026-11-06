@@ -75,9 +75,9 @@ def test_dashboard_charts_filters_and_mobile(live_server, browser_page):  # noqa
     ] == []  # no CSP/console errors
 
     with page.expect_navigation():
-        page.get_by_role("button", name="7d").click()
+        page.get_by_role("link", name="7d").first.click()
     assert "range=7d" in page.url
-    page.get_by_role("button", name="7d").and_(page.locator("[aria-pressed=true]")).wait_for()
+    page.locator("a[aria-pressed=true]", has_text="7d").first.wait_for()
     page.goto(base + "?env=staging")
     assert "No traces" in page.content()  # the environment filter reaches every panel
 

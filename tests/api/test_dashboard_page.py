@@ -143,7 +143,7 @@ def test_range_and_environment_change_every_panel(client, login, world, seeded, 
         numbers(staging.text, "Traces") == "1" and numbers(staging.text, "Total cost") == "$0.1000"
     )
     assert "alice" in staging.text and "bob" not in staging.text and "model-b" not in staging.text
-    assert 'name="env" value="staging"' in page(client, login, world, "?env=staging&range=30d").text
+    assert "env=staging&amp;range=7d" in page(client, login, world, "?env=staging&range=30d").text
 
 
 def test_chart_data_matches_buckets(client, login, world, seeded, container):

@@ -14,7 +14,7 @@ from traceloom.ports import DashboardData, DashboardQuery
 from traceloom.web import pagefmt  # noqa: F401  (registers the filters)
 from traceloom.web.context import env_context, page_context
 from traceloom.web.envpref import resolve_env, saved_env
-from traceloom.web.ranges import resolve_range
+from traceloom.web.ranges import range_urls, resolve_range
 from traceloom.web.templating import render
 
 router = APIRouter(tags=["dashboard"])
@@ -111,8 +111,8 @@ def dashboard_page(
         active="dashboard",
         v=view,
         range_key=range_key,
+        range_urls=range_urls(request.url.path, params),
         range_label=RANGE_LABEL[range_key],
-        keep={k: v for k, v in params.items() if k != "range"},
         environment=env,
         **env_context(db, container.trace_store, access.user, access.project.id, env),
         bucket=bucket,

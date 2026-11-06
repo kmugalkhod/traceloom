@@ -28,3 +28,11 @@ def resolve_range(
 def environment(params: Mapping[str, str]) -> str | None:
     value = (params.get("env") or params.get("environment") or "").strip()
     return value or None
+
+
+def range_urls(path: str, params: Mapping[str, str]) -> dict[str, str]:
+    """Link per range key, keeping every other query parameter (paging resets)."""
+    from urllib.parse import urlencode
+
+    keep = {k: v for k, v in params.items() if k not in ("range", "cursor")}
+    return {key: f"{path}?{urlencode({**keep, 'range': key})}" for key in RANGES}

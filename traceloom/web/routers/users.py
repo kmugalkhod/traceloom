@@ -17,7 +17,7 @@ from traceloom.ports import InvalidCursor, UserQuery
 from traceloom.web import pagefmt  # noqa: F401  (registers the filters)
 from traceloom.web.context import env_context, initials, page_context
 from traceloom.web.envpref import resolve_env, saved_env
-from traceloom.web.ranges import resolve_range
+from traceloom.web.ranges import range_urls, resolve_range
 from traceloom.web.templating import WEB_DIR, render
 
 router = APIRouter(tags=["users"])
@@ -73,7 +73,7 @@ def users_list(
         sort=sort,
         sort_href=sort_href,
         range_key=range_key,
-        keep={k: v for k, v in params.items() if k not in ("cursor", "range")},
+        range_urls=range_urls(request.url.path, params),
         environment=env,
         **env_context(db, container.trace_store, access.user, access.project.id, env),
         first_page=cursor is None,

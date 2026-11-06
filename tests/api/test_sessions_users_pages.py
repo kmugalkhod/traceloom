@@ -114,7 +114,7 @@ def test_sessions_date_range_and_environment_filters(client, login, world, conta
     assert ids("?range=7d") == ["sess-dev", "sess-new", "sess-old"]
     assert ids("?env=prod&range=7d") == ["sess-new", "sess-old"]
     html = get(client, login, world, "/sessions?env=prod").text
-    assert 'name="env" value="prod"' in html  # the range buttons keep the environment
+    assert "env=prod&amp;range=7d" in html  # the range links keep the environment
     assert 'aria-pressed="true">24h' in html
 
 
