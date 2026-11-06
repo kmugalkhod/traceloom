@@ -60,6 +60,7 @@ traceloom = [
     "web/static/**/*",
     "seed/*.yaml",
     "db/migrations/*.mako",
+    "adapters/full/*.sql",
 ]
 
 [tool.ruff]
