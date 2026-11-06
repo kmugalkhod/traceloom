@@ -257,3 +257,62 @@ def test_every_public_method_takes_project_id_first(store):
         if name.startswith("_"):
             continue
         assert list(inspect.signature(fn).parameters)[:2] == ["self", "project_id"], name
+
+
+def test_delete_by_filter_removes_exactly_the_matching_traces(store, sessions):
+    from traceloom.ports import TraceQuery
+
+    def seed(project, prefix):
+        rows = [
+            trace(f"{prefix}1", user_id="alice", environment="production", tags=["x"]),
+            trace(f"{prefix}2", user_id="alice", environment="production"),
+            trace(f"{prefix}3", user_id="alice", environment="staging"),
+            trace(f"{prefix}4", user_id="bob", environment="production"),
+        ]
+        store.upsert(
+            project,
+            rows,
+            [obs(f"{prefix}o{i}", f"{prefix}{i}") for i in range(1, 5)],
+            [score(f"{prefix}s{i}", f"{prefix}{i}") for i in range(1, 5)],
+        )
+
+    seed("p1", "a")
+    seed("p2", "a")  # identical ids in another project must survive
+    with sessions.begin() as s:
+        s.add(
+            models.Comment(
+                project_id="p1",
+                object_type="trace",
+                object_id="a1",
+                trace_id="a1",
+                author_id="u",
+                body="gone",
+            )
+        )
+        s.add(
+            models.Comment(
+                project_id="p1",
+                object_type="trace",
+                object_id="a4",
+                trace_id="a4",
+                author_id="u",
+                body="kept",
+            )
+        )
+    query = TraceQuery(user_id="alice", environment="production", limit=1)  # page size is ignored
+    assert store.delete_traces("p1", query) == 2
+    got = store.get_existing(
+        "p1",
+        {
+            "trace": [f"a{i}" for i in range(1, 5)],
+            "observation": [f"ao{i}" for i in range(1, 5)],
+            "score": [f"as{i}" for i in range(1, 5)],
+        },
+    )
+    assert set(got["trace"]) == {"a3", "a4"}
+    assert set(got["observation"]) == {"ao3", "ao4"}
+    assert set(got["score"]) == {"as3", "as4"}
+    with sessions() as s:
+        assert [c.body for c in s.query(models.Comment)] == ["kept"]
+    assert len(store.get_existing("p2", {"trace": ["a1", "a2", "a3", "a4"]})["trace"]) == 4
+    assert store.delete_traces("p1", query) == 0  # nothing left to match

@@ -15,7 +15,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from traceloom.adapters.lite.sql_analytics import SqlAnalyticsMixin
-from traceloom.adapters.lite.sql_read import SqlReadMixin
+from traceloom.adapters.lite.sql_read import SqlReadMixin, trace_filter_clauses
 from traceloom.db.models import Comment, Observation, Score, Trace
 from traceloom.ingest.merge import EPOCH
 from traceloom.ports import LEVELS, ObservationRow, ScoreRow, TraceQuery, TraceRow
@@ -249,8 +249,10 @@ class SqlTraceStore(SqlReadMixin, SqlAnalyticsMixin):
         return deleted
 
     def _trace_ids_for_query(self, project_id: str, query: TraceQuery) -> list[str]:
-        """Ids matching a filter; implemented by SqlReadMixin once the read path lands."""
-        raise NotImplementedError("filtered delete needs the read path (SqlReadMixin)")
+        """Ids of every trace matching the filter (sort, cursor and page size do not apply)."""
+        stmt = select(Trace.id).where(*trace_filter_clauses(project_id, query))
+        with self.session_factory() as s:
+            return list(s.scalars(stmt))
 
     # --- helpers for tests and ops ----------------------------------------------------------
 

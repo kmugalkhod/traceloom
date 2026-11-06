@@ -1,0 +1,22 @@
+{% extends "base_auth.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Log in{% endblock %}
+{% block content %}
+<div class="stack-s"><h1>Log in</h1><p class="dim">Welcome back.</p></div>
+<form class="stack" method="post" action="/login">
+  {{ m.csrf() }}
+  {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+  {% if reset_done %}{{ m.banner("ok", "Password updated. Log in with your new password.") }}{% endif %}
+  {% if rate_limited %}
+    {{ m.banner("err", "Too many attempts. Wait " ~ rate_limited.wait ~ " seconds, then try again. This limit is " ~ rate_limited.limit ~ ".") }}
+  {% endif %}
+  {% if errors.form %}{{ m.banner("err", errors.form) }}{% endif %}
+  {{ m.field("email", "Email", type="email", value=values.email, required=True, autocomplete="email", autofocus=True) }}
+  <div class="field">
+    <div class="row"><label for="password">Password</label><a class="right" href="/forgot">Forgot password?</a></div>
+    <input class="input" id="password" name="password" type="password" required autocomplete="current-password">
+  </div>
+  <button class="btn btn-primary btn-block" type="submit"{% if rate_limited %} aria-disabled="true"{% endif %}>Log in</button>
+</form>
+<p class="dim">New here? <a href="/signup">Create an account</a></p>
+{% endblock %}

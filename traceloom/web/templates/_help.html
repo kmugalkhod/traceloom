@@ -1,0 +1,20 @@
+{% import "_macros.html" as m with context %}
+<dialog class="dlg" id="help-dialog" aria-label="Keyboard shortcuts">
+  <div class="dialog">
+    {{ m.dialog_head("Keyboard shortcuts", "i-kbd") }}
+    <div class="body">
+      <div class="help-grid">
+        <span class="row gap-4"><kbd>/</kbd></span><span>Focus search</span>
+        <span class="row gap-4"><kbd>j</kbd><kbd>k</kbd></span><span>Move down / up in lists and trees</span>
+        <span class="row gap-4"><kbd>enter</kbd></span><span>Open the selected row</span>
+        <span class="row gap-4"><kbd>t</kbd></span><span>Switch tree and timeline</span>
+        <span class="row gap-4"><kbd>e</kbd></span><span>Select the first error</span>
+        <span class="row gap-4"><kbd>g</kbd><kbd>d</kbd></span><span>Go to Dashboard</span>
+        <span class="row gap-4"><kbd>?</kbd></span><span>Show or hide this help</span>
+        <span class="row gap-4"><kbd>esc</kbd></span><span>Close dialogs and menus</span>
+      </div>
+      <p class="hint">Shortcuts pause while you type in a field.</p>
+    </div>
+    <footer><button type="button" class="btn btn-primary" data-dialog-close>Close</button></footer>
+  </div>
+</dialog>

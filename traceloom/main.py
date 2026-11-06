@@ -6,8 +6,10 @@ import importlib
 import pkgutil
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from traceloom import __version__
@@ -16,6 +18,7 @@ from traceloom.auth.csrf import CSRFMiddleware
 from traceloom.auth.sessions import SessionMiddleware
 from traceloom.config import Settings, get_settings
 from traceloom.container import build_container
+from traceloom.logging_setup import ensure_console_logging
 
 CSP = (
     "default-src 'self'; script-src 'self'; object-src 'none'; "
@@ -67,6 +70,7 @@ def include_discovered_routers(app: FastAPI) -> None:
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
+    ensure_console_logging()
     settings = settings or get_settings()
     container = build_container(settings)
 
@@ -86,6 +90,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(CSRFMiddleware, settings=settings)
     app.add_middleware(SecurityHeadersMiddleware)
     install_error_handlers(app)
+    app.mount(
+        "/static", StaticFiles(directory=Path(__file__).parent / "web" / "static"), name="static"
+    )
     include_discovered_routers(app)
     return app
 

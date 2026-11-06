@@ -25,6 +25,8 @@ from traceloom.main import create_app
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
 # Routes that are intentionally reachable without a project role: they authenticate another
 # way (API key) or before a session exists.
+# Routes any signed-in user may call, by design: creating your own organization.
+OPEN_TO_SIGNED_IN_USERS = {("POST", "/orgs/new")}
 PUBLIC_PREFIXES = ("/api/public/", "/login", "/signup", "/logout", "/forgot", "/reset", "/invite")
 
 probe = APIRouter()
@@ -109,7 +111,10 @@ def sweep_viewer(app, client, world, skip_prefixes=()) -> list[tuple[str, str, i
     ids = {"project_id": world.project.id, "org_id": world.org.id}
     results = []
     for method, template in unsafe_routes(app):
-        if template.startswith((*PUBLIC_PREFIXES, *skip_prefixes)):
+        if (
+            template.startswith((*PUBLIC_PREFIXES, *skip_prefixes))
+            or (method, template) in OPEN_TO_SIGNED_IN_USERS
+        ):
             continue
         path = re.sub(r"\{(\w+)\}", lambda m: ids.get(m[1], "x"), template)
         results.append((method, template, client.request(method, path, json={}).status_code))

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}New organization{% endblock %}
+{% block content %}
+{{ m.page_header("Create organization", "An organization holds projects and the people who work on them. You become its Owner.") }}
+<div class="panel w-640">
+  <form class="panel-b stack" method="post" action="/orgs/new">
+    {{ m.csrf() }}
+    {% if error %}{{ m.banner("err", error) }}{% endif %}
+    {{ m.field("name", "Organization name", value=values.name, required=True, placeholder="Acme Labs", autofocus=True) }}
+    {{ m.field("project", "First project", value=values.project, required=True, hint="Traces, keys and prices live in a project. You can add more later.") }}
+    <div class="row"><button class="btn btn-primary" type="submit">Create organization</button><a class="btn btn-ghost" href="/">Cancel</a></div>
+  </form>
+</div>
+{% endblock %}

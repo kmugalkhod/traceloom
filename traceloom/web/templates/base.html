@@ -1,0 +1,101 @@
+{% import "_macros.html" as m with context %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="htmx-config" content='{"includeIndicatorStyles":false,"allowEval":false}'>
+<title>{% block title %}Traceloom{% endblock %} · Traceloom</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/app.js"></script>
+</head>
+<body hx-boost="false">
+{% include "_icons.html" %}
+<a class="skip" href="#main">Skip to content</a>
+<div class="app">
+<div class="shell">
+  <aside class="side">
+    <a class="brand" href="/"><span class="tile">{{ m.icon("i-logo", "ico-lg") }}</span><span class="word">Traceloom</span></a>
+
+    <div class="rel grow-none">
+      <button type="button" class="picker" aria-haspopup="true" aria-expanded="false" data-menu-toggle="picker-menu">
+        <span class="trunc">{% if org %}{{ org.name }}{% if project %} <small>/</small> {{ project.name }}{% endif %}{% else %}No organization{% endif %}</span>
+        {{ m.icon("i-chev-d", "ico-sm") }}
+      </button>
+      <div class="pop pop-picker" id="picker-menu" data-menu hidden>
+        {% for o in orgs %}
+          <div class="hd">{{ o.name }} <span class="chip role">{{ o.role_label }}</span></div>
+          {% for p in o.projects %}
+            <a class="item" href="/project/{{ p.id }}/traces"{% if project and p.id == project.id %} aria-checked="true"{% endif %}>{{ p.name }}</a>
+          {% endfor %}
+          {% if o.role >= Role_ADMIN %}<a class="item" href="/project/{{ (o.projects[0].id) if o.projects else '' }}/settings">{{ m.icon("i-plus", "ico-sm") }}New project</a>{% endif %}
+          <div class="sep"></div>
+        {% endfor %}
+        <a class="item" href="/orgs/new">{{ m.icon("i-plus", "ico-sm") }}New organization</a>
+      </div>
+    </div>
+
+    <nav class="sidenav" aria-label="Main">
+      <div class="cap">Observe</div>
+      {% for item in nav %}
+        <a href="{{ item.href }}" data-nav="{{ item.key }}"{% if item.current %} aria-current="page"{% endif %}>{{ m.icon(item.icon) }}{{ item.label }}</a>
+      {% endfor %}
+      <div class="cap">Project</div>
+      <a href="{{ settings.href }}" data-nav="settings"{% if settings.current %} aria-current="page"{% endif %}>{{ m.icon("i-settings") }}Settings</a>
+      <button type="button" class="nav-btn" data-help-open>{{ m.icon("i-kbd") }}Shortcuts<kbd class="right">?</kbd></button>
+    </nav>
+
+    <span class="m-actions">
+      <button type="button" class="btn btn-icon btn-ghost" aria-label="Switch theme" data-theme-toggle>{{ m.icon("i-sun") }}</button>
+      <span class="avatar {{ user.av }}">{{ user.initials }}</span>
+    </span>
+
+    <div class="usercard-wrap">
+      <button type="button" class="usercard" aria-haspopup="true" aria-expanded="false" data-menu-toggle="user-menu">
+        <span class="avatar {{ user.av }}">{{ user.initials }}</span>
+        <div class="grow"><b>{{ user.name }}</b><small>{{ role_label or user.email }}</small></div>
+        {{ m.icon("i-more", "ico-sm") }}
+      </button>
+      <div class="pop pop-user" id="user-menu" data-menu hidden>
+        <div class="hd">{{ user.email }}</div>
+        <div class="item-static">
+          <div class="seg" role="group" aria-label="Theme">
+            <button type="button" data-themebtn="light" aria-pressed="false">Light</button>
+            <button type="button" data-themebtn="dark" aria-pressed="false">Dark</button>
+            <button type="button" data-themebtn="auto" aria-pressed="false">Auto</button>
+          </div>
+        </div>
+        <div class="sep"></div>
+        <form method="post" action="/logout">{{ m.csrf() }}<button class="item" type="submit">{{ m.icon("i-arrow", "ico-sm") }}Log out</button></form>
+      </div>
+    </div>
+  </aside>
+
+  <div class="card">
+    <div class="ctxbar">
+      {% include "_env_switcher.html" ignore missing %}
+      {% block daterange %}{% endblock %}
+      <button type="button" class="btn btn-icon" aria-label="Keyboard shortcuts (?)" data-help-open>{{ m.icon("i-kbd") }}</button>
+      <button type="button" class="btn btn-icon" aria-label="Switch theme" data-theme-toggle>{{ m.icon("i-sun") }}</button>
+    </div>
+    <main class="main" id="main" tabindex="-1">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<nav class="bottomnav" aria-label="Main">
+  {% for item in nav %}
+    <a href="{{ item.href }}"{% if item.current %} aria-current="page"{% endif %}>{{ m.icon(item.icon) }}<span>{{ item.label }}</span></a>
+  {% endfor %}
+  <a href="{{ settings.href }}"{% if settings.current %} aria-current="page"{% endif %}>{{ m.icon("i-settings") }}<span>Settings</span></a>
+</nav>
+</div>
+
+{% include "_help.html" %}
+{% block dialogs %}{% endblock %}
+<script src="/static/vendor/htmx.min.js" defer></script>
+</body>
+</html>

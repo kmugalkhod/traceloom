@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 import time
 from pathlib import Path
@@ -16,8 +17,8 @@ from traceloom.db.session import make_engine, make_session_factory
 @pytest.fixture
 def cli_settings(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setenv("DATABASE_URL", settings.database_url)
-    monkeypatch.setenv("TRACELOOM_SECRET_KEY", settings.secret_key)
-    monkeypatch.setenv("TRACELOOM_SERVER_SECRET", settings.secret_key)  # renamed env var
+    monkeypatch.delenv("TRACELOOM_SECRET_KEY", raising=False)  # the SDK variable, not the server's
+    monkeypatch.setenv("TRACELOOM_SERVER_SECRET", settings.secret_key)
     monkeypatch.setenv("TRACELOOM_BLOB_DIR", settings.blob_dir)
     monkeypatch.setenv("TRACELOOM_MODE", "lite")
     monkeypatch.setenv("TRACELOOM_ENV", "test")
@@ -98,3 +99,59 @@ def test_worker_starts_and_stops_cleanly(cli_settings, capsys, tmp_path: Path):
     stop.set()
     thread.join(timeout=20)
     assert not thread.is_alive() and result == [0]
+
+
+def test_seed_demo_needs_only_the_server_secret_and_its_keys_ingest(
+    cli_settings, capsys, monkeypatch
+):
+    """With TRACELOOM_SERVER_SECRET as the only secret in the environment, the command is
+    idempotent and the keys it prints are accepted by the ingestion API."""
+    import base64
+    from datetime import UTC, datetime
+
+    from fastapi.testclient import TestClient
+
+    from traceloom.main import create_app
+
+    assert "TRACELOOM_SECRET_KEY" not in os.environ
+    assert cli.main(["seed-demo"]) == 0
+    first = capsys.readouterr().out
+    assert cli.main(["seed-demo"]) == 0
+    second = capsys.readouterr().out
+    assert counts(cli_settings) == (1, 1, 1, 1, 1)
+
+    def creds(text):
+        return {
+            ln.split(":", 1)[0]: ln.split(":", 1)[1].strip()
+            for ln in text.splitlines()
+            if ": " in ln
+        }
+
+    a, b = creds(first), creds(second)
+    assert a["public key"] == b["public key"] and a["secret key"] == b["secret key"]
+
+    auth = base64.b64encode(f"{a['public key']}:{a['secret key']}".encode()).decode()
+    batch = {
+        "batch": [
+            {
+                "id": "e1",
+                "type": "trace-create",
+                "timestamp": datetime.now(UTC).isoformat(),
+                "body": {"id": "demo-trace", "name": "demo"},
+            }
+        ]
+    }
+    with TestClient(create_app(cli.get_settings())) as client:
+        ok = client.post(
+            "/api/public/ingestion", json=batch, headers={"Authorization": f"Basic {auth}"}
+        )
+        assert ok.status_code == 207 and ok.json()["successes"] == [{"id": "e1", "status": 201}]
+        bad = client.post(
+            "/api/public/ingestion",
+            json=batch,
+            headers={
+                "Authorization": "Basic "
+                + base64.b64encode(f"{a['public key']}:tl-sk-wrong".encode()).decode()
+            },
+        )
+        assert bad.status_code == 401

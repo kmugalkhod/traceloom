@@ -1,0 +1,21 @@
+{% extends "base_auth.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Reset your password{% endblock %}
+{% block content %}
+{% if sent %}
+<div class="stack-s"><h1>Reset your password</h1><p class="dim">We never confirm whether an address has an account.</p></div>
+<div class="stack">
+  {{ m.banner("ok", "Check your inbox. If an account exists for that address, a reset link is on its way. It expires in " ~ minutes ~ " minutes.") }}
+  <a class="btn btn-block" href="/login">{{ m.icon("i-arrow") }}Back to log in</a>
+</div>
+{% else %}
+<div class="stack-s"><h1>Reset your password</h1><p class="dim">Enter your email and we will send a one-time link.</p></div>
+<form class="stack" method="post" action="/forgot">
+  {{ m.csrf() }}
+  {% if rate_limited %}{{ m.banner("err", "Too many attempts. Wait " ~ rate_limited.wait ~ " seconds, then try again.") }}{% endif %}
+  {{ m.field("email", "Email", type="email", value=values.email, required=True, autocomplete="email", autofocus=True) }}
+  <button class="btn btn-primary btn-block" type="submit">Send reset link</button>
+  <a href="/login">Back to log in</a>
+</form>
+{% endif %}
+{% endblock %}
