@@ -1,0 +1,2 @@
+{% import "_macros.html" as m with context %}
+{% if r.level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif r.level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% elif r.level == "DEBUG" %}<span class="lv DEBUG">Debug</span>{% else %}<span class="lv ok">Ok</span>{% endif %}

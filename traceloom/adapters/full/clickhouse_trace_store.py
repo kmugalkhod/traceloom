@@ -31,6 +31,7 @@ from traceloom.ports import (
     TraceDetail,
     TraceQuery,
     TraceRow,
+    TraceStats,
     UserQuery,
     UserRow,
     UserSummary,
@@ -303,6 +304,26 @@ def build_trace_ids(project_id: str, query: TraceQuery, table: str = "traces"):
     params["project_id"] = project_id
     sql = f"SELECT id FROM {table} FINAL WHERE {_project_where(*where)}"
     return sql, params
+
+
+def build_trace_stats(project_id: str, query: TraceQuery, table: str = "traces"):
+    where, params = trace_filters(query)
+    params["project_id"] = project_id
+    sql = (
+        "SELECT count() AS count, sum(total_cost) AS total_cost,"
+        " countIf(max_level = 'ERROR') AS error_count,"
+        " quantileExact(0.5)(latency_ms) AS p50, quantileExact(0.95)(latency_ms) AS p95"
+        f" FROM {table} FINAL WHERE {_project_where(*where)}"
+    )
+    return sql, params
+
+
+def build_environments(project_id: str, table: str = "traces"):
+    sql = (
+        f"SELECT DISTINCT environment FROM {table} FINAL"
+        f" WHERE {_project_where()} ORDER BY environment"
+    )
+    return sql, {"project_id": project_id}
 
 
 def _by_ids(
@@ -773,6 +794,23 @@ class ClickHouseTraceStore:
             }[query.sort]
             next_cursor = encode_cursor(sort_value, last.id)
         return Page(items=items, next_cursor=next_cursor)
+
+    def trace_stats(self, project_id: str, query: TraceQuery) -> TraceStats:
+        (row,) = self._select(build_trace_stats(project_id, query, self.traces))
+
+        def finite(value: Any) -> float | None:
+            return None if value is None or value != value else float(value)  # NaN: no rows
+
+        return TraceStats(
+            int(row["count"]),
+            float(row["total_cost"] or 0.0),
+            int(row["error_count"]),
+            finite(row["p50"]) if row["count"] else None,
+            finite(row["p95"]) if row["count"] else None,
+        )
+
+    def list_environments(self, project_id: str) -> list[str]:
+        return [r["environment"] for r in self._select(build_environments(project_id, self.traces))]
 
     def get_trace(self, project_id: str, trace_id: str) -> TraceDetail | None:
         rows = self._select(build_get_trace(project_id, trace_id, self.traces))

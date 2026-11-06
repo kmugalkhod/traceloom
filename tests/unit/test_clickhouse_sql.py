@@ -495,6 +495,7 @@ def test_update_flags_and_delete():
     assert "name = {name:String}" in client2.queries[0][0]
 
 
+<<<<<<< HEAD
 def test_add_score_inserts_one_score_row():
     from traceloom.ports import ScoreRow
 
@@ -516,3 +517,16 @@ def test_matching_trace_ids_is_scoped_and_filtered():
     sql, params = client.queries[0]
     assert_project_scoped(sql, params)
     assert "name = {name:String}" in sql and params["name"] == "drop"
+=======
+def test_stats_and_environment_queries_are_project_scoped_and_bound():
+    from traceloom.adapters.full.clickhouse_trace_store import build_environments, build_trace_stats
+    from traceloom.ports import TraceQuery
+
+    sql, params = build_trace_stats("p1", TraceQuery(user_id="u1", environment="prod"))
+    assert "FROM traces FINAL" in sql and "project_id = {project_id:String}" in sql
+    assert "countIf(max_level = 'ERROR')" in sql and "quantileExact(0.95)(latency_ms)" in sql
+    assert params["project_id"] == "p1" and params["user_id"] == "u1" and "u1" not in sql
+    sql, params = build_environments("p1")
+    assert "SELECT DISTINCT environment" in sql and "project_id = {project_id:String}" in sql
+    assert params == {"project_id": "p1"}
+>>>>>>> team/2026-11-06-phase1-tracing-core

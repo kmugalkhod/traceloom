@@ -203,6 +203,17 @@ class ScoreRow:
 
 
 @dataclass
+class TraceStats:
+    """Totals over every trace matching a TraceQuery (its sort, cursor and limit are ignored)."""
+
+    count: int = 0
+    total_cost: float = 0.0
+    error_count: int = 0  # traces whose worst observation level is ERROR
+    latency_p50_ms: float | None = None
+    latency_p95_ms: float | None = None
+
+
+@dataclass
 class TraceDetail:
     trace: TraceRow
     observations: list[ObservationRow]
@@ -290,6 +301,12 @@ class TraceStore(Protocol):
     def list_traces(self, project_id: str, query: TraceQuery) -> Page[TraceRow]: ...
 
     def get_trace(self, project_id: str, trace_id: str) -> TraceDetail | None: ...
+
+    def trace_stats(self, project_id: str, query: TraceQuery) -> TraceStats: ...
+
+    def list_environments(self, project_id: str) -> list[str]:
+        """Distinct environment names seen on the project's traces, sorted."""
+        ...
 
     def update_trace_flags(self, project_id: str, trace_id: str, **fields: Any) -> bool:
         """Set bookmarked / public / tags. Returns False when the trace does not exist."""

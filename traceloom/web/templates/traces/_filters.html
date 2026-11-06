@@ -1,0 +1,37 @@
+{# Filter chips and the filter panel. Lives inside <form id="filters"> in list.html. #}
+{% import "_macros.html" as m with context %}
+<div class="menu-wrap" id="filter-wrap">
+  <button type="button" class="btn" aria-haspopup="true" aria-expanded="false" data-menu-toggle="filter-menu">{{ m.icon("i-filter") }}Filter</button>
+  <div class="pop pop-wide" id="filter-menu" data-menu hidden>
+    <div class="hd">Filters</div>
+    <div class="filter-grid">
+      <div class="field"><label for="f-name">Trace name</label><input class="input" id="f-name" name="name" value="{{ state.form.name }}"></div>
+      <div class="field"><label for="f-user">User</label><input class="input" id="f-user" name="user" value="{{ state.form.user }}"></div>
+      <div class="field"><label for="f-session">Session</label><input class="input" id="f-session" name="session" value="{{ state.form.session }}"></div>
+      <div class="field"><label for="f-tag">Tag</label><input class="input" id="f-tag" name="tag" value="{{ state.form.tag }}" placeholder="support"><span class="hint">One tag; add more from the URL.</span></div>
+      <div class="field"><label for="f-level">Level at least</label>
+        <select class="select" id="f-level" name="level">
+          <option value="">Any</option>
+          {% for lv in ["DEBUG", "DEFAULT", "WARNING", "ERROR"] %}<option value="{{ lv }}"{% if state.form.level == lv %} selected{% endif %}>{{ lv | title }}</option>{% endfor %}
+        </select></div>
+      <div class="field"><label for="f-error">Errors</label>
+        <select class="select" id="f-error" name="has_error">
+          <option value="">Either</option>
+          <option value="1"{% if state.form.has_error == "1" %} selected{% endif %}>Has an error</option>
+          <option value="0"{% if state.form.has_error == "0" %} selected{% endif %}>No errors</option>
+        </select></div>
+      <div class="field"><label for="f-release">Release</label><input class="input" id="f-release" name="release" value="{{ state.form.release }}"></div>
+      <div class="field"><label for="f-version">Version</label><input class="input" id="f-version" name="version" value="{{ state.form.version }}"></div>
+      <div class="field"><label for="f-mkey">Metadata key</label><input class="input" id="f-mkey" name="metadata_key" placeholder="region"></div>
+      <div class="field"><label for="f-mval">Metadata value</label><input class="input" id="f-mval" name="metadata_value" placeholder="eu"></div>
+      <div class="field"><label for="f-latmin">Latency from (s)</label><input class="input" id="f-latmin" name="lat_min" inputmode="decimal" value="{{ state.form.lat_min }}"></div>
+      <div class="field"><label for="f-latmax">Latency to (s)</label><input class="input" id="f-latmax" name="lat_max" inputmode="decimal" value="{{ state.form.lat_max }}"></div>
+      <div class="field"><label for="f-costmin">Cost from ($)</label><input class="input" id="f-costmin" name="cost_min" inputmode="decimal" value="{{ state.form.cost_min }}"></div>
+      <div class="field"><label for="f-costmax">Cost to ($)</label><input class="input" id="f-costmax" name="cost_max" inputmode="decimal" value="{{ state.form.cost_max }}"></div>
+      <div class="field"><label for="f-from">From date</label><input class="input" id="f-from" name="from" type="date" value="{{ state.form["from"] }}"></div>
+      <div class="field"><label for="f-to">To date</label><input class="input" id="f-to" name="to" type="date" value="{{ state.form.to }}"><span class="hint">Setting either date uses a custom range.</span></div>
+      <label class="check wide"><input type="checkbox" name="bookmarked" value="1"{% if state.form.bookmarked %} checked{% endif %}>Bookmarked only</label>
+    </div>
+    <div class="row jc-end spacer-top"><a class="btn btn-ghost" href="{{ state.base_path }}">Clear filters</a><button class="btn btn-primary" type="submit">Apply filters</button></div>
+  </div>
+</div>

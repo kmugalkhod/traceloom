@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from traceloom.auth.permissions import Perm, Role
+from traceloom.web.formatting import FILTERS
 
 WEB_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(WEB_DIR / "templates"))  # autoescape is on for .html
@@ -39,8 +40,19 @@ def _ago(value: datetime | None, now: datetime | None = None) -> str:
 templates.env.filters["date"] = _date
 templates.env.filters["ago"] = _ago
 templates.env.filters["ord"] = ord
+templates.env.filters.update(FILTERS)
 templates.env.globals["now_utc"] = lambda: datetime.now(UTC)
 templates.env.globals["Perm"] = Perm
+templates.env.globals["icon_types"] = {
+    "generation",
+    "span",
+    "agent",
+    "tool",
+    "chain",
+    "retriever",
+    "embedding",
+    "event",
+}
 templates.env.globals["Role_ADMIN"] = Role.ADMIN
 
 
@@ -53,5 +65,10 @@ def render(
     headers: dict[str, str] | None = None,
 ) -> HTMLResponse:
     """Render a template with the request-scoped basics (CSRF token) merged in."""
-    ctx = {"csrf_token": getattr(request.state, "csrf_token", ""), **(context or {})}
+    path = request.url.path + (f"?{request.url.query}" if request.url.query else "")
+    ctx = {
+        "csrf_token": getattr(request.state, "csrf_token", ""),
+        "request_path": path,
+        **(context or {}),
+    }
     return templates.TemplateResponse(request, name, ctx, status_code=status, headers=headers)

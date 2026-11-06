@@ -1,0 +1,13 @@
+{% import "_macros.html" as m with context %}
+<ul class="tree" role="tree" aria-label="Observations">
+{% for n in nodes %}
+  <li class="node {{ n.level if n.level in ('ERROR', 'WARNING') else '' }}" role="treeitem" aria-selected="{{ 'true' if n.selected else 'false' }}" aria-level="{{ n.depth + 1 }}" data-obs="{{ n.id }}">
+    <span class="lead">{% for _ in range(n.depth) %}<i class="g"></i>{% endfor %}{% if n.has_children %}{{ m.icon("i-chev-d", "ico-sm") }}{% endif %}<span class="ty ty-{{ n.type }}" title="{{ n.type }}">{{ m.icon("i-" ~ n.type if n.type in icon_types else "i-span") }}</span></span>
+    <span class="nm"><a class="t" href="{{ n.page_url }}" hx-get="{{ n.io_url }}" hx-target="#io-pane" hx-swap="innerHTML" hx-push-url="{{ n.page_url }}" data-obs-link>{{ n.name }}</a>{% if n.level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif n.level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% endif %}</span>
+    <span class="num dim">{{ n.duration }}</span>
+    <span class="num hide-m">{% if n.cost %}{{ n.cost }}{% else %}<span class="muted">–</span>{% endif %}</span>
+  </li>
+{% else %}
+  <li class="hint tree-empty">This trace has no observations.</li>
+{% endfor %}
+</ul>
