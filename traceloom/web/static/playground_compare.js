@@ -1,6 +1,6 @@
 /* Playground compare: up to 4 variant columns, "Run all" streams every column on its own.
    Opens on the page's 'pg:action' event {action: 'compare'}, mounts into #pg-compare-mount and
-   reads the shared editor through window.Playground (getState, setMode, config). Each column has
+   reads the shared editor through window.Playground (getState, setMode, runStream, config). Each column has
    its own AbortController and its own usage; nothing is shared between runs. Everything from the
    server or the model is written with textContent. */
 (function () {
@@ -10,10 +10,6 @@
   var panel = null, data = [], seq = 0;
   var controllers = new WeakMap(); // variant element -> AbortController
 
-  function cookie(name) {
-    var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
-    return m ? decodeURIComponent(m[1]) : '';
-  }
   function $(root, sel) { return root.querySelector(sel); }
   function all(root, sel) { return Array.prototype.slice.call(root.querySelectorAll(sel)); }
   function clear(el) { while (el.firstChild) { el.removeChild(el.firstChild); } }
@@ -154,48 +150,29 @@
     else if (name === 'error') { showError(v, d.message); }
   }
 
-  function readStream(v, response, textNode) {
-    var reader = response.body.getReader(), decoder = new TextDecoder(), buffer = '';
-    function pump() {
-      return reader.read().then(function (r) {
-        if (r.done) { return; }
-        buffer += decoder.decode(r.value, { stream: true });
-        var parts = buffer.split('\n\n'); buffer = parts.pop();
-        parts.forEach(function (block) {
-          var name = '', payload = '';
-          block.split('\n').forEach(function (line) {
-            if (line.indexOf('event:') === 0) { name = line.slice(6).trim(); }
-            else if (line.indexOf('data:') === 0) { payload += line.slice(5).trim(); }
-          });
-          if (!name) { return; }
-          try { handle(v, textNode, name, JSON.parse(payload)); } catch (e) { /* ignore a malformed event */ }
-        });
-        return pump();
-      });
-    }
-    return pump();
-  }
-
   function ownMessages(v) {
     return all(v, '.v-msg').map(function (row) {
       return { role: $(row, '[data-m-role]').value, content: $(row, '[data-m-content]').value };
     }).filter(function (m) { return m.content.trim() !== ''; });
   }
 
-  function requestFor(v, shared) {
+  function stateFor(v, shared) {
     var params = {};
     Object.keys(shared.params || {}).forEach(function (k) { params[k] = shared.params[k]; });
     var t = $(v, '[data-v-temperature]').value, mt = $(v, '[data-v-max-tokens]').value;
     if (t !== '') { params.temperature = parseFloat(t); }
     if (mt !== '') { params.max_tokens = parseInt(mt, 10); }
     return {
-      connection_id: $(v, '[data-v-connection]').value || shared.connection_id,
+      connectionId: $(v, '[data-v-connection]').value || shared.connectionId,
       model: $(v, '[data-v-model]').value.trim() || shared.model,
       messages: $(v, '[data-v-follow]').checked ? shared.messages : ownMessages(v),
       variables: shared.variables || {},
       params: params,
       tools: shared.tools || [],
-      response_schema: shared.response_schema || null
+      responseSchema: shared.responseSchema || null,
+      trace: false,
+      promptName: null,
+      promptVersion: null
     };
   }
 
@@ -205,45 +182,25 @@
     clear(textEl); clear($(v, '[data-v-calls]'));
     $(v, '[data-v-error]').hidden = true; $(v, '[data-v-usage]').hidden = true;
     var textNode = document.createTextNode(''); textEl.appendChild(textNode);
-    var body = requestFor(v, shared);
-    if (!body.connection_id || !body.model || !body.messages.length) {
+    var state = stateFor(v, shared);
+    if (!state.connectionId || !state.model || !state.messages.length) {
       showError(v, 'Pick a connection and a model, and give this variant at least one message.');
       return Promise.resolve();
     }
     var controller = new AbortController();
     controllers.set(v, controller);
     $(v, '[data-variant-stop]').hidden = false;
-    return fetch(panel.getAttribute('data-run-url'), {
-      method: 'POST', credentials: 'same-origin', signal: controller.signal,
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': cookie('tl_csrf') },
-      body: JSON.stringify(body)
-    }).then(function (r) {
-      if (!r.ok) {
-        return r.json().catch(function () { return {}; }).then(function (d) {
-          showError(v, (d && d.error && d.error.message) || 'The run failed (' + r.status + ').');
-        });
-      }
-      return readStream(v, r, textNode);
-    }).catch(function (e) {
-      if (e && e.name === 'AbortError') { return; }
-      showError(v, 'The connection to the server was lost.');
+    return window.Playground.runStream(state, function (ev) {
+      handle(v, textNode, ev.name, ev.data);
+    }, controller.signal).then(function (result) {
+      if (!result.ok && !result.aborted) { showError(v, result.message || 'The run failed.'); }
     }).then(function () {
       if (controllers.get(v) === controller) { controllers.delete(v); $(v, '[data-variant-stop]').hidden = true; }
     });
   }
 
-  function sharedState() {
-    var st = window.Playground ? window.Playground.getState() : null;
-    if (!st) { return null; }
-    return {
-      connection_id: st.connectionId, model: st.model, messages: st.messages || [],
-      variables: st.variables || {}, params: st.params || {}, tools: st.tools || [],
-      response_schema: st.responseSchema || null
-    };
-  }
-
   function runAll() {
-    var shared = sharedState();
+    var shared = window.Playground ? window.Playground.getState() : null;
     if (!shared) { return; }
     // every column starts at once; each has its own request, controller and usage
     variants().forEach(function (v) { run(v, shared); });
@@ -277,7 +234,7 @@
       var own = $(v, '[data-v-own]');
       own.hidden = e.target.checked;
       if (!e.target.checked && !all(v, '.v-msg').length) {
-        var shared = sharedState() || { messages: [] };
+        var shared = window.Playground ? window.Playground.getState() : { messages: [] };
         (shared.messages || []).forEach(function (m) { addMessage(v, m.role, m.content); }); // start from a copy of the shared messages
         if (!all(v, '.v-msg').length) { addMessage(v, 'user', ''); }
       }
