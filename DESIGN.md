@@ -1,6 +1,6 @@
-# Traceloom design standard (v3.1: decluttered)
+# Traceloom design standard (v3.1)
 
-Revised after human review and matching the approved v3 mockup, then decluttered in v3.1 (roomier spacing, larger type, fewer borders; see "Declutter pass" below, which supersedes the older sizes in this file): a neutral SaaS dashboard reference supplied by the owner is the pinned look. We take its language only (a floating sidebar, an inner rounded card, soft white panels, status pills, a near-black primary, pastel initial avatars), not its brand or content. v1 (the strip rack) is retired. Tokens live in the `:root` block of `sdlc/changes/2026-11-06-phase1-tracing-core/design/mockup.html`; copy it into `traceloom/web/static/app.css`. Phase 2 adds components only (see the last section; CSS in `sdlc/changes/2026-11-06-phase2-prompts-playground/design/mockup.html`) and changes no token.
+Revised after human review and matching the approved v3 mockup, then given a calmer layout in v3.1 (see "Layout pass" below; borders and the 14px base are unchanged): a neutral SaaS dashboard reference supplied by the owner is the pinned look. We take its language only (a floating sidebar, an inner rounded card, soft white panels, status pills, a near-black primary, pastel initial avatars), not its brand or content. v1 (the strip rack) is retired. Tokens live in the `:root` block of `sdlc/changes/2026-11-06-phase1-tracing-core/design/mockup.html`; copy it into `traceloom/web/static/app.css`. Phase 2 adds components only (see the last section; CSS in `sdlc/changes/2026-11-06-phase2-prompts-playground/design/mockup.html`) and changes no token.
 
 Mode: Operate. Light and dark are both first-class: system default, a toggle, persisted in `localStorage` and a cookie.
 
@@ -52,35 +52,31 @@ No token, font, radius or shadow changed. Nav: a **Build** group (Prompts, Playg
 - **Secret-once** (`.secret` inside an ok banner), **delivery status** reuses `.lv` pills (Delivered, Retrying n of 5, Failed), **toast** (`.toast`, near-black, bottom right, with Undo).
 - A disabled control a role cannot use stays visible only where the role can reasonably ask for it (production move for Members, with the reason under it); everywhere else it is not rendered.
 
-## Declutter pass (v3.1): apply globally in app.css
-Same colours, font families and v3 look. Only density, type scale and borders change. In the mockup these live under `.v4` (`design/mockup.html` of the Phase 2 change, block "v4 declutter"); in `app.css` put the tokens on `:root` and the component rules unscoped.
+## Layout pass (v3.1): calmer layout, v3 structure kept
+Revision 3 after review: the v3 borders, radii, panel and table-header styling are unchanged (a borderless pass looked unfinished and is withdrawn). Less crowding comes from layout: fewer things visible at once, secondary actions in menus, optional fields collapsed, a consistent 24px rhythm. In the mockup the changes sit under `.v4`; in `app.css` put the tokens on `:root` and the rules unscoped.
 
-**Tokens (replace the old values)**
-| Token | Old | New |
+**Token changes (small)**
+| Token | v3 | v3.1 |
 |---|---|---|
-| `--fs-label` | 11 | 12 |
-| `--fs-data` | 12.5 | 13.5 |
-| `--fs-base` (body, inputs, tables) | 14 | 15, line-height 1.55 (`--lh`) |
-| `--fs-md` (nav, panel titles) | 15 | 16 |
-| `--fs-lg` | 17 | 18 |
-| `--fs-xl` (section titles) | 22 | 24 |
-| `--fs-2xl` (page titles, auth) | 30 | 32 (stat numbers 34) |
-| `--sp-5 / 6 / 7 / 8 / 9` | 12 / 16 / 24 / 32 / 48 | 16 / 24 / 32 / 48 / 64 |
-| `--row-h` table row | 48 | 60 (roomy 72, flat 64) |
-| `--ctl-h` control height | 34 / 38 | 40 buttons, 44 inputs (mobile 44 / 48, input font 16) |
-| Sidebar item | 40 | 44 |
+| `--fs-base` | 14 | 14 (kept), line-height 1.5 (`--lh`) |
+| `--fs-2xl` page title | 30 | 24 (stat numbers 28) |
+| Control height | 34 / 38 | 36 (inputs and buttons), 30 small, 44 on mobile |
+| Table row | 48 | 48 (flat 52, roomy 56) |
+| Section gap | 16 | 24 |
+| Page padding | 24 / 32 | 24 (20 at <=1100, 14 mobile) |
 
-**Component rules**
-- Page: 40px side padding (28 at <=1100, 16 on mobile), 32px between sections, page title 32 with a 16px `--ink-2` subtitle.
-- Fewer lines and boxes: panels keep one hairline and no shadow; panel headers, table header bars (now transparent with one rule), pager, dialog footers and detail sections lose their borders; stat rows are not boxed (no dividers, 40px gap); key-value grids are borderless; one box level only (a panel may not hold a bordered card unless it is a message or code block).
-- One primary action per view. Everything else is a default or ghost button, and rarely used actions (saved views, columns, delete, public share, copy, rename) go in a "..." menu (`.pop` menu, 40px items). Destructive actions are menu items, shown in `--err`; the red button appears only inside the confirm dialog.
-- Tables: drop low-value columns instead of squeezing (traces list hides Tags and Scores below 1400px; they stay in the row detail). Status pills stay; the URL bar is gone (filters still live in the URL).
-- Trace detail keeps Trace id, User, Session, Latency, Cost and Tokens in the header; Environment, Release and Version move to the details panel.
-- Type hierarchy: page title 32 > section title 17-24 > body 15 > metadata 13.5 in `--ink-3`. Metadata never competes with content.
-- Dialogs: 24px radius, 28px padding, 20px between fields, footer without a rule.
+**Rules**
+- Panels, panel headers, table-header bars, stat dividers, tabs, dialogs: exactly as v3 (hairline borders, `--sh-1`, 16 radius).
+- One primary action per view; rare actions (saved views, columns, delete matching, public share, copy, delete prompt) live in a "..." menu (`.pop`). Destructive actions are menu items in `--err`; the red button only appears in the confirm dialog.
+- Optional fields are collapsed (`details`): prompt Config, playground Settings, label history, older versions.
+- Header key-values: the primary six (trace id, user, session, latency, cost, tokens) on the first row; Environment, Release, Version on a second "details" row (nothing is dropped).
+- Tables keep their columns on desktop; rows with several secondary values show one muted second line. Mobile tables become two-line rows.
+- Dashboard: Cost, Tokens and both latency tables share one tabbed "Breakdown" panel; the stat row, traces over time and error rate stay visible.
+- No cramped multi-row toolbars: filters sit on one row; at <=760 they wrap into full-width controls.
 
 **Phase 2 screen rules**
-- Prompt detail: title, one-line meta, `New version` (the only primary) and a "..." menu; tabs Versions, Compare, Preview, Metrics. Versions show as a quiet rail (v-number, label pills, commit line, author and time; selected row is white with a hairline). The right side is title (Version N + labels + `Set production`), commit message, content, then metadata and a collapsed Label history.
-- Playground: two equal columns (Prompt, Response) with 40px gap. Header actions: "..." (Compare, Load prompt, Save as prompt), `Settings` (toggle), `Run` (primary, becomes Stop). Parameters, Tools and Schema live in a Settings panel that opens over the right edge. Messages are lightly boxed cards with one "..." action; inputs are two plain fields.
-- Compare: 24px gaps, each column is its own card with a 3px top bar in its series colour plus a letter badge (never colour alone), its model select, params, status chip, output and a one-line usage summary.
-- Settings lists (connections, webhooks): one row per item (tile or endpoint, a muted second line, a status pill, `Test` or `Send test` ghost button and a "..." menu for edit, disable, delete). Dialogs use a Provider select instead of a segmented row.
+- Prompt detail: title, one-line meta, `New version` (the only primary) and a "..." menu; tabs Versions, Compare, Preview, Metrics. Versions are a rail (v-number, label pills, commit line, author) beside the selected version (title, labels, `Set production`, content, metadata, collapsed Label history).
+- Playground: one row "Run with" (connection, model), then two aligned equal panels (Prompt, Response). Header actions: "..." (Compare, Load prompt, Save as prompt), `Settings` (opens a panel with Parameters, Tools, Schema), `Run` (becomes Stop).
+- Compare: 24px gaps; each column is a panel with a 3px top bar in its series colour plus a letter badge, model select, params, status chip, output and a one-line usage summary.
+- Settings lists (connections, webhooks): one row per item with a muted second line, status pill, ghost `Test` / `Send test`, and a "..." menu; dialogs use a Provider select.
+- Prompt Config is collapsed by default on the new prompt and version editors.
