@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Users{% endblock %}
+{% block daterange %}{% include "_range_picker.html" %}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/pages.css">
+{{ m.page_header("Users", "Who is using your agents, and what they cost. Last " ~ range_label ~ (", " ~ environment if environment else "") ~ ".") }}
+{% if users %}
+<div class="panel">
+  <div class="rack">
+    <table class="tbl roomy keepcols" aria-label="Users">
+      <thead>
+        <tr>
+          <th class="lvl"></th>
+          <th>User id</th>
+          <th class="hide-m"><a class="sort-link" href="{{ sort_href('first_seen') }}"{% if sort == 'first_seen' %} aria-current="true"{% endif %}>First seen</a></th>
+          <th><a class="sort-link" href="{{ sort_href('last_seen') }}"{% if sort == 'last_seen' %} aria-current="true"{% endif %}>Last seen</a></th>
+          <th class="r"><a class="sort-link" href="{{ sort_href('traces') }}"{% if sort == 'traces' %} aria-current="true"{% endif %}>Traces</a></th>
+          <th class="r hide-m"><a class="sort-link" href="{{ sort_href('tokens') }}"{% if sort == 'tokens' %} aria-current="true"{% endif %}>Tokens</a></th>
+          <th class="r"><a class="sort-link" href="{{ sort_href('cost') }}"{% if sort == 'cost' %} aria-current="true"{% endif %}>Cost</a></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr data-row>
+          <td class="lvl"></td>
+          <td><span class="user-cell">{{ m.avatar(u.initials, u.row.user_id, "sm") }}<a class="mono" href="/project/{{ project.id }}/users/{{ u.row.user_id | urlencode }}">{{ u.row.user_id }}</a></span></td>
+          <td class="hide-m muted">{{ u.row.first_seen | date }}</td>
+          <td class="muted">{{ u.row.last_seen | when }}</td>
+          <td class="num">{{ u.row.trace_count | intcomma }}</td>
+          <td class="num hide-m">{{ u.row.total_tokens | intcomma }}</td>
+          <td class="num">{{ u.row.total_cost | cost }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="pager">
+    <span>{{ users | length }} user{{ "" if users | length == 1 else "s" }} on this page</span>
+    {% if not first_page %}<a class="btn btn-sm" href="{{ first_href }}">First page</a>{% endif %}
+    {% if next_href %}<a class="btn btn-sm" href="{{ next_href }}">Load more</a>{% endif %}
+  </div>
+</div>
+{% elif not first_page %}
+<div class="panel"><div class="empty"><h2>No more users</h2><p><a href="{{ first_href }}">Back to the first page</a></p></div></div>
+{% else %}
+<div class="panel">
+  <div class="empty">
+    <h2>No users yet</h2>
+    <p>Set a <span class="mono">user_id</span> on your traces to see who is using your agents and what they cost.</p>
+    <div class="code" tabindex="0"><span class="n">update_current_trace</span>(user_id=<span class="s">"usr_maria"</span>)</div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

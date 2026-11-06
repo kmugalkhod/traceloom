@@ -11,20 +11,6 @@
 </div>
 {% endblock %}
 
-{% block ctx_m %}
-<div class="ctx-m row-wrap">
-  <form method="post" action="/project/{{ project.id }}/prefs/env">
-    {{ m.csrf() }}<input type="hidden" name="next" value="{{ request_path }}">
-    <select class="select" name="env" aria-label="Environment" data-autosubmit>
-      <option value="all"{% if not env_ctx.current %} selected{% endif %}>All environments</option>
-      {% for name in env_ctx.options %}<option value="{{ name }}"{% if name == env_ctx.current %} selected{% endif %}>{{ name }}</option>{% endfor %}
-    </select>
-  </form>
-  <div class="seg" role="group" aria-label="Date range">
-    {% for key in ["1h", "24h", "7d", "30d"] %}<a href="{{ state.url(drop=['from', 'to'], set={'range': key}) }}" aria-pressed="{{ 'true' if state.range == key else 'false' }}">{{ key }}</a>{% endfor %}
-  </div>
-</div>
-{% endblock %}
 
 {% block content %}
 <div class="progress" id="loading-bar" role="progressbar" aria-label="Loading" hidden></div>
@@ -75,6 +61,7 @@
     </div>
   </div>
 
+  {% include "traces/_delete_matching_button.html" %}
   {% if can(Perm.ANNOTATE) %}
   <button type="button" class="btn btn-primary" data-dialog-open="save-view">{{ m.icon("i-plus") }}Save view</button>
   {% endif %}

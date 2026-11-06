@@ -1,0 +1,53 @@
+{% import "_macros.html" as m with context %}
+{% set base = "/project/" ~ project.id ~ "/traces/" ~ trace.id %}
+<section class="panel" aria-label="Scores" id="scores">
+  <div class="panel-h"><h2>Scores</h2><span class="chip">{{ scores_panel | length }}</span></div>
+  <div class="panel-b">
+    {% for s in scores_panel %}
+      <div class="row-wrap line-b">
+        <span class="score"><b>{{ s.name }}</b><span>{{ s | score_value }}</span></span>
+        <span class="src">{{ s.source | title }}</span>
+        <span class="hint">{{ author_names.get(s.author_id, "API") if s.author_id else "API" }} · {{ s.timestamp | ago }}</span>
+        {% if s.comment %}<span class="hint">{{ s.comment }}</span>{% endif %}
+      </div>
+    {% else %}
+      <p class="hint">No scores yet.</p>
+    {% endfor %}
+    {% if can("traces:annotate") %}
+      <form method="post" action="{{ base }}/scores" hx-post="{{ base }}/scores" hx-target="#trace-discussion" hx-swap="innerHTML" class="stack-s pad-t score-form">
+        {{ m.csrf() }}
+        <div class="row-wrap start">
+          <div class="flex-1">
+            <div class="field">
+              <label for="score-name">Name</label>
+              <input class="input" id="score-name" name="name" type="text" maxlength="200" required value="{{ score_form.name }}">
+            </div>
+          </div>
+          <div class="field">
+            <label for="score-type">Type</label>
+            <select class="select" id="score-type" name="data_type">
+              {% for key, label in [("NUMERIC", "Numeric"), ("BOOLEAN", "Boolean"), ("CATEGORICAL", "Category")] %}
+                <option value="{{ key }}"{% if score_form.data_type == key %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="flex-1">
+            <div class="field">
+              <label for="score-value">Value</label>
+              <input class="input" id="score-value" name="value" type="text" maxlength="200" required value="{{ score_form.value }}" placeholder="1, true or a label"{% if score_error %} aria-invalid="true" aria-describedby="score-error"{% endif %}>
+              {% if score_error %}<div class="field-error" id="score-error" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ score_error }}</span></div>{% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label for="score-comment">Comment (optional)</label>
+          <input class="input" id="score-comment" name="comment" type="text" maxlength="1000" value="{{ score_form.comment }}" placeholder="Why this score?">
+        </div>
+        <div class="row">
+          <span class="hint">Saved as source ANNOTATION by you.</span>
+          <span class="right"><button class="btn btn-primary btn-sm" type="submit">Add score</button></span>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+</section>

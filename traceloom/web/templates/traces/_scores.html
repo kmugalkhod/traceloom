@@ -1,0 +1,6 @@
+{% import "_macros.html" as m with context %}
+{# chips(scores): `name: value` chips for the traces list scores column and anywhere else. #}
+{% macro chips(scores) -%}
+  {% for s in scores %}<span class="score" title="{{ s.source | lower }}"><b>{{ s.name }}</b><span>{{ s | score_value }}</span></span> {% endfor %}
+{%- endmacro %}
+{# The scores panel itself is part of the lazy discussion fragment (_panels.html). #}

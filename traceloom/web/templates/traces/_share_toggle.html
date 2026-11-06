@@ -1,0 +1,9 @@
+{% import "_macros.html" as m with context %}
+{% set base = "/project/" ~ project.id ~ "/traces/" ~ trace.id %}
+{% if can("traces:share") %}
+  <form method="post" action="{{ base }}/share" hx-post="{{ base }}/share" hx-target="#trace-actions" hx-swap="innerHTML" class="inline-form">
+    {{ m.csrf() }}<input type="hidden" name="enabled" value="{{ '0' if trace.public else '1' }}">
+    <span class="dim">Public share</span>
+    <button class="switch" type="submit" role="switch" aria-checked="{{ 'true' if trace.public else 'false' }}" aria-label="Public share"></button>
+  </form>
+{% endif %}

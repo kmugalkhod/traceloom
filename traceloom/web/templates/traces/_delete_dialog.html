@@ -1,0 +1,35 @@
+{% import "_macros.html" as m with context %}
+{# The delete-by-filter confirmation: shows the match count and asks to type it. #}
+<div class="scrim">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label="Delete {{ match_count }} trace{{ '' if match_count == 1 else 's' }}?">
+    <header>
+      <h2>Delete {{ match_count }} trace{{ "" if match_count == 1 else "s" }}?</h2>
+      <a class="btn btn-icon btn-ghost btn-sm right" aria-label="Close" href="{{ list_href }}">{{ m.icon("i-x") }}</a>
+    </header>
+    <form method="post" action="/project/{{ project.id }}/traces-delete-matching">
+      {{ m.csrf() }}
+      <input type="hidden" name="filter" value="{{ raw_filter }}">
+      <div class="body">
+        {% if error %}{{ m.banner("err", error) }}{% endif %}
+        <div class="banner err" role="alert">{{ m.icon("i-error") }}<div><b>{{ match_count }} trace{{ " matches" if match_count == 1 else "s match" }} your filters and will be deleted</b> with their observations, scores and comments. This cannot be undone.</div></div>
+        <div class="stack-s">
+          <span class="lbl">Matching filter</span>
+          <div class="row-wrap">
+            {% for chip in chips %}<span class="chip accent">{{ chip }}</span>{% else %}<span class="chip accent">all traces in this project</span>{% endfor %}
+          </div>
+        </div>
+        {% if match_count %}
+          <div class="field">
+            <label for="confirm-count">Type <b>{{ match_count }}</b> to confirm</label>
+            <input class="input" id="confirm-count" name="confirm" autocomplete="off" inputmode="numeric" placeholder="{{ match_count }}" required>
+          </div>
+        {% endif %}
+        <p class="hint">Only traces in <b>{{ project.name }}</b> are affected. The deletion is recorded in the audit log with your name, this filter and the count.</p>
+      </div>
+      <footer>
+        <a class="btn" href="{{ list_href }}">Cancel</a>
+        {% if match_count %}<button class="btn btn-danger" type="submit">Delete {{ match_count }} trace{{ "" if match_count == 1 else "s" }}</button>{% endif %}
+      </footer>
+    </form>
+  </div>
+</div>

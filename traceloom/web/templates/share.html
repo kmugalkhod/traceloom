@@ -1,0 +1,84 @@
+{% import "_macros.html" as m with context %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex, nofollow">
+<title>{{ trace.name or trace.id }} · Shared trace · Traceloom</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/pages.css">
+<script src="/static/app.js"></script>
+</head>
+<body>
+{% include "_icons.html" %}
+<div class="share-bar">{{ m.icon("i-lock", "ico-sm") }}<span>Shared trace. Read-only: anyone with this link can view it.</span></div>
+<main class="share-main" id="main">
+  <div class="th-head">
+    <div class="th-title">
+      <h1>{{ trace.name or trace.id }}</h1>
+      {% if trace.max_level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>
+      {% elif trace.max_level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% endif %}
+    </div>
+    <dl class="kv">
+      <div><dt>Trace id</dt><dd class="mono">{{ trace.id }}</dd></div>
+      <div><dt>Time</dt><dd>{{ trace.timestamp | date("%b %-d, %Y %H:%M:%S UTC") }}</dd></div>
+      {% if trace.latency_ms is not none %}<div><dt>Latency</dt><dd class="mono">{{ "%.0f"|format(trace.latency_ms) }} ms</dd></div>{% endif %}
+      <div><dt>Cost</dt><dd class="mono">${{ "%.4f"|format(trace.total_cost) }}</dd></div>
+      <div><dt>Tokens</dt><dd class="mono">{{ "{:,}".format(trace.total_tokens) }}</dd></div>
+      <div><dt>Env</dt><dd>{{ trace.environment }}</dd></div>
+      {% if trace.release %}<div><dt>Release</dt><dd class="mono">{{ trace.release }}</dd></div>{% endif %}
+    </dl>
+    {% if trace.tags %}<div class="row-wrap"><span class="cap">Tags</span>{% for tag in trace.tags %}<span class="chip">{{ tag }}</span>{% endfor %}</div>{% endif %}
+  </div>
+
+  {% macro io(title, rendered) %}
+    {% if rendered.kind != "empty" %}
+      <div class="io-sec">
+        <h3>{{ title }}</h3>
+        {% if rendered.kind == "chat" %}
+          {% for msg in rendered.messages %}
+            <div class="bub {{ 'a' if msg.css_role == 'assistant' else 'u' }}"><span class="cap">{{ msg.role }}</span><div>{{ msg.html }}</div></div>
+          {% endfor %}
+        {% else %}
+          <div class="code" tabindex="0">{{ rendered.html }}</div>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% endmacro %}
+
+  <section class="panel" aria-label="Trace input and output">
+    <div class="panel-b">
+      {{ io("Input", input) }}{{ io("Output", output) }}{{ io("Metadata", metadata) }}
+      {% if input.kind == "empty" and output.kind == "empty" %}<p class="hint">This trace has no input or output.</p>{% endif %}
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Observations">
+    <div class="panel-h"><h2>Observations</h2><span class="chip">{{ rows | length }}</span></div>
+    <div class="panel-b">
+      <ul class="share-tree">
+        {% for r in rows %}
+          <li class="indent-{{ r.depth }}">
+            <details{% if r.obs.level == "ERROR" %} open{% endif %}>
+              <summary>
+                <span class="ty ty-{{ r.obs.type }}" title="{{ r.obs.type }}">{{ m.icon("i-" ~ r.obs.type if r.obs.type in ("generation","span","agent","tool","chain","retriever","embedding","event") else "i-span") }}</span>
+                <b>{{ r.obs.name or r.obs.type }}</b>
+                {% if r.obs.level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif r.obs.level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% endif %}
+                <span class="dim mono">{{ "%.0f"|format(r.duration_ms) }} ms</span>
+                {% if r.cost %}<span class="dim mono">${{ "%.4f"|format(r.cost) }}</span>{% endif %}
+                {% if r.obs.model %}<span class="chip mono">{{ r.obs.model }}</span>{% endif %}
+              </summary>
+              {% if r.obs.status_message %}{{ m.banner("err", r.obs.status_message) }}{% endif %}
+              {{ io("Input", r.input) }}{{ io("Output", r.output) }}{{ io("Metadata", r.metadata) }}
+            </details>
+          </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+</main>
+</body>
+</html>

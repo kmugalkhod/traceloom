@@ -1,0 +1,26 @@
+{# The mobile context row (environment + date range), shown under 760px by the shell.
+   Rendered by base.html for every page that has a date range: the traces list passes `state`,
+   the other data pages pass `range_urls`; the environment form needs `env_ctx`. #}
+{% import "_macros.html" as m with context %}
+{% set from_list = state is defined and state.range is defined %}
+{% if env_ctx or from_list or range_urls is defined %}
+<div class="ctx-m row-wrap">
+  {% if env_ctx %}
+  <form method="post" action="/project/{{ project.id }}/prefs/env">
+    {{ m.csrf() }}<input type="hidden" name="next" value="{{ request_path }}">
+    <select class="select" name="env" aria-label="Environment" data-autosubmit>
+      <option value="all"{% if not env_ctx.current %} selected{% endif %}>All environments</option>
+      {% for name in env_ctx.options %}<option value="{{ name }}"{% if name == env_ctx.current %} selected{% endif %}>{{ name }}</option>{% endfor %}
+    </select>
+  </form>
+  {% endif %}
+  {% if from_list or range_urls is defined %}
+  <div class="seg" role="group" aria-label="Date range">
+    {% for key in ["1h", "24h", "7d", "30d"] %}
+      {% if from_list %}<a href="{{ state.url(drop=['from', 'to'], set={'range': key}) }}" aria-pressed="{{ 'true' if state.range == key else 'false' }}">{{ key }}</a>
+      {% else %}<a href="{{ range_urls[key] }}" aria-pressed="{{ 'true' if key == range_key else 'false' }}">{{ key }}</a>{% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}

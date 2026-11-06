@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Delete traces{% endblock %}
+{% block content %}
+{{ m.page_header("Delete traces", "Review what will be deleted before you confirm.") }}
+{% include "traces/_delete_dialog.html" %}
+{% endblock %}

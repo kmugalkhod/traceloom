@@ -1,0 +1,6 @@
+{# Date range links for the context bar (desktop). Needs range_urls and range_key. #}
+<div class="seg" role="group" aria-label="Date range">
+  {% for key in ["1h", "24h", "7d", "30d"] %}
+    <a href="{{ range_urls[key] }}" aria-pressed="{{ 'true' if key == range_key else 'false' }}">{{ key }}</a>
+  {% endfor %}
+</div>

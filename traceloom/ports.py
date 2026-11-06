@@ -312,6 +312,10 @@ class TraceStore(Protocol):
         """Set bookmarked / public / tags. Returns False when the trace does not exist."""
         ...
 
+    def matching_trace_ids(self, project_id: str, query: TraceQuery) -> list[str]:
+        """Ids of every trace matching the query (sort, cursor and page size do not apply)."""
+        ...
+
     def delete_traces(self, project_id: str, target: Sequence[str] | TraceQuery) -> int:
         """Delete by ids or by every trace matching a query. Returns the number deleted."""
         ...
