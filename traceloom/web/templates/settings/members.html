@@ -1,5 +1,5 @@
 {% extends "settings/base.html" %}
-{% import "_macros.html" as m %}
+{% import "_macros.html" as m with context %}
 {% block title %}Members{% endblock %}
 {% block settings_body %}
 <div class="stack">
@@ -12,7 +12,7 @@
   <div class="panel">
     <div class="panel-h"><h2>Members</h2><span class="chip">{{ members | length }}</span></div>
     <div class="rack">
-      <table class="tbl tbl-flat keepcols">
+      <table class="tbl tbl-flat stack-m">
         <thead><tr><th>Member</th><th>Role</th><th class="r"><span class="sr">Actions</span></th></tr></thead>
         <tbody>
         {% for row in members %}
@@ -63,12 +63,12 @@
     </form>
     {% if invites %}
     <div class="rack top-line">
-      <table class="tbl tbl-flat keepcols">
+      <table class="tbl tbl-flat stack-m">
         <thead><tr><th>Pending invite</th><th>Role</th><th>Expires</th><th class="r"><span class="sr">Actions</span></th></tr></thead>
         <tbody>
         {% for inv in invites %}
           <tr>
-            <td>{{ inv.email }}</td>
+            <td class="c-name">{{ inv.email }}</td>
             <td><span class="chip">{{ inv.role | title }}</span></td>
             <td class="muted">{% set left = inv.expires_at | ago %}{% if inv.expires_at > now_utc() %}{{ left }}{% else %}<span class="lv ERROR">Expired</span>{% endif %}</td>
             <td class="r">

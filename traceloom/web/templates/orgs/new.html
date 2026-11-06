@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% import "_macros.html" as m %}
+{% import "_macros.html" as m with context %}
 {% block title %}New organization{% endblock %}
 {% block content %}
 {{ m.page_header("Create organization", "An organization holds projects and the people who work on them. You become its Owner.") }}

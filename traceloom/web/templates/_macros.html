@@ -1,4 +1,6 @@
-{# Shared macros. Everything rendered here is autoescaped; never use |safe on user content. #}
+{# Shared macros. Everything rendered here is autoescaped; never use |safe on user content.
+   Import with context (`{% import "_macros.html" as m with context %}`): csrf() reads csrf_token
+   from the page context, and without it every form renders an empty token. #}
 {% macro icon(name, cls="") -%}
 <svg class="ico {{ cls }}" aria-hidden="true"><use href="#{{ name }}"/></svg>
 {%- endmacro %}

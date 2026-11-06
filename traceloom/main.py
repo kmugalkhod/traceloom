@@ -18,6 +18,7 @@ from traceloom.auth.csrf import CSRFMiddleware
 from traceloom.auth.sessions import SessionMiddleware
 from traceloom.config import Settings, get_settings
 from traceloom.container import build_container
+from traceloom.logging_setup import ensure_console_logging
 
 CSP = (
     "default-src 'self'; script-src 'self'; object-src 'none'; "
@@ -69,6 +70,7 @@ def include_discovered_routers(app: FastAPI) -> None:
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
+    ensure_console_logging()
     settings = settings or get_settings()
     container = build_container(settings)
 

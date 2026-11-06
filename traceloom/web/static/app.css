@@ -626,3 +626,16 @@ dialog.dlg .dialog{width:100%}
 .kv{margin:0}
 .kv>div{display:flex;flex-direction:column;gap:2px}
 .kv dd{margin:0}
+.empty h1{font-size:var(--fs-2xl)}
+
+/* Narrow screens: settings tabs wrap instead of clipping, and member rows stack inside the card. */
+.name,.hint{overflow-wrap:anywhere}
+@container app (max-width:760px){
+  .tabs{flex-wrap:wrap;overflow-x:visible}
+  .tbl.stack-m thead{display:none}
+  .tbl.stack-m,.tbl.stack-m tbody{display:block;width:100%}
+  .tbl.stack-m tr{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:10px 12px;border-bottom:1px solid var(--line)}
+  .tbl.stack-m td{display:block;height:auto;border:0;padding:0;max-width:none;white-space:normal;overflow:visible}
+  .tbl.stack-m td.c-name{flex:1 1 100%;min-width:0}
+  .tbl.stack-m td.r{margin-left:auto}
+}

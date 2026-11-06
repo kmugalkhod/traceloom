@@ -58,7 +58,9 @@ def test_session_round_trip(settings):
 
 def test_tampered_session_rejected(settings):
     token = issue_session(settings, "u1", 1)
-    forged = token[:-1] + ("A" if token[-1] != "A" else "B")
+    # Change a payload character: the last base64 character can carry unused bits, so flipping
+    # it sometimes leaves the decoded signature unchanged.
+    forged = token[:3] + ("A" if token[3] != "A" else "B") + token[4:]
     assert read_session(settings, forged) is None
     assert read_session(settings, None) is None
     other = Settings(TRACELOOM_ENV="test", TRACELOOM_SERVER_SECRET="another-key")

@@ -1,0 +1,105 @@
+# Full mode: web, worker, Postgres, Redis, ClickHouse and MinIO. Memory limits total 4.8 GB.
+#   TRACELOOM_SERVER_SECRET=$(openssl rand -hex 32) docker compose up --build
+x-traceloom-env: &traceloom-env
+  TRACELOOM_MODE: full
+  TRACELOOM_ENV: ${TRACELOOM_ENV:-dev}
+  TRACELOOM_SERVER_SECRET: ${TRACELOOM_SERVER_SECRET:-}
+  DATABASE_URL: postgresql+psycopg://traceloom:${POSTGRES_PASSWORD:-traceloom}@postgres:5432/traceloom
+  REDIS_URL: redis://redis:6379/0
+  S3_ENDPOINT_URL: http://minio:9000
+  S3_BUCKET: traceloom
+  S3_ACCESS_KEY: ${MINIO_ROOT_USER:-traceloom}
+  S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-traceloom-minio}
+  CLICKHOUSE_HOST: clickhouse
+  CLICKHOUSE_PORT: "8123"
+  CLICKHOUSE_USER: default
+  CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+  CLICKHOUSE_DATABASE: traceloom
+
+x-traceloom-depends: &traceloom-depends
+  postgres: {condition: service_healthy}
+  redis: {condition: service_healthy}
+  clickhouse: {condition: service_healthy}
+  minio: {condition: service_healthy}
+
+services:
+  web:
+    build: .
+    command: ["sh", "-c", "traceloom migrate && traceloom serve --host 0.0.0.0 --port 8000"]
+    ports:
+      - "8000:8000"
+    environment: *traceloom-env
+    depends_on: *traceloom-depends
+    mem_limit: 768m
+    restart: unless-stopped
+
+  worker:
+    build: .
+    command: ["traceloom", "worker"]
+    environment: *traceloom-env
+    depends_on:
+      <<: *traceloom-depends
+      web: {condition: service_healthy}  # web runs the migrations first
+    mem_limit: 768m
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: traceloom
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-traceloom}
+      POSTGRES_DB: traceloom
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traceloom"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    mem_limit: 512m
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "200mb", "--maxmemory-policy", "noeviction"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    mem_limit: 256m
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    environment:
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./deploy/clickhouse/memory.xml:/etc/clickhouse-server/config.d/memory.xml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8123/ping || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ulimits:
+      nofile: {soft: 262144, hard: 262144}
+    mem_limit: 2g
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-traceloom}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-traceloom-minio}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    mem_limit: 512m
+
+volumes:
+  postgres-data:
+  clickhouse-data:
+  minio-data:

@@ -346,3 +346,33 @@ def test_expired_invites_do_not_open_signup(closed, make_org):
     assert (
         "No invite was found" in closed.post("/signup", data={"email": "invited@example.com"}).text
     )
+
+
+def hidden_token(html):
+    return re.search(r'name="csrf_token" value="([^"]+)"', html).group(1)
+
+
+def test_rendered_forms_carry_a_working_csrf_token(client, make_user):
+    """What a browser does: read the hidden field from the page and post it back, no header."""
+    from tests.factories import DEFAULT_PASSWORD
+
+    make_user(email="a@example.com")
+    page = client.get("/login")
+    token = hidden_token(page.text)
+    assert token and token == client.cookies["tl_csrf"]
+    r = client.post(
+        "/login",
+        data={"csrf_token": token, "email": "a@example.com", "password": DEFAULT_PASSWORD},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    forged = client.post(
+        "/login",
+        data={"csrf_token": token + "x", "email": "a@example.com", "password": DEFAULT_PASSWORD},
+    )
+    assert forged.status_code == 403
+
+
+@pytest.mark.parametrize("path", ["/signup", "/forgot", "/login"])
+def test_every_public_form_has_a_token(client, path):
+    assert hidden_token(client.get(path).text)

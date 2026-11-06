@@ -1,11 +1,12 @@
 {% extends layout %}
-{% import "_macros.html" as m %}
+{% import "_macros.html" as m with context %}
 {% block title %}Not found{% endblock %}
 {% block content %}
 <div class="empty">
-  <span class="err-code">404</span>
+  <span class="cap">Error 404</span>
   <h1>Page not found</h1>
-  <p>{{ message }} The link may be old, or the item was deleted.</p>
+  <p>{{ message or "There is nothing at this address." }}</p>
+  <p class="dim">The link may be old, or the item may have been deleted.</p>
   <div class="row-wrap">
     <a class="btn btn-primary" href="/">Go to your projects</a>
   </div>

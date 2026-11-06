@@ -1,11 +1,12 @@
 {% extends layout %}
-{% import "_macros.html" as m %}
+{% import "_macros.html" as m with context %}
 {% block title %}No access{% endblock %}
 {% block content %}
 <div class="empty">
-  <span class="err-code">403</span>
-  <h1>You do not have access to this</h1>
-  <p>{{ message }} If you think this is a mistake, ask an Owner or Admin of the organization to change your role.</p>
+  <span class="cap">Error 403</span>
+  <h1>You do not have access to this page</h1>
+  <p>{% if role_label and org %}Your role in {{ org.name }} is {{ role_label }}. {% endif %}{{ message or "This page needs a role you do not have." }}</p>
+  <p class="dim">Ask an Owner or Admin of the organization to change your role.</p>
   <div class="row-wrap">
     <a class="btn btn-primary" href="/">Go to your projects</a>
   </div>

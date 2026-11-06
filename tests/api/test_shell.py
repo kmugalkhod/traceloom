@@ -112,3 +112,35 @@ def test_user_content_is_escaped_in_the_shell(
     login(client, user)
     html = client.get("/nothing", headers={"Accept": "text/html"}).text
     assert evil not in html and "&lt;script&gt;alert(1)&lt;/script&gt;" in html
+
+
+def test_404_copy_has_a_heading_and_separate_paragraphs(client, world, login):
+    login(client, world.user(Role.VIEWER))
+    html = client.get("/nothing/here", headers={"Accept": "text/html"}).text
+    assert "Error 404" in html and "<h1>Page not found</h1>" in html
+    assert "Not Found" not in html  # the framework's default detail is not echoed
+    paragraphs = re.findall(r"<p(?:\s[^>]*)?>(.*?)</p>", html, flags=re.S)
+    assert "There is nothing at this address." in paragraphs
+    assert "The link may be old, or the item may have been deleted." in paragraphs
+
+
+def test_shell_forms_have_a_token_too(client, world, login):
+    login(client, world.user(Role.ADMIN))
+    html = client.get(f"/project/{world.project.id}/settings/members").text
+    tokens = re.findall(r'name="csrf_token" value="([^"]*)"', html)
+    assert tokens and all(
+        t == client.cookies["tl_csrf"] for t in tokens
+    )  # logout, role, invite, ...
+
+
+def test_narrow_screen_rules_for_tabs_and_member_rows(client, world, login):
+    css = client.get("/static/app.css").text
+    narrow = css[css.rindex("@container app (max-width:760px){\n  .tabs{") :]
+    assert (
+        ".tabs{flex-wrap:wrap" in narrow and ".tbl.stack-m tr{display:flex;flex-wrap:wrap" in narrow
+    )
+    login(client, world.user(Role.ADMIN))
+    html = client.get(f"/project/{world.project.id}/settings/members").text
+    assert (
+        html.count('class="tbl tbl-flat stack-m"') >= 1
+    )  # members stack inside the card, not off to the side

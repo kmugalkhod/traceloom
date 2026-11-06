@@ -16,6 +16,8 @@ from traceloom.web.templating import render
 log = logging.getLogger("traceloom.web")
 
 TEMPLATES = {403: "errors/403.html", 404: "errors/404.html"}
+# Framework default details ("Not Found") add nothing to our own copy.
+GENERIC = {"not found", "forbidden", "method not allowed"}
 
 
 def error_page(
@@ -25,6 +27,8 @@ def error_page(
     if template is None:
         page = f"<!doctype html><title>{status}</title><h1>{status}</h1><p>{escape(message)}</p>"
         return HTMLResponse(page, status_code=status, headers=headers)
+    if message.strip().rstrip(".").lower() in GENERIC:
+        message = ""
     context: dict = {"message": message, "layout": "base_auth.html"}
     try:
         container = request.app.state.container
