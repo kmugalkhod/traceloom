@@ -21,6 +21,7 @@ from typing import Any
 
 from traceloom.cost.pricing import apply_cost
 from traceloom.ingest.accept import IngestLimits, accept_batch
+from traceloom.llm.prefill import tools_from
 from traceloom.llm.providers import (
     DoneDelta,
     ErrorDelta,
@@ -111,7 +112,7 @@ class Run:
         errors: list[str] = []
         messages = compile_messages(spec.messages, spec.variables).messages
         stream = self.provider.stream(
-            messages, spec.model, spec.params, spec.tools, spec.response_schema
+            messages, spec.model, spec.params, tools_from(spec.tools), spec.response_schema
         )
         try:
             for delta in stream:

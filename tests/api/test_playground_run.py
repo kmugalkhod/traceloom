@@ -126,6 +126,26 @@ def test_anthropic_request_matches_and_streams(member_client, world, conn_id):
     assert usage["input_tokens"] == 12 and usage["output_tokens"] == 6 and usage["cost"] > 0
 
 
+@pytest.mark.parametrize(
+    "tool",
+    [
+        {"type": "function", "function": {"name": "weather", "description": "d",
+                                          "parameters": {"type": "object"}}},
+        {"name": "weather", "description": "d", "input_schema": {"type": "object"}},
+        {"name": "weather", "description": "d", "parameters": {"type": "object"}},
+    ],
+)  # fmt: skip
+def test_every_tool_shape_reaches_the_provider_in_one_form(
+    member_client, world, conn_id, fake_provider, tool
+):
+    providers.register("anthropic", fake_provider)
+    r = member_client.post(url(world, "run"), json=body(conn_id, tools=[tool]))
+    assert [n for n, _ in parse_sse(r.text)][-1] == "done" and "error" not in r.text
+    assert fake_provider.calls[0]["tools"] == [
+        {"name": "weather", "description": "d", "parameters": {"type": "object"}}
+    ]
+
+
 def test_provider_errors_are_inline_and_scrubbed(member_client, world, conn_id):
     class Leaky(BaseProvider):
         def _stream(self, *args):
@@ -291,13 +311,17 @@ def test_cancelling_a_run_closes_the_provider_stream(container, world, tracked):
     assert list(events) == []
 
 
-def test_client_disconnect_stops_the_run(app, client, login, world, conn_id, tracked):
+@pytest.mark.parametrize("spec_version", ["2.3", "2.4"])
+def test_client_disconnect_stops_the_run(app, client, login, world, conn_id, tracked, spec_version):
+    """2.3: the server reports `http.disconnect`. 2.4 (newer servers): the disconnect only shows up
+    as `send` failing, and Starlette then skips its background tasks."""
     providers.register("anthropic", Tracked)
     member = login(client, world.users[Role.MEMBER])
     cookie = "; ".join(f"{k}={v}" for k, v in member.cookies.items())
     payload = json.dumps(body(conn_id)).encode()
     scope = {
-        "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "POST",
+        "type": "http", "asgi": {"version": "3.0", "spec_version": spec_version},
+        "http_version": "1.1", "method": "POST",
         "scheme": "http", "path": url(world, "run"), "raw_path": url(world, "run").encode(),
         "query_string": b"", "root_path": "", "server": ("testserver", 80),
         "client": ("1.2.3.4", 1),
@@ -322,10 +346,15 @@ def test_client_disconnect_stops_the_run(app, client, login, world, conn_id, tra
             return {"type": "http.disconnect"}
 
         async def send(message):
+            if got_chunk.is_set():
+                raise OSError("client went away")  # what a server does on a closed socket
             if message["type"] == "http.response.body" and message.get("body"):
                 got_chunk.set()
 
-        await asyncio.wait_for(app(scope, receive, send), 10)
+        try:
+            await asyncio.wait_for(app(scope, receive, send), 10)
+        except Exception:  # ClientDisconnect or the cancelled request: either is fine
+            pass
 
     asyncio.run(drive())
     tracked.release.set()  # the provider would have kept going

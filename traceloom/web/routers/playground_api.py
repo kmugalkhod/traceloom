@@ -9,14 +9,15 @@ decrypts the connection while it still holds its DB session; the stream itself n
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
+from starlette.concurrency import run_in_threadpool
 
 from traceloom.auth.deps import Access, get_container, require
 from traceloom.auth.permissions import Perm
@@ -92,6 +93,7 @@ def _limit(container: Container, access: Access) -> None:
 
 @router.post("/project/{project_id}/playground/run")
 def run(
+    request: Request,
     body: RunBody,
     access: Access = Depends(require(Perm.PLAYGROUND_RUN)),
     container: Container = Depends(get_container),
@@ -123,12 +125,21 @@ def run(
     )
     active = Run(container, access.project.id, provider, spec)
 
-    def stream() -> Iterator[bytes]:
-        for event in active.events():
-            yield sse(event)
+    async def stream() -> AsyncIterator[bytes]:
+        # Each blocking pull from the provider SDK runs in the thread pool; between pulls the
+        # loop checks for a disconnect, because under newer servers a closed socket only shows
+        # as a failed write (and Starlette then skips background tasks). `finally` always stops
+        # the run, which closes the provider stream.
+        events = active.events()
+        try:
+            while True:
+                event = await run_in_threadpool(next, events, None)
+                if event is None or await request.is_disconnected():
+                    break
+                yield sse(event)
+        finally:
+            await run_in_threadpool(active.cancel)
 
-    # The background task runs when the client disconnects too: it stops the run, which closes
-    # the provider stream.
     return StreamingResponse(
         stream(),
         media_type="text/event-stream",
