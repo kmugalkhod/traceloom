@@ -192,3 +192,18 @@ Also:
 - 2026-11-06 — Provider adapters take an injectable transport (`http_client=` / `client=` / `resolver=`) for fake-transport tests, `llm/providers/base.py` owns secret scrubbing, and `openai_compatible` runs the SSRF check at construction and before each stream without pinning the IP into the SDK connection. `google-genai` is a runtime dependency. Shared test helpers live in `tests/unit/providers/conftest.py` and `openai_helpers.py`.
 - 2026-11-06 — Webhook retries are driven by the sweeper, not by delayed queue messages: a failed attempt keeps the row `pending` with a future `next_attempt_at`, and `Sweeper` (wired in both modes through `register_webhook_handler` in `container.py`) re-enqueues due rows; the handler claims a row with a short lease so duplicate messages are skipped. Backoff is therefore at least the sweep interval (`TRACELOOM_INGEST_SWEEP_SECONDS`). `Container` gains `webhook_transport` / `webhook_resolver` test seams.
 - 2026-11-06 — The playground API lives in `web/routers/playground_api.py` (the page router `playground.py` stays with the UI task), and pre-fill normalisation is a new `llm/prefill.py`. `GET /from-observation/{obs_id}` takes a required `?trace_id=` because `TraceStore` has no observation-by-id lookup. JSON clients must send `Accept: application/json` to get the error envelope on these `/project/...` paths. The stream stops on client disconnect through a Starlette background task that cancels the run; a provider read already blocked in its worker thread ends at its next chunk.
+
+## Proposed `.env.example` lines (for the human; agents cannot edit that file)
+```
+# --- Phase 2: prompts, playground, webhooks ---
+# Fernet key(s) for stored provider keys and webhook secrets; comma-separated for rotation, newest first.
+# Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Required outside dev; dev generates an ephemeral key with a warning.
+TRACELOOM_ENCRYPTION_KEY=
+TRACELOOM_WEBHOOK_ALLOW_PRIVATE=false
+TRACELOOM_LLM_ALLOW_PRIVATE=true
+TRACELOOM_PLAYGROUND_RATE=30/minute
+TRACELOOM_PROVIDER_TIMEOUT_SECONDS=120
+# SDK (the app that calls get_prompt): seconds to cache a fetched prompt; 0 disables the cache.
+TRACELOOM_PROMPT_CACHE_TTL=60
+```

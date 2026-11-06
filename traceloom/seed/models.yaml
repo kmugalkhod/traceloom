@@ -42,6 +42,62 @@ models:
     tokenizer: null
     valid_from: 2024-01-01
     prices: {input: 1.000e-6, output: 5.000e-6, cache_read: 1.000e-7, cache_write: 1.250e-6}
+  # --- Claude 5 family and recent 4.x (FR-X3): USD per token = list price per million / 1e6.
+  # Prices follow the claude-api skill's model table (cached 2026-09-25); see
+  # https://www.anthropic.com/pricing for the current list. cache_read is only given where the
+  # table lists it. cache_write is ASSUMED to be 1.25 x input for every entry here (the table
+  # does not list it); check it against the pricing page and override per project if it differs.
+  # Dated snapshot ids (-YYYYMMDD) are matched by the regex even though the names carry none.
+  - model_name: claude-fable-5-1
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-fable-5-1(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2026-01-01
+    prices: {input: 1.000e-5, output: 5.000e-5, cache_read: 2.500e-7, cache_write: 1.250e-5}
+  - model_name: claude-fable-5
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-fable-5(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2026-01-01
+    prices: {input: 1.000e-5, output: 5.000e-5, cache_write: 1.250e-5}
+  - model_name: claude-opus-5-5
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-opus-5-5(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2026-01-01
+    prices: {input: 4.000e-6, output: 2.000e-5, cache_read: 2.000e-7, cache_write: 5.000e-6}
+  - model_name: claude-opus-5
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-opus-5(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2026-01-01
+    prices: {input: 5.000e-6, output: 2.500e-5, cache_write: 6.250e-6}
+  - model_name: claude-opus-4-8
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-opus-4-8(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2026-01-01
+    prices: {input: 5.000e-6, output: 2.500e-5, cache_write: 6.250e-6}
+  - model_name: claude-opus-4-7
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-opus-4-7(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2026-01-01
+    prices: {input: 5.000e-6, output: 2.500e-5, cache_write: 6.250e-6}
+  - model_name: claude-opus-4-6
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-opus-4-6(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2026-01-01
+    prices: {input: 5.000e-6, output: 2.500e-5, cache_write: 6.250e-6}
+  - model_name: claude-sonnet-5-5
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-sonnet-5-5(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2026-01-01
+    prices: {input: 2.000e-6, output: 1.000e-5, cache_read: 2.000e-7, cache_write: 2.500e-6}
+  - model_name: claude-sonnet-5
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-sonnet-5(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2026-01-01
+    prices: {input: 2.000e-6, output: 1.000e-5, cache_write: 2.500e-6}
+  - model_name: claude-sonnet-4-6
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-sonnet-4-6(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2026-01-01
+    prices: {input: 3.000e-6, output: 1.500e-5, cache_write: 3.750e-6}
   - model_name: claude-3-7-sonnet
     match: '(?i)^(?:[\w.:-]+[/.])?claude-3-7-sonnet(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
     tokenizer: null
