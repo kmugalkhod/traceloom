@@ -118,21 +118,29 @@ class GoogleProvider(BaseProvider):
         finish: str | None = None
         usage: Any = None
         calls = 0
-        for chunk in self._client().models.generate_content_stream(**request):
-            if chunk.usage_metadata is not None:
-                usage = chunk.usage_metadata
-            for candidate in chunk.candidates or ():
-                if candidate.finish_reason is not None:
-                    finish = getattr(candidate.finish_reason, "value", str(candidate.finish_reason))
-                for part in (candidate.content.parts if candidate.content else None) or ():
-                    if part.function_call is not None:
-                        call = part.function_call
-                        calls += 1
-                        yield ToolCallDelta(
-                            call.id or f"call_{calls}", call.name, dict(call.args or {})
+        stream = self._client().models.generate_content_stream(**request)
+        try:
+            for chunk in stream:
+                if chunk.usage_metadata is not None:
+                    usage = chunk.usage_metadata
+                for candidate in chunk.candidates or ():
+                    if candidate.finish_reason is not None:
+                        finish = getattr(
+                            candidate.finish_reason, "value", str(candidate.finish_reason)
                         )
-                    elif part.text and not part.thought:
-                        yield TextDelta(part.text)
+                    for part in (candidate.content.parts if candidate.content else None) or ():
+                        if part.function_call is not None:
+                            call = part.function_call
+                            calls += 1
+                            yield ToolCallDelta(
+                                call.id or f"call_{calls}", call.name, dict(call.args or {})
+                            )
+                        elif part.text and not part.thought:
+                            yield TextDelta(part.text)
+        finally:
+            close = getattr(stream, "close", None)
+            if close is not None:  # stops the HTTP read so the provider sees the client leave
+                close()
         if usage is not None:
             yield _usage(usage)
         yield DoneDelta(finish)

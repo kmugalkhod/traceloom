@@ -25,8 +25,9 @@ import traceloom_sdk
 prompt = traceloom_sdk.get_prompt("support", fallback="You help {{name}}.")  # production label
 messages = prompt.compile(name="Ann")  # a str for text prompts, a list of messages for chat
 
-with traceloom_sdk.start_generation("answer", model="claude-sonnet-5-5", input=messages,
-                                    prompt=prompt):  # links the generation to support vN
+with traceloom_sdk.start_generation(
+    "answer", model="claude-sonnet-5-5", input=messages, prompt=prompt
+):  # links the generation to support vN
     ...
 ```
 

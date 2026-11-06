@@ -156,28 +156,37 @@ class OpenAIProvider(BaseProvider):
         calls: dict[int, dict[str, str]] = {}
         finish: str | None = None
         usage: UsageDelta | None = None
-        for chunk in self._make_client().chat.completions.create(**request):
-            if getattr(chunk, "usage", None):
-                usage = _usage(chunk.usage)
-            for choice in chunk.choices or ():
-                delta = choice.delta
-                if delta is not None:
-                    if getattr(delta, "refusal", None):
-                        yield ErrorDelta(f"The model declined to answer: {delta.refusal}")
-                    if delta.content:
-                        yield TextDelta(delta.content)
-                    for part in delta.tool_calls or ():
-                        call = calls.setdefault(part.index, {"id": "", "name": "", "args": ""})
-                        call["id"] = part.id or call["id"]
-                        if part.function is not None:
-                            call["name"] = part.function.name or call["name"]
-                            call["args"] += part.function.arguments or ""
-                if choice.finish_reason:
-                    finish = choice.finish_reason
-                    for index in sorted(calls):
-                        c = calls[index]
-                        yield ToolCallDelta(c["id"], c["name"], _parse_args(c["args"]))
-                    calls.clear()
+        client = self._make_client()
+        stream = client.chat.completions.create(**request)
+        try:
+            for chunk in stream:
+                if getattr(chunk, "usage", None):
+                    usage = _usage(chunk.usage)
+                for choice in chunk.choices or ():
+                    delta = choice.delta
+                    if delta is not None:
+                        if getattr(delta, "refusal", None):
+                            yield ErrorDelta(f"The model declined to answer: {delta.refusal}")
+                        if delta.content:
+                            yield TextDelta(delta.content)
+                        for part in delta.tool_calls or ():
+                            call = calls.setdefault(part.index, {"id": "", "name": "", "args": ""})
+                            call["id"] = part.id or call["id"]
+                            if part.function is not None:
+                                call["name"] = part.function.name or call["name"]
+                                call["args"] += part.function.arguments or ""
+                    if choice.finish_reason:
+                        finish = choice.finish_reason
+                        for index in sorted(calls):
+                            c = calls[index]
+                            yield ToolCallDelta(c["id"], c["name"], _parse_args(c["args"]))
+                        calls.clear()
+        finally:
+            # Closing the SDK stream drops the HTTP connection, which is how the provider learns
+            # that nobody is listening any more (a cancelled run, a closed playground tab).
+            stream.close()
+            if self._http_client is None:
+                client.close()
         if usage is not None:
             yield usage
         yield DoneDelta(finish)
