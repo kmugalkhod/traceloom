@@ -191,4 +191,22 @@ Also:
 - 2026-11-06 — Queue dispatch lives in a new `traceloom/queue_registry.py` (`HandlerRegistry`, type constants) used by both queues, and `Sweeper` takes an optional `due_deliveries` callable instead of reading `webhook_deliveries` itself. Why: importing `ingest/process.py` from the adapters would create an import cycle with the container; the webhooks task wires the DB query.
 - 2026-11-06 — Provider adapters take an injectable transport (`http_client=` / `client=` / `resolver=`) for fake-transport tests, `llm/providers/base.py` owns secret scrubbing, and `openai_compatible` runs the SSRF check at construction and before each stream without pinning the IP into the SDK connection. `google-genai` is a runtime dependency. Shared test helpers live in `tests/unit/providers/conftest.py` and `openai_helpers.py`.
 - 2026-11-06 — Webhook retries are driven by the sweeper, not by delayed queue messages: a failed attempt keeps the row `pending` with a future `next_attempt_at`, and `Sweeper` (wired in both modes through `register_webhook_handler` in `container.py`) re-enqueues due rows; the handler claims a row with a short lease so duplicate messages are skipped. Backoff is therefore at least the sweep interval (`TRACELOOM_INGEST_SWEEP_SECONDS`). `Container` gains `webhook_transport` / `webhook_resolver` test seams.
+<<<<<<< HEAD
 - 2026-11-06 — Include cycles are refused before the write: the prompt service resolves the include graph as it will be after the save or label move (a pending-version overlay on the resolver, root = the written version), so a loop through `latest`, a label or itself fails with a 400 naming the path. Why: QA found saves and label moves that closed a loop were accepted. A flush-then-rollback savepoint was avoided because pysqlite commits when a savepoint is released before any write has begun the transaction.
+=======
+
+## Proposed `.env.example` lines (for the human; agents cannot edit that file)
+```
+# --- Phase 2: prompts, playground, webhooks ---
+# Fernet key(s) for stored provider keys and webhook secrets; comma-separated for rotation, newest first.
+# Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Required outside dev; dev generates an ephemeral key with a warning.
+TRACELOOM_ENCRYPTION_KEY=
+TRACELOOM_WEBHOOK_ALLOW_PRIVATE=false
+TRACELOOM_LLM_ALLOW_PRIVATE=true
+TRACELOOM_PLAYGROUND_RATE=30/minute
+TRACELOOM_PROVIDER_TIMEOUT_SECONDS=120
+# SDK (the app that calls get_prompt): seconds to cache a fetched prompt; 0 disables the cache.
+TRACELOOM_PROMPT_CACHE_TTL=60
+```
+>>>>>>> team/2026-11-06-phase2-prompts-playground
