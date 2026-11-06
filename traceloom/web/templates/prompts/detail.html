@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ name }}{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block daterange %}{% if tab == "metrics" %}{% include "_range_picker.html" %}{% endif %}{% endblock %}
+{% block scripts %}<script src="/static/prompt_detail.js" defer></script>{% endblock %}
+{% block content %}
+<div class="stack">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/project/{{ project.id }}/prompts">Prompts</a>{% if name.rsplit('/', 1)|length > 1 %}<span aria-hidden="true">/</span><a href="/project/{{ project.id }}/prompts?folder={{ name.rsplit('/', 1)[0] | urlencode }}">{{ name.rsplit('/', 1)[0] }}</a>{% endif %}</nav>
+  <div class="page-h">
+    <div class="grow"><h1>{{ name }}</h1></div>
+    <div class="row-wrap">
+      {% if can_write %}<a class="btn btn-primary" href="{{ new_version_url }}">{{ m.icon("i-plus") }}New version</a>{% endif %}
+      <div class="menu-wrap">
+        <button type="button" class="btn btn-icon" aria-label="More actions" aria-haspopup="true" aria-expanded="false" data-menu-toggle="prompt-menu">{{ m.icon("i-more-h") }}</button>
+        <div class="pop pop-right" id="prompt-menu" data-menu hidden role="menu" aria-label="Prompt actions">
+          {% if can_playground %}<a class="item" role="menuitem" href="{{ playground_url }}">{{ m.icon("i-flask", "ico-sm") }}Open in playground</a>{% endif %}
+          <button type="button" class="item" role="menuitem" data-copy="#sdk-snippet">{{ m.icon("i-copy", "ico-sm") }}<span data-copy-label>Copy SDK snippet</span></button>
+          {% if can_write %}
+          <div class="sep"></div>
+          <form method="post" action="{{ base }}/labels" class="menu-form">
+            {{ m.csrf() }}<input type="hidden" name="version" value="{{ selected.version }}">
+            <label class="hd" for="menu-label">Set a label on v{{ selected.version }}</label>
+            <div class="row"><input class="input mono" id="menu-label" name="label" list="known-labels" placeholder="staging" autocomplete="off" required maxlength="36">
+              <button class="btn btn-sm" type="submit">Set</button></div>
+            <datalist id="known-labels"><option value="staging">{% for l in known_labels %}{% if l != "staging" %}<option value="{{ l }}">{% endif %}{% endfor %}</datalist>
+            <span class="hint">{% if can_protected %}You can also move production here.{% else %}Production needs an Admin.{% endif %}</span>
+          </form>
+          {% endif %}
+          {% if can_delete %}
+          <div class="sep"></div>
+          <form method="post" action="{{ base }}/delete" data-confirm="Delete {{ name }} and all {{ versions | length }} versions? This cannot be undone.">
+            {{ m.csrf() }}<button class="item danger" type="submit" role="menuitem">{{ m.icon("i-trash", "ico-sm") }}Delete prompt</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row-wrap">
+    <span class="type-pill">{{ m.icon("i-sessions" if head.type == "chat" else "i-prompt", "ico-sm") }}{{ "Chat" if head.type == "chat" else "Text" }}</span>
+    <span class="vmeta">{{ versions | length }} version{{ "" if versions | length == 1 else "s" }} · updated {{ versions[0].row.created_at | ago }}</span>
+    {% for t in head.tags %}<span class="tag">{{ t }}</span>{% endfor %}
+  </div>
+  {% if error %}{{ m.banner("err", error) }}{% endif %}
+</div>
+
+<div class="tabs" role="tablist" aria-label="Prompt sections">
+  {% for key, label in tabs %}
+    <a role="tab" href="{{ tab_url(key) }}" aria-selected="{{ 'true' if tab == key else 'false' }}"
+       hx-get="{{ tab_url(key) }}" hx-target="#tab-panel" hx-push-url="true">{{ label }}</a>
+  {% endfor %}
+</div>
+
+<div id="tab-panel" role="tabpanel">{% include "prompts/_panel.html" %}</div>
+
+<pre id="sdk-snippet" hidden>{{ sdk_snippet }}</pre>
+
+{% if moved %}
+<div class="toast toast-pos" role="status" id="move-toast">
+  <span><span class="mono">{{ moved }}</span> {% if moved_now %}now points at v{{ moved_now }}{% else %}was removed{% endif %}.</span>
+  <form method="post" action="{{ base }}/labels" class="inline-form">
+    {{ m.csrf() }}<input type="hidden" name="label" value="{{ moved }}">
+    {% if moved_was %}<input type="hidden" name="version" value="{{ moved_was }}">
+    {% else %}<input type="hidden" name="version" value="{{ selected.version }}"><input type="hidden" name="op" value="remove">{% endif %}
+    <button class="btn btn-ghost btn-sm" type="submit">Undo</button>
+  </form>
+  <button type="button" class="btn btn-ghost btn-sm btn-icon" aria-label="Dismiss" data-toast-close>{{ m.icon("i-x", "ico-sm") }}</button>
+</div>
+{% endif %}
+{% endblock %}

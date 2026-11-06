@@ -1,0 +1,66 @@
+{% import "_macros.html" as m with context %}
+{% import "prompts/_message_view.html" as mv %}
+<div class="vrail">
+  <nav class="rail" aria-label="Versions">
+    {% for v in rail %}
+      <a href="{{ version_url(v.row.version) }}" class="rv"{% if v.row.version == selected.version %} aria-current="true"{% endif %}>
+        <span class="r1"><span class="v">v{{ v.row.version }}</span>
+          {% for l in v.labels %}<span class="lab{% if l == PRODUCTION %} prod{% elif l == 'latest' %} latest{% endif %}">{% if l == PRODUCTION %}{{ m.icon("i-lock", "ico-sm") }}{% endif %}{{ l }}</span>{% endfor %}
+        </span>
+        <span class="r2">{{ v.row.commit_message }}</span>
+        <span class="r3">{{ v.author }}{% if v.author %} · {% endif %}{{ v.row.created_at | ago }}</span>
+      </a>
+    {% endfor %}
+    {% if hidden_versions %}<a href="{{ base }}?older=1&amp;version={{ selected.version }}" class="rv">Show {{ hidden_versions }} older version{{ "" if hidden_versions == 1 else "s" }}</a>{% endif %}
+  </nav>
+
+  <div class="vbody">
+    <div class="vhead">
+      <h2>Version {{ selected.version }}</h2>
+      <span class="lab-set">
+        {% for l in selected_labels %}<span class="lab{% if l == PRODUCTION %} prod{% elif l == 'latest' %} latest{% endif %}">{% if l == PRODUCTION %}{{ m.icon("i-lock", "ico-sm") }}{% endif %}{{ l }}</span>{% endfor %}
+      </span>
+      <span class="right row-wrap">
+        {% if PRODUCTION in selected_labels %}
+          <span class="stat-chip ok">{{ m.icon("i-check", "ico-sm") }}In production</span>
+        {% elif can_protected %}
+          <form method="post" action="{{ base }}/labels" class="inline-form">
+            {{ m.csrf() }}<input type="hidden" name="label" value="{{ PRODUCTION }}"><input type="hidden" name="version" value="{{ selected.version }}">
+            <button class="btn" type="submit">{{ m.icon("i-lock") }}Set production</button>
+          </form>
+        {% elif can_write %}
+          <button class="btn" type="button" aria-disabled="true" aria-describedby="prod-lock">{{ m.icon("i-lock") }}Set production</button>
+        {% endif %}
+      </span>
+    </div>
+    {% if can_write and not can_protected and PRODUCTION not in selected_labels %}
+      <span class="hint" id="prod-lock">Only Admins can move production. You can move staging from the version menu.</span>
+    {% endif %}
+    {% if selected.commit_message %}<p>{{ selected.commit_message }}</p>{% endif %}
+
+    {% if head.type == "chat" %}
+      {% for message in selected.content %}{{ mv.card(message.role, message.content | hl) }}{% endfor %}
+    {% else %}
+      <div class="mcard"><div class="body">{{ selected.content | hl }}</div></div>
+    {% endif %}
+    <p class="vmeta">{{ selected_author }}{% if selected_author %} · {% endif %}{{ selected.created_at | ago }}{% if config_line %} · {{ config_line }}{% endif %}</p>
+    {% if selected.config and selected.config | length > 3 %}
+      <details class="cfg"><summary>Full config {{ m.icon("i-down", "ico-sm") }}</summary><div><pre class="code">{{ selected.config | tojson(indent=2) }}</pre></div></details>
+    {% endif %}
+
+    <details class="hist">
+      <summary>Label history</summary>
+      {% if history %}
+      <ul class="audit">
+        {% for h in history %}
+          <li{% if loop.first and moved %} class="new" role="status"{% endif %}>
+            <span class="avatar sm {{ 'av' ~ ((h.who | map('ord') | sum) % 5 + 1) }}">{{ h.who[:2] | upper }}</span>
+            <div><b>{{ h.who }}</b> {% if h.to is none %}removed{% else %}moved{% endif %} <span class="mono">{{ h.label }}</span>{% if h.from is not none %} from <span class="vp">v{{ h.from }}</span>{% endif %}{% if h.to is not none %} to <span class="vp">v{{ h.to }}</span>{% endif %}</div>
+            <span class="muted">{{ h.at | ago }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="hint">No label has been moved yet.</p>{% endif %}
+    </details>
+  </div>
+</div>

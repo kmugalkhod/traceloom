@@ -1,0 +1,63 @@
+{# Compare two versions. All diff text arrives escaped (Markup) from traceloom.prompts.diff. #}
+{% import "_macros.html" as m with context %}
+{% macro lines(items, label) -%}
+<div class="diff" role="table" aria-label="{{ label }}">
+  {% for line in items %}
+    <div class="dl {{ {'add': 'add', 'remove': 'del'}.get(line.op, '') }}"><b>{{ line.old_no if line.old_no else "" }}</b><b>{{ line.new_no if line.new_no else "" }}</b><u{% if line.op == 'add' %} aria-label="added">+{% elif line.op == 'remove' %} aria-label="removed">&minus;{% else %}>{% endif %}</u><s>{{ line.text }}</s></div>
+  {% else %}
+    <div class="dl hunk">Empty</div>
+  {% endfor %}
+</div>
+{%- endmacro %}
+<div class="stack">
+<form class="row-wrap compare-form" method="get" action="{{ base }}" hx-get="{{ base }}" hx-target="#tab-panel" hx-push-url="true" hx-trigger="change">
+  <input type="hidden" name="tab" value="compare">
+  <div class="field"><label for="cmp-from">From</label>
+    <select class="select" id="cmp-from" name="from" data-autosubmit>
+      {% for v in versions %}<option value="{{ v.row.version }}"{% if v.row.version == from_v.version %} selected{% endif %}>v{{ v.row.version }} · {{ v.row.created_at | ago }}{% if v.author %} · {{ v.author }}{% endif %}</option>{% endfor %}
+    </select></div>
+  <span class="muted compare-arrow">{{ m.icon("i-arrow") }}</span>
+  <div class="field"><label for="cmp-to">To</label>
+    <select class="select" id="cmp-to" name="to" data-autosubmit>
+      {% for v in versions %}<option value="{{ v.row.version }}"{% if v.row.version == to_v.version %} selected{% endif %}>v{{ v.row.version }} · {{ v.row.created_at | ago }}{% if v.author %} · {{ v.author }}{% endif %}</option>{% endfor %}
+    </select></div>
+  <noscript><button class="btn" type="submit">Compare</button></noscript>
+  <span class="right stat-chip ok">{{ m.icon("i-plus", "ico-sm") }}{{ added }} line{{ "" if added == 1 else "s" }}</span>
+  <span class="stat-chip err">{{ m.icon("i-x", "ico-sm") }}{{ removed }} line{{ "" if removed == 1 else "s" }}</span>
+  <span class="stat-chip">{{ config_changed }} config key{{ "" if config_changed == 1 else "s" }} changed</span>
+</form>
+
+{% if from_v.version == to_v.version %}
+  <p class="hint">Pick two different versions to see what changed.</p>
+{% endif %}
+
+{% if head.type == "chat" %}
+  {% for message in diff.content %}
+  <div class="panel">
+    <div class="panel-h"><h2>Message {{ message.index + 1 }} · {{ (message.new_role or message.old_role) | title }}</h2><span class="hint right">{{ message.status }}{% if message.role_changed %} · role was {{ message.old_role }}{% endif %}</span></div>
+    {% if message.status != "unchanged" %}<div class="panel-b">{{ lines(message.lines, "Message " ~ (message.index + 1) ~ " diff") }}</div>{% endif %}
+  </div>
+  {% endfor %}
+{% else %}
+  <div class="panel"><div class="panel-h"><h2>Content</h2></div><div class="panel-b">{{ lines(diff.content, "Content diff") }}</div></div>
+{% endif %}
+
+<div class="panel"><div class="panel-h"><h2>Config</h2></div><div class="panel-b">
+  {% if diff.config %}
+  <div class="cdiff" role="table" aria-label="Config diff">
+    {% for k in diff.config %}
+      <div class="r {{ {'changed': 'chg', 'added': 'new', 'removed': 'chg'}.get(k.status, '') }}">
+        <span class="k">{{ k.key }}</span>
+        {% if k.status == 'unchanged' %}<span class="mono">{{ k.old }}</span><span class="ar muted"></span><span class="muted">unchanged</span>
+        {% else %}
+          {% if k.old is none %}<span class="muted">not set</span>{% else %}<span class="mono">{{ k.old }}</span>{% endif %}
+          <span class="ar muted">{{ m.icon("i-arrow", "ico-sm") }}</span>
+          {% if k.new is none %}<span class="muted">removed</span>{% else %}<span class="mono">{{ k.new }}</span>{% endif %}
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  {% else %}<p class="hint">Neither version has a config.</p>{% endif %}
+</div></div>
+<p class="hint">Diff output is text only. A line such as <span class="mono">&lt;script&gt;</span> is shown, never run.</p>
+</div>

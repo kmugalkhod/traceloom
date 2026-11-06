@@ -210,3 +210,5 @@ TRACELOOM_PROVIDER_TIMEOUT_SECONDS=120
 TRACELOOM_PROMPT_CACHE_TTL=60
 ```
 >>>>>>> team/2026-11-06-phase2-prompts-playground
+- 2026-11-06 — Design refresh applied app-wide, requested by Kunal: the v3.1 declutter rules (14px/1.5 body, 24px titles, 48px rows, 36px controls, 24px section gaps) are in `app.css` on `:root` and unscoped, so every Phase 1 page changes. Markup changed only where nothing could be lost: trace detail gets a second details row (Environment, Release, Version); the dashboard Breakdown tab panel and the "..." menus on Phase 1 pages are not restructured yet.
+- 2026-11-06 — `/prompts/new` is shared by the new-prompt and new-version editors (`?from=<name>&version=<n>` starts a version), and prompt-name routes use a `{name:promptname}` path convertor (`web/prompt_paths.py`) that never matches the literal `new`, so router include order cannot shadow it.

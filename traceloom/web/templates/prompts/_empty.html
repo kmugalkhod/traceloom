@@ -1,0 +1,13 @@
+{# Empty project: how to create the first prompt, here and from the SDK. #}
+<div class="panel empty">
+  {{ m.icon("i-prompt", "ico-lg") }}
+  <h2>No prompts yet</h2>
+  <p>Keep your instructions as versioned prompts, point a label like <span class="lab prod">production</span> at the version your app should use, and fetch it from code.</p>
+  {% if can_write %}<p><a class="btn btn-primary" href="{{ new_url }}">{{ m.icon("i-plus") }}New prompt</a></p>
+  {% else %}<p class="hint">Ask a Member of this project to create the first prompt.</p>{% endif %}
+  <pre class="code" id="sdk-snippet">import traceloom_sdk
+
+prompt = traceloom_sdk.get_prompt("support/greeting")
+messages = prompt.compile(name="Ann")</pre>
+  {{ m.copy_button("#sdk-snippet", "Copy snippet") }}
+</div>

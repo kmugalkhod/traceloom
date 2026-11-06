@@ -59,13 +59,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--name", default="Ann")
     parser.add_argument("--question", default="How do I get a refund?")
     parser.add_argument("--prompt", default="support")
+    parser.add_argument("--repeat", type=int, default=1, help="run this many times")
+    parser.add_argument("--interval", type=float, default=1.0, help="seconds between runs")
     args = parser.parse_args(argv)
-    result = run(args.name, args.question, args.prompt)
-    source = "fallback" if result["is_fallback"] else f"{args.prompt} v{result['version']}"
-    print(f"prompt: {source}")
-    for message in result["messages"]:
-        print(f"  [{message['role']}] {message['content']}")
-    print(f"answer: {result['answer']}")
+    for i in range(max(1, args.repeat)):
+        if i:
+            time.sleep(args.interval)
+        result = run(args.name, args.question, args.prompt)
+        source = "fallback" if result["is_fallback"] else f"{args.prompt} v{result['version']}"
+        print(f"prompt: {source}", flush=True)
+        for message in result["messages"]:
+            print(f"  [{message['role']}] {message['content']}", flush=True)
+        print(f"answer: {result['answer']}", flush=True)
     traceloom_sdk.flush()
     return 0
 
