@@ -1,0 +1,14 @@
+{# One labelled Input / Output / Metadata block: label row with a copy button on the right. rendered, title in scope. #}
+{% import "_macros.html" as m with context %}
+{% set bid = "io-b-" ~ (title | lower) %}
+<div class="io">
+  <div class="io-h"><h3>{{ title }}</h3><button type="button" class="copy" aria-label="Copy {{ title | lower }}" title="Copy {{ title | lower }}" data-copy-from="#{{ bid }}">{{ m.icon("i-copy", "ico-sm") }}</button></div>
+  <div class="io-b" id="{{ bid }}">
+  {% if rendered.kind == "empty" %}<div class="hint">No {{ title | lower }}.</div>
+  {% elif rendered.kind == "chat" %}
+    <div class="chat">{% for msg in rendered.messages %}<div class="msg msg-{{ msg.css_role }}"><span class="role">{{ msg.role }}</span><div class="txt">{{ msg.html }}</div></div>{% endfor %}</div>
+  {% elif rendered.kind == "markdown" %}<div class="md" tabindex="0">{{ rendered.html }}</div>
+  {% else %}<div class="code" tabindex="0">{{ rendered.html }}</div>
+  {% endif %}
+  </div>
+</div>

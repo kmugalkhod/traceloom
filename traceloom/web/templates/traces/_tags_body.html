@@ -1,29 +1,25 @@
 {% import "_macros.html" as m with context %}
 <link rel="stylesheet" href="/static/pages.css">
 {% set base = "/project/" ~ project.id ~ "/traces/" ~ trace.id %}
+{# Members+: the tags as chips with a remove button, plus an inline "+ Add tag". Viewers get nothing here:
+   the detail page already shows the chips. #}
 {% if can("traces:annotate") %}
-  <div class="row-wrap">
-    <span class="hint">Edit tags:</span>
-    {% for tag in trace.tags %}
-      <span class="chip">{{ tag }}
-        {% if can("traces:annotate") %}
-          <form method="post" action="{{ base }}/tags/remove" hx-post="{{ base }}/tags/remove" hx-target="#trace-tags-controls" hx-swap="innerHTML" class="inline-form">
-            {{ m.csrf() }}<input type="hidden" name="tag" value="{{ tag }}">
-            <button type="submit" aria-label="Remove tag {{ tag }}">{{ m.icon("i-x", "ico-sm") }}</button>
-          </form>
-        {% endif %}
-      </span>
-    {% else %}
-      {% if not can("traces:annotate") %}<span class="hint">No tags</span>{% endif %}
-    {% endfor %}
-    {% if can("traces:annotate") %}
-      <form method="post" action="{{ base }}/tags" hx-post="{{ base }}/tags" hx-target="#trace-tags-controls" hx-swap="innerHTML" class="inline-form">
-        {{ m.csrf() }}
-        <label class="sr" for="new-tag">Add tag</label>
-        <input class="input tag-input" id="new-tag" name="tag" maxlength="200" placeholder="Add tag" autocomplete="off" required>
-        <button class="btn btn-sm btn-ghost" type="submit">{{ m.icon("i-plus") }}Add</button>
+  {% for tag in trace.tags %}
+    <span class="chip">{{ tag }}
+      <form method="post" action="{{ base }}/tags/remove" hx-post="{{ base }}/tags/remove" hx-target="#trace-tags-controls" hx-swap="innerHTML" class="inline-form">
+        {{ m.csrf() }}<input type="hidden" name="tag" value="{{ tag }}">
+        <button type="submit" aria-label="Remove tag {{ tag }}">{{ m.icon("i-x", "ico-sm") }}</button>
       </form>
-    {% endif %}
-  </div>
-{% if error %}{{ m.banner("err", error) }}{% endif %}
+    </span>
+  {% endfor %}
+  <details class="tag-add"{% if error %} open{% endif %}>
+    <summary class="chip add">{{ m.icon("i-plus", "ico-sm") }}Add tag</summary>
+    <form method="post" action="{{ base }}/tags" hx-post="{{ base }}/tags" hx-target="#trace-tags-controls" hx-swap="innerHTML" class="inline-form">
+      {{ m.csrf() }}
+      <label class="sr" for="new-tag">Tag name</label>
+      <input class="input tag-input" id="new-tag" name="tag" maxlength="200" placeholder="New tag" autocomplete="off" required>
+      <button class="btn btn-sm" type="submit">Add</button>
+    </form>
+  </details>
+  {% if error %}{{ m.banner("err", error) }}{% endif %}
 {% endif %}

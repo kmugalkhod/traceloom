@@ -1,8 +1,7 @@
 {% import "_macros.html" as m with context %}
 {% set base = "/project/" ~ project.id ~ "/traces/" ~ trace.id %}
-<section class="panel" aria-label="Comments" id="comments">
-  <div class="panel-h"><h2>Comments</h2><span class="chip">{{ comments | length }}</span></div>
-  <div class="panel-b">
+<div class="tp" id="tp-cmt" role="tabpanel" aria-labelledby="dt-cmt" hidden>
+  <div class="tp-b" id="comments">
     {% for c in comments %}
       <div class="comment">
         {{ m.avatar(c.initials, c.author_email) }}
@@ -38,4 +37,4 @@
       </form>
     {% endif %}
   </div>
-</section>
+</div>

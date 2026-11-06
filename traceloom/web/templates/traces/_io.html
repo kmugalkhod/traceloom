@@ -1,60 +1,83 @@
-{# The right pane: the selected observation, or the trace itself. Rendered whole and by HTMX. #}
+{# The right pane: the selected observation, or the trace itself. Rendered whole and by HTMX.
+   Header, one metrics line, then the tabs Preview / Metadata / Scores / Comments. #}
 {% import "_macros.html" as m with context %}
-<div class="io-sec">
-  <div class="row">
-    {% if pane.kind == "observation" %}<span class="ty ty-{{ pane.type }}" title="{{ pane.type }}">{{ m.icon("i-" ~ pane.type if pane.type in icon_types else "i-span") }}</span>{% endif %}
-    <h2>{{ pane.title }}</h2>
-    {% if pane.level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif pane.level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% endif %}
-    {% if pane.kind == "observation" %}{% include "traces/_io_header.html" %}{% endif %}
-    <span class="right row mono muted"><span id="pane-id">{{ pane.id }}</span><button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="Copy id" title="Copy id" data-copy-from="#pane-id">{{ m.icon("i-copy") }}</button></span>
-  </div>
-  {% if pane.kind == "observation" %}
-  <dl class="kv">
-    <div><dt>Type</dt><dd>{{ pane.type }}</dd></div>
-    {% if pane.started %}<div><dt>Started</dt><dd class="mono">{{ pane.started }}</dd></div>{% endif %}
-    {% if pane.duration %}<div><dt>Duration</dt><dd class="mono">{{ pane.duration }}</dd></div>{% endif %}
-    {% if pane.parent_name %}<div><dt>Parent</dt><dd>{{ pane.parent_name }}</dd></div>{% endif %}
-    <div><dt>Trace</dt><dd><a href="{{ pane.trace_url }}" hx-get="{{ state.io_url(obs='') }}" hx-target="#io-pane" hx-swap="innerHTML" hx-push-url="{{ pane.trace_url }}" data-obs-link>View whole trace</a></dd></div>
-  </dl>
-  {% if pane.obs.type == "generation" or pane.obs.model %}
-  <dl class="gen-grid" aria-label="Generation details">
-    <div><dt>Model</dt><dd>{{ pane.obs.model or "–" }}</dd></div>
-    <div><dt>Usage</dt><dd>{% for k, v in pane.usage %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% else %}–{% endfor %}</dd></div>
-    <div><dt>Cost</dt><dd>{{ pane.cost_total or "–" }}
-      {% if pane.cost_source == "provided" %}<span class="src provided">provided</span>{% elif pane.cost_source == "calculated" %}<span class="src calc">calculated</span>{% endif %}</dd></div>
-    <div><dt>First token</dt><dd>{{ pane.ttft or "–" }}</dd></div>
-    {% if pane.prompt_label %}<div><dt>Prompt</dt><dd><a href="{{ pane.prompt_url }}" data-prompt-link>{{ pane.prompt_label }}</a></dd></div>{% endif %}
-    {% if pane.params %}<div class="wide"><dt>Parameters</dt><dd>{% for k, v in pane.params %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</dd></div>{% endif %}
-  </dl>
-  {% endif %}
-  {% if pane.status_message %}<div class="banner {{ 'err' if pane.level == 'ERROR' else 'warn' if pane.level == 'WARNING' else 'info' }}" role="alert">{{ m.icon("i-error" if pane.level == "ERROR" else "i-info") }}<div>{{ pane.status_message }}</div></div>{% endif %}
-  {% else %}
-  <dl class="kv">
-    <div><dt>Latency</dt><dd class="mono">{{ pane.trace.latency_ms | latency }}</dd></div>
-    <div><dt>Observations</dt><dd class="mono">{{ pane.trace.observation_count }}</dd></div>
-  </dl>
-  {% endif %}
+{% set total_tokens = (pane.usage | selectattr(0, "equalto", "total") | list | first) %}
+<div class="panel-h dpane-h">
+  {% if pane.kind == "observation" %}<span class="ty ty-{{ pane.type }}" title="{{ pane.type }}">{{ m.icon("i-" ~ pane.type if pane.type in icon_types else "i-span") }}</span>{% endif %}
+  <h2>{{ pane.title }}</h2>
+  {% if pane.level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif pane.level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% endif %}
+  {% if pane.kind == "observation" %}{% include "traces/_io_header.html" %}{% endif %}
+  <span class="right muted dpane-type">{{ pane.type }}</span>
 </div>
 
-<div class="io-sec io-mode-row">
-  <div class="row"><h3>Display</h3>
-    <div class="seg io-modes" role="tablist" aria-label="Display mode">
-      {% for mode, label in [("formatted", "Formatted"), ("json", "JSON"), ("markdown", "Markdown")] %}
-        <a role="tab" aria-selected="{{ 'true' if pane.mode == mode else 'false' }}" href="{{ pane.mode_urls[mode][0] }}" hx-get="{{ pane.mode_urls[mode][1] }}" hx-target="#io-pane" hx-swap="innerHTML" hx-push-url="{{ pane.mode_urls[mode][0] }}">{{ label }}</a>
-      {% endfor %}
+{% if pane.kind == "observation" %}
+<dl class="mline dm">
+  {% if pane.duration %}<div><dt>Duration</dt><dd class="num">{{ pane.duration }}</dd></div>{% endif %}
+  {% if pane.cost_total %}<div><dt>Cost</dt><dd class="num">{{ pane.cost_total }}</dd></div>{% endif %}
+  {% if total_tokens %}<div><dt>Tokens</dt><dd class="num">{{ total_tokens[1] }} tokens</dd></div>{% endif %}
+  {% if pane.obs.model %}<div><dt>Model</dt><dd class="mono">{{ pane.obs.model }}</dd></div>{% endif %}
+</dl>
+{% else %}
+<dl class="mline dm">
+  <div><dt>Latency</dt><dd class="num">{{ pane.trace.latency_ms | latency }}</dd></div>
+  <div><dt>Observations</dt><dd class="num">{{ pane.trace.observation_count }} observations</dd></div>
+</dl>
+{% endif %}
+
+<div class="tabs" role="tablist" aria-label="Detail" data-tabs="detail">
+  <button type="button" class="tab" role="tab" id="dt-prev" aria-controls="tp-prev" aria-selected="true">Preview</button>
+  <button type="button" class="tab" role="tab" id="dt-meta" aria-controls="tp-meta" aria-selected="false" tabindex="-1">Metadata</button>
+  <button type="button" class="tab" role="tab" id="dt-scores" aria-controls="tp-scores" aria-selected="false" tabindex="-1">Scores<span class="c2" id="tabn-scores"></span></button>
+  <button type="button" class="tab" role="tab" id="dt-cmt" aria-controls="tp-cmt" aria-selected="false" tabindex="-1">Comments<span class="c2" id="tabn-comments"></span></button>
+</div>
+
+<div class="dbody">
+  <div class="tp" id="tp-prev" role="tabpanel" aria-labelledby="dt-prev">
+    {% if pane.status_message %}<div class="banner {{ 'err' if pane.level == 'ERROR' else 'warn' if pane.level == 'WARNING' else 'info' }}" role="alert">{{ m.icon("i-error" if pane.level == "ERROR" else "i-info") }}<div>{{ pane.status_message }}</div></div>{% endif %}
+    <div class="io-top">
+      <div class="seg sm io-modes" role="tablist" aria-label="Display mode">
+        {% for mode, label in [("formatted", "Formatted"), ("json", "JSON"), ("markdown", "Markdown")] %}
+          <a role="tab" aria-selected="{{ 'true' if pane.mode == mode else 'false' }}" href="{{ pane.mode_urls[mode][0] }}" hx-get="{{ pane.mode_urls[mode][1] }}" hx-target="#io-pane" hx-swap="innerHTML" hx-push-url="{{ pane.mode_urls[mode][0] }}">{{ label }}</a>
+        {% endfor %}
+      </div>
     </div>
+    {% for title, rendered in pane.sections if title != "Metadata" %}
+      {% include "traces/_io_block.html" %}
+    {% endfor %}
   </div>
-</div>
 
-{% for title, rendered in pane.sections %}
-<div class="io-sec">
-  <h3>{{ title }}</h3>
-  {% if rendered.kind == "empty" %}<div class="hint">No {{ title | lower }}.</div>
-  {% elif rendered.kind == "chat" %}
-    <div class="chat">{% for msg in rendered.messages %}<div class="msg msg-{{ msg.css_role }}"><span class="role">{{ msg.role }}</span><div class="txt">{{ msg.html }}</div></div>{% endfor %}</div>
-  {% elif rendered.kind == "markdown" %}<div class="md" tabindex="0">{{ rendered.html }}</div>
-  {% else %}<div class="code" tabindex="0">{{ rendered.html }}</div>
-  {% endif %}
-</div>
-{% endfor %}
+  <div class="tp" id="tp-meta" role="tabpanel" aria-labelledby="dt-meta" hidden>
+    <dl class="mrows">
+      {% if pane.kind == "observation" %}
+        <div class="mrow"><dt>Type</dt><dd>{{ pane.type }}</dd></div>
+        {% if pane.started %}<div class="mrow"><dt>Started</dt><dd class="mono">{{ pane.started }}</dd></div>{% endif %}
+        {% if pane.duration %}<div class="mrow"><dt>Duration</dt><dd class="mono">{{ pane.duration }}</dd></div>{% endif %}
+        {% if pane.parent_name %}<div class="mrow"><dt>Parent</dt><dd>{{ pane.parent_name }}</dd></div>{% endif %}
+        <div class="mrow"><dt>Trace</dt><dd><a href="{{ pane.trace_url }}" hx-get="{{ state.io_url(obs='') }}" hx-target="#io-pane" hx-swap="innerHTML" hx-push-url="{{ pane.trace_url }}" data-obs-link>View whole trace</a></dd></div>
+        <div class="mrow"><dt>Observation ID</dt><dd class="mono"><span id="pane-id">{{ pane.id }}</span><button type="button" class="copy" aria-label="Copy id" title="Copy id" data-copy-from="#pane-id">{{ m.icon("i-copy", "ico-sm") }}</button></dd></div>
+      {% else %}
+        <div class="mrow"><dt>Trace ID</dt><dd class="mono"><span id="trace-id-meta">{{ pane.trace.id }}</span><button type="button" class="copy" aria-label="Copy trace id in metadata" title="Copy trace id" data-copy-from="#trace-id-meta">{{ m.icon("i-copy", "ico-sm") }}</button></dd></div>
+        {% if pane.trace.release %}<div class="mrow"><dt>Release</dt><dd class="mono">{{ pane.trace.release }}</dd></div>{% endif %}
+        {% if pane.trace.version %}<div class="mrow"><dt>Version</dt><dd class="mono">{{ pane.trace.version }}</dd></div>{% endif %}
+        <div class="mrow"><dt>Environment</dt><dd>{{ pane.trace.environment }}</dd></div>
+      {% endif %}
+    </dl>
+    {% if pane.kind == "observation" and (pane.obs.type == "generation" or pane.obs.model) %}
+    <dl class="gen-grid" aria-label="Generation details">
+      <div><dt>Model</dt><dd>{{ pane.obs.model or "–" }}</dd></div>
+      <div><dt>Usage</dt><dd>{% for k, v in pane.usage %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% else %}–{% endfor %}</dd></div>
+      <div><dt>Cost</dt><dd>{{ pane.cost_total or "–" }}
+        {% if pane.cost_source == "provided" %}<span class="src provided">provided</span>{% elif pane.cost_source == "calculated" %}<span class="src calc">calculated</span>{% endif %}</dd></div>
+      <div><dt>First token</dt><dd>{{ pane.ttft or "–" }}</dd></div>
+      {% if pane.prompt_label %}<div><dt>Prompt</dt><dd><a href="{{ pane.prompt_url }}" data-prompt-link>{{ pane.prompt_label }}</a></dd></div>{% endif %}
+      {% if pane.params %}<div class="wide"><dt>Parameters</dt><dd>{% for k, v in pane.params %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</dd></div>{% endif %}
+    </dl>
+    {% endif %}
+    {% for title, rendered in pane.sections if title == "Metadata" %}
+      {% include "traces/_io_block.html" %}
+    {% endfor %}
+  </div>
 
+  {# Scores and Comments are trace-level: the lazy fragment below renders their two tab panels. #}
+  {% include "traces/_comments.html" ignore missing %}
+</div>

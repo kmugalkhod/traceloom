@@ -1,6 +1,6 @@
-<link rel="stylesheet" href="/static/pages.css">
-<div class="under">
-  {% include "traces/_comments_body.html" %}
-  {% set scores_panel = scores %}
-  {% include "traces/_scores_panel.html" %}
-</div>
+{# The Scores and Comments tab panels of the detail pane (fragment of #trace-discussion). #}
+{% set scores_panel = scores %}
+{% include "traces/_scores_panel.html" %}
+{% include "traces/_comments_body.html" %}
+<span class="c2" id="tabn-scores" hx-swap-oob="true">{{ scores | length }}</span>
+<span class="c2" id="tabn-comments" hx-swap-oob="true">{{ comments | length }}</span>

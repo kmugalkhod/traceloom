@@ -1,0 +1,50 @@
+/* Trace detail header, tags and workspace frame (FR-TD1..TD3). */
+
+/* Breadcrumb lives in the context bar. */
+.ctxbar .crumbs{margin-right:auto;font-size:13px;min-width:0}
+.ctxbar .crumbs a{color:var(--ink-2)}
+.ctxbar .crumbs .mono{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ctxbar .crumbs~.env-sw,.ctxbar .crumbs~.select-wrap{margin-right:0}
+@container app (max-width:760px){.ctxbar .crumbs{display:none}}
+
+/* Compact header: title row, then one row of inline metrics with the tags. */
+.th-head{display:flex;flex-direction:column;gap:8px;flex:none}
+.th-title{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-height:36px}
+.th-title h1{font-size:24px;letter-spacing:-.02em;line-height:1.2;margin:0}
+.mline-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px}
+.mline{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 0;margin:0;padding:0;font-size:14px;color:var(--ink-2)}
+.mline>div{display:flex;align-items:baseline;min-width:0}
+.mline>div+div::before{content:"·";margin:0 8px;color:var(--ink-3)}
+.mline dt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mline dd{margin:0;font-weight:500}
+.mline .num{font-family:var(--font-ui);font-variant-numeric:tabular-nums;text-align:left;color:var(--ink)}
+
+/* Tags: chips, an x for Members+, inline "+ Add tag". */
+.tags{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.tags-controls{display:contents}
+.tags .chip{height:24px}
+.tags .chip form{display:inline-flex;margin:0}
+.tags .chip button{width:16px;height:16px;border-radius:4px;align-items:center;justify-content:center}
+.tags .chip button:hover{background:var(--sunken);color:var(--ink)}
+.tag-add{display:inline-flex;align-items:center}
+.tag-add>summary{list-style:none;cursor:pointer;border-style:dashed;color:var(--ink-2)}
+.tag-add>summary::-webkit-details-marker{display:none}
+.tag-add>summary:hover{background:var(--surface-2);color:var(--ink)}
+.tag-add[open]>summary{display:none}
+.tag-add>form{display:inline-flex;align-items:center;gap:6px;margin:0}
+.tag-add .tag-input{height:30px;width:160px}
+.tag-add .btn-sm{height:30px}
+
+/* Workspace: header, then two panes that fill the rest of the viewport and scroll on their own. */
+.split[data-trace-detail]{display:grid;grid-template-columns:minmax(360px,40%) minmax(0,1fr);gap:24px;align-items:stretch;flex:1 1 auto;min-height:480px}
+.split[data-trace-detail]>.panel{display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.split[data-trace-detail] .panel-h{height:var(--panel-head-h);min-height:var(--panel-head-h);flex:none}
+@container app (min-width:1101px){
+  .card:has(.split[data-trace-detail]){height:calc(100vh - 24px)}
+  .main:has(.split[data-trace-detail]){flex:1 1 auto;min-height:0}
+}
+@container app (max-width:1100px){
+  .split[data-trace-detail]{grid-template-columns:minmax(0,1fr);min-height:0;flex:none}
+  .split[data-trace-detail]>.tree-pane{max-height:50vh}
+  .split[data-trace-detail]>.dpane{min-height:420px}
+}
