@@ -265,3 +265,20 @@ def test_globals_and_other_projects_are_not_editable(p1, p2, registry, db):
             admin.update_definition(db, registry, pid, did, prices={"input": 9})
         with pytest.raises(admin.DefinitionNotFound):
             admin.delete_definition(db, registry, pid, did)
+
+
+def test_provided_usage_without_total_gets_one(registry):
+    obs = gen(usage_details={"input": 1000, "output": 500}, usage_source="provided")
+    apply_cost(obs, "p1", registry)
+    assert obs.usage_details == {"input": 1000, "output": 500, "total": 1500}
+    explicit = gen(usage_details={"input": 1, "output": 2, "total": 9}, usage_source="provided")
+    apply_cost(explicit, "p1", registry)
+    assert explicit.usage_details["total"] == 9  # a provided total is never overridden
+    both = gen(
+        usage_details={"input": 3, "output": 4},
+        usage_source="provided",
+        cost_details={"input": 0.1},
+        cost_source="provided",
+    )
+    apply_cost(both, "p1", registry)
+    assert both.usage_details["total"] == 7 and both.cost_details["total"] == pytest.approx(0.1)

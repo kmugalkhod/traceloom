@@ -55,6 +55,12 @@ def apply_cost(
     Provided usage and cost are never touched. Derived values are recomputed on every call, so
     running it again gives the same result.
     """
+    if obs.usage_source == "provided" and obs.usage_details and "total" not in obs.usage_details:
+        # Aggregates and both stores read the `total` key, so a producer that omitted it gets it.
+        obs.usage_details = {
+            **obs.usage_details,
+            "total": obs.usage_details.get("input", 0) + obs.usage_details.get("output", 0),
+        }
     if obs.cost_source == "provided":
         if obs.cost_details and "total" not in obs.cost_details:
             obs.cost_details = {**obs.cost_details, "total": sum(obs.cost_details.values())}

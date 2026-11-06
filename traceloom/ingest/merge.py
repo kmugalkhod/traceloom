@@ -112,6 +112,9 @@ def _apply_provided_map(row: ObservationRow, name: str, source: str, value, newe
         return
     if getattr(row, source) == "provided":
         current = getattr(row, name)
+        if newer and "total" not in value:
+            # A derived total would go stale once the parts change; apply_cost derives it again.
+            current = {k: v for k, v in current.items() if k != "total"}
         setattr(row, name, {**current, **value} if newer else {**value, **current})
     else:  # replaces calculated / tokenizer-derived data
         setattr(row, name, dict(value))

@@ -215,3 +215,17 @@ def test_inputs_are_not_mutated():
     merge_events([ev("trace-create", 5, id="t1", name="b", tags=["y"])], stored)
     assert repr(first.traces["t1"]) == before
     assert list(itertools.chain(first.traces)) == ["t1"]
+
+
+def test_derived_total_does_not_go_stale_when_parts_change():
+    first = merge(
+        ev("generation-create", 1, id="o1", trace_id="t1", usage_details={"input": 10, "output": 5})
+    )
+    obs = first.observations["o1"]
+    obs.usage_details["total"] = 15  # what apply_cost derives
+    update = ev("generation-update", 2, id="o1", usage_details={"input": 20, "output": 5})
+    got = merge_events([update], Existing(first.traces, first.observations)).observations["o1"]
+    assert got.usage_details == {"input": 20, "output": 5}
+    explicit = ev("generation-update", 3, id="o1", usage_details={"total": 99})
+    again = merge_events([explicit], Existing(first.traces, {"o1": got})).observations["o1"]
+    assert again.usage_details["total"] == 99
