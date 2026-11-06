@@ -17,6 +17,7 @@ from traceloom.db.session import make_engine, make_session_factory
 def cli_settings(settings: Settings, monkeypatch: pytest.MonkeyPatch) -> Settings:
     monkeypatch.setenv("DATABASE_URL", settings.database_url)
     monkeypatch.setenv("TRACELOOM_SECRET_KEY", settings.secret_key)
+    monkeypatch.setenv("TRACELOOM_SERVER_SECRET", settings.secret_key)  # renamed env var
     monkeypatch.setenv("TRACELOOM_BLOB_DIR", settings.blob_dir)
     monkeypatch.setenv("TRACELOOM_MODE", "lite")
     monkeypatch.setenv("TRACELOOM_ENV", "test")
