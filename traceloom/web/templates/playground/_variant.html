@@ -1,0 +1,36 @@
+{# One compare column. Cloned by playground_compare.js from <template id="variant-tpl">. #}
+{% import "_macros.html" as m with context %}
+<article class="variant" data-variant aria-label="Variant">
+  <header class="variant-h">
+    <h3 data-variant-title>Variant</h3>
+    <span class="right row">
+      <button type="button" class="btn btn-sm" data-variant-stop hidden>{{ m.icon("i-x", "ico-sm") }}Stop</button>
+      <button type="button" class="btn btn-icon btn-ghost btn-sm" data-variant-remove aria-label="Remove this variant">{{ m.icon("i-trash", "ico-sm") }}</button>
+    </span>
+  </header>
+  <div class="variant-cfg">
+    <div class="field"><label>Connection</label><select class="select" data-v-connection></select></div>
+    <div class="field"><label>Model</label><input class="input mono" data-v-model list="" autocomplete="off" spellcheck="false"></div>
+    <div class="row-wrap">
+      <div class="field"><label>Temperature</label><input class="input" data-v-temperature type="number" step="0.1" min="0" max="2" placeholder="default"></div>
+      <div class="field"><label>Max tokens</label><input class="input" data-v-max-tokens type="number" step="1" min="1" placeholder="default"></div>
+    </div>
+    <label class="check"><input type="checkbox" data-v-follow checked> Follow the shared messages</label>
+    <div data-v-own hidden>
+      <div data-v-messages class="stack-s"></div>
+      <button type="button" class="btn btn-sm" data-v-add-message>{{ m.icon("i-plus", "ico-sm") }}Add message</button>
+    </div>
+  </div>
+  <div class="variant-out">
+    <div class="banner err" role="alert" data-v-error hidden>{{ m.icon("i-error") }}<div></div></div>
+    <div class="out" data-v-text aria-live="polite"></div>
+    <ul class="calls" data-v-calls></ul>
+  </div>
+  <dl class="variant-usage" data-v-usage hidden>
+    <div><dt>Input</dt><dd data-u-input></dd></div>
+    <div><dt>Output</dt><dd data-u-output></dd></div>
+    <div><dt>Cost</dt><dd data-u-cost></dd></div>
+    <div><dt>Latency</dt><dd data-u-latency></dd></div>
+    <div><dt>First token</dt><dd data-u-ttft></dd></div>
+  </dl>
+</article>
