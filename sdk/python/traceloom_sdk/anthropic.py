@@ -19,6 +19,7 @@ from traceloom_sdk._llm import (
     get,
     plain,
     request_params,
+    start_run,
     wrap_method,
 )
 from traceloom_sdk.client import Traceloom
@@ -203,9 +204,10 @@ def _wrap_stream_method(messages: Any, begin: Any) -> None:
     @functools.wraps(original)
     def traced(*args: Any, **kwargs: Any) -> Any:
         try:
-            run = begin(kwargs)
+            run = start_run(begin, kwargs)
         except Exception:
             log.exception("Traceloom: could not start generation")
+            kwargs.pop("traceloom_prompt", None)
             return original(*args, **kwargs)
         try:
             manager = original(*args, **kwargs)

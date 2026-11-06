@@ -7,6 +7,7 @@ from typing import Any
 from traceloom_sdk.client import Traceloom, get_client, set_default_client
 from traceloom_sdk.objects import Event, Generation, Observation, Span
 from traceloom_sdk.observe import observe
+from traceloom_sdk.prompts import ChatPrompt, PromptNotFound, TextPrompt
 
 __version__ = "0.1.0"
 
@@ -46,6 +47,14 @@ def score(
     get_client().score(name, value, trace_id, observation_id, data_type, comment)
 
 
+def get_prompt(name: str, **options: Any) -> TextPrompt | ChatPrompt:
+    return get_client().get_prompt(name, **options)
+
+
+async def aget_prompt(name: str, **options: Any) -> TextPrompt | ChatPrompt:
+    return await get_client().aget_prompt(name, **options)
+
+
 def get_current_trace_id() -> str | None:
     return get_client().get_current_trace_id()
 
@@ -55,6 +64,10 @@ def flush(timeout: float | None = None) -> bool:
 
 
 __all__ = [
+    "ChatPrompt",
+    "PromptNotFound",
+    "TextPrompt",
+    "aget_prompt",
     "Event",
     "Generation",
     "Observation",
@@ -64,6 +77,7 @@ __all__ = [
     "flush",
     "get_client",
     "get_current_trace_id",
+    "get_prompt",
     "observe",
     "score",
     "set_default_client",

@@ -18,6 +18,8 @@ from typing import Any
 
 import httpx
 
+from traceloom_sdk.prompts import PromptCache
+
 log = logging.getLogger("traceloom")
 
 MASK_FAILED = "<masking failed>"
@@ -170,6 +172,7 @@ class Traceloom:
         self._http: httpx.Client | None = None
         self._dropped = 0
         self._atexit_registered = False
+        self._prompt_cache = PromptCache()
 
         global _default_client
         with _default_lock:
@@ -410,6 +413,19 @@ class Traceloom:
                 current.update(**fields)
         except Exception:
             log.exception("update_current_observation failed")
+
+    def get_prompt(self, name: str, **options: Any):
+        """Fetch a prompt (cached; stale-while-revalidate). Raises PromptNotFound only when
+        there is no cached value and no `fallback`. Options: label, version, type,
+        cache_ttl_seconds, fallback, max_retries, fetch_timeout_seconds."""
+        from traceloom_sdk import prompts
+
+        return prompts.get_prompt(self, name, **options)
+
+    async def aget_prompt(self, name: str, **options: Any):
+        import asyncio
+
+        return await asyncio.to_thread(self.get_prompt, name, **options)
 
     def get_current_trace_id(self) -> str | None:
         from traceloom_sdk import context
