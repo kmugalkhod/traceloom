@@ -64,5 +64,6 @@
   {% if icon %}<span class="tile"><svg class="ico" aria-hidden="true"><use href="#{{ icon }}"/></svg></span>{% endif %}
   <h2>{{ title }}</h2>
   {% if body %}<p>{{ body }}</p>{% endif %}
+  {{ caller() if caller is defined }}
 </div>
 {%- endmacro %}

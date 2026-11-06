@@ -33,7 +33,7 @@
 
 {% macro bars(id, title, rows, kind, selected=False) %}
 <div class="tabpanel" role="tabpanel" id="bd-{{ id }}" aria-label="{{ title }}" tabindex="0"{% if not selected %} hidden{% endif %}>
-  <div class="panel-b">
+  <div class="panel-b flush">
     {% for r in rows %}
       <div class="hbar">
         <span class="trunc mono">{{ r.label }}</span>
@@ -47,21 +47,21 @@
 
 {% if empty %}
 <div class="panel">
-  <div class="empty">
-    <h2>No traces in the last {{ range_label }}</h2>
-    <p>{% if environment %}Nothing was recorded in <b>{{ environment }}</b>. {% endif %}Try a longer range, or send a trace with the SDK{% if can("project:api_keys") %} (<a href="{{ base }}/settings/keys">create an API key</a>){% endif %}.</p>
+  {% call m.empty_state("i-dash", "No traces in the last " ~ range_label, ("Nothing was recorded in " ~ environment ~ ". " if environment else "") ~ "Try a longer range, or send a trace with the SDK.") %}
+    {% if can("project:api_keys") %}<p class="hint">You can <a href="{{ base }}/settings/keys">create an API key</a> to connect your app.</p>{% endif %}
     <div class="code" tabindex="0"><span class="k">from</span> traceloom_sdk <span class="k">import</span> observe</div>
-  </div>
+  {% endcall %}
 </div>
 {% else %}
-<div class="statrow" aria-label="Totals">
-  <div class="stat"><div class="top">Traces</div><b>{{ v.trace_count | intcomma }}</b><span class="sub">last {{ range_label }}</span></div>
-  <div class="stat"><div class="top">Total cost</div><b>{{ v.total_cost | cost }}</b><span class="sub">calculated and provided</span></div>
-  <div class="stat"><div class="top">Total tokens</div><b>{{ v.total_tokens_label }}</b><span class="sub">across all models</span></div>
-  <div class="stat"><div class="top">Error rate</div><b>{{ v.error_share | percent }}</b><span class="sub">{{ v.error_count | plural("observation") }} at ERROR</span></div>
+{% set obs_total = v.levels | sum(attribute="count") %}
+<div class="statrow dash-stats" aria-label="Totals">
+  <div class="stat"><div class="top">Traces</div><b>{{ v.trace_count | intcomma }}</b><span class="sub">last {{ range_label }}</span><span class="chipi acc">{{ m.icon("i-traces") }}</span></div>
+  <div class="stat"><div class="top">Total cost</div><b>{{ v.total_cost | cost }}</b><span class="sub">calculated and provided</span><span class="chipi ok">{{ m.icon("i-tag") }}</span></div>
+  <div class="stat"><div class="top">Total tokens</div><b>{{ v.total_tokens_label }}</b><span class="sub">across all models</span><span class="chipi acc">{{ m.icon("i-bolt") }}</span></div>
+  <div class="stat"><div class="top">Error rate</div><b>{{ v.error_share | percent }}</b><span class="sub">{{ v.error_count | plural("observation") }} at ERROR</span><span class="chipi err">{{ m.icon("i-error") }}</span></div>
 </div>
 
-<div class="dgrid">
+<div class="dgrid dash-grid">
   <section class="panel c8" aria-label="Traces over time">
     <div class="panel-h"><h2>Traces over time</h2><span class="hint">per {{ bucket }}</span></div>
     <div class="panel-b">
@@ -75,19 +75,22 @@
 
   <section class="panel c4" aria-label="Error rate by level">
     <div class="panel-h"><h2>Error rate by level</h2><span class="hint">share of observations</span></div>
-    <div class="panel-b stack">
+    <div class="panel-b stack lvl-body">
       {% if v.levels %}
       <div class="stackbar" role="img" aria-label="{% for l in v.levels %}{{ l.level }} {{ l.share | percent }}{{ ', ' if not loop.last }}{% endfor %}">
         {% for l in v.levels %}<i data-w="{{ '%.2f' | format(l.share * 100) }}" data-bg="{{ l.color }}"></i>{% endfor %}
       </div>
-      {% for l in v.levels %}
-        <div class="row"><span class="sw" data-bg="{{ l.color }}"></span>{{ l.level }}<span class="num right">{{ l.share | percent }}</span></div>
-      {% endfor %}
+      <div class="legend-rows">
+        {% for l in v.levels %}
+        <div class="leg"><span class="dot" data-bg="{{ l.color }}"></span><span>{{ l.level | title }}</span><span class="p">{{ l.share | percent }}</span><span class="n">{{ l.count | intcomma }}</span></div>
+        {% endfor %}
+      </div>
+      <p class="lvl-foot">{{ obs_total | plural("observation") }} in total</p>
       {% else %}<p class="hint">No observations in this range.</p>{% endif %}
     </div>
   </section>
 
-  <section class="panel c12" aria-label="Breakdown">
+  <section class="panel c8 breakdown" aria-label="Breakdown">
     <div class="panel-h">
       <h2 id="bd-title">Breakdown</h2>
       <div class="seg right bd-tabs" role="tablist" aria-labelledby="bd-title" data-tabs>
@@ -102,14 +105,15 @@
     {{ lat_table("latn", "Latency by trace name", "Trace name", v.latency_names) }}
   </section>
 
-  <section class="panel c12" aria-label="Top users by cost">
+  <section class="panel c4 dash-users" aria-label="Top users by cost">
     <div class="panel-h"><h2>Top users by cost</h2><a class="right" href="{{ base }}/users">All users</a></div>
     {% if v.top_users %}
     <div class="rack">
       <table class="tbl tbl-flat keepcols">
+        <thead><tr><th class="rank">#</th><th>User</th><th class="r">Cost</th></tr></thead>
         <tbody>
           {% for u in v.top_users %}
-          <tr><td class="num muted">{{ loop.index }}</td><td class="mono"><a href="{{ base }}/users/{{ u.user_id | urlencode }}">{{ u.user_id }}</a></td><td class="num">{{ u.cost | cost }}</td></tr>
+          <tr><td class="rank">{{ loop.index }}</td><td class="mono"><a href="{{ base }}/users/{{ u.user_id | urlencode }}">{{ u.user_id }}</a></td><td class="num r">{{ u.cost | cost }}</td></tr>
           {% endfor %}
         </tbody>
       </table>
