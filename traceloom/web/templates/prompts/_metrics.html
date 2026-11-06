@@ -1,0 +1,63 @@
+{# Metrics partial: loaded into #metrics-pane on the prompt detail page. All values are text. #}
+{% import "_macros.html" as m with context %}
+<form class="row-wrap" method="get" action="{{ metrics_url }}" hx-get="{{ metrics_url }}" hx-target="#metrics-pane" hx-trigger="change">
+  <input type="hidden" name="range" value="{{ range_key }}">
+  {% if env %}<input type="hidden" name="env" value="{{ env }}">{% endif %}
+  <div class="field"><label for="mv">Version</label>
+    <select class="select" id="mv" name="version" data-autosubmit>
+      <option value="all"{% if version == "all" %} selected{% endif %}>All versions</option>
+      {% for v in versions %}<option value="{{ v }}"{% if v == version %} selected{% endif %}>v{{ v }}{% if v == latest %} · latest{% endif %}{% if v == production %} · production{% endif %}</option>{% endfor %}
+    </select></div>
+  <span class="hint">Range and environment follow the bar above: {{ range_label }}, {{ env or "all environments" }}.</span>
+</form>
+
+{% if metrics.count == 0 %}
+<div class="panel empty">
+  {{ m.icon("i-generation", "ico-lg") }}
+  <h2>No linked generations yet</h2>
+  <p>No generation linked to {{ "any version of " if version == "all" else "" }}<span class="mono">{{ name }}</span>{% if version != "all" %} <span class="vp">v{{ version }}</span>{% endif %} was recorded in this range and environment.</p>
+  <p>Pass the fetched prompt when you record a generation:</p>
+  <pre class="code" id="link-snippet">prompt = traceloom_sdk.get_prompt({{ name | tojson }})
+with traceloom_sdk.start_generation("answer", model="...", prompt=prompt):
+    ...</pre>
+  {{ m.copy_button("#link-snippet", "Copy snippet") }}
+</div>
+{% else %}
+<div class="statrow tiles5">
+  <div class="stat"><div class="top">Linked generations<span class="chipi acc">{{ m.icon("i-generation") }}</span></div><b>{{ metrics.count | count }}</b><span class="sub">{{ scope }}</span></div>
+  <div class="stat"><div class="top">Median latency<span class="chipi">{{ m.icon("i-clock") }}</span></div><b>{{ metrics.median_latency_ms | latency }}</b><span class="sub">finished generations</span></div>
+  <div class="stat"><div class="top">Total tokens<span class="chipi">{{ m.icon("i-embedding") }}</span></div><b>{{ metrics.total_tokens | count }}</b><span class="sub">input and output</span></div>
+  <div class="stat"><div class="top">Total cost<span class="chipi ok">{{ m.icon("i-key") }}</span></div><b>{{ metrics.total_cost | money(2) }}</b><span class="sub">{{ per_call | money }} per call</span></div>
+</div>
+
+{% if metrics.scores %}
+<div class="row-wrap"><span class="lbl">Average scores</span>
+  {% for score, value in metrics.scores | dictsort %}<span class="score"><b>{{ score }}</b><span>{{ "%.2f" | format(value) }}</span></span>{% endfor %}
+  <span class="hint">on linked traces</span></div>
+{% endif %}
+
+<div class="panel">
+  <div class="panel-h"><h2>Linked generations</h2><span class="hint right">Most recent {{ limit }}</span></div>
+  <div class="rack">
+    <table class="tbl tbl-flat cardrows">
+      <thead><tr><th>Trace</th><th class="hide-m">Time</th>{% if version == "all" %}<th>Version</th>{% endif %}<th class="hide-m">Model</th><th class="r hide-m">Latency</th><th class="r hide-m">Tokens</th><th class="r">Cost</th></tr></thead>
+      <tbody>
+      {% for g in generations %}
+        <tr>
+          <td class="m-show"><a href="/project/{{ project.id }}/traces/{{ g.trace_id | urlencode }}" class="mono">{{ g.trace_id }}</a>
+            {% if g.level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif g.level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% endif %}
+            <span class="t-meta muted">{{ g.start_time | ago }} · {{ g.model or "no model" }} · {{ g.latency_ms | latency }} · {{ g.tokens | count }} tokens{% if version == "all" %} · v{{ g.version }}{% endif %}</span></td>
+          <td class="hide-m muted">{{ g.start_time | ago }}</td>
+          {% if version == "all" %}<td class="hide-m"><span class="vp">v{{ g.version }}</span></td>{% endif %}
+          <td class="hide-m mono">{{ g.model or "–" }}</td>
+          <td class="num hide-m">{{ g.latency_ms | latency }}</td>
+          <td class="num hide-m">{{ g.tokens | count }}</td>
+          <td class="num m-show">{{ g.cost | money }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="pager"><span>Showing {{ generations | length }} of {{ metrics.count | count }}</span></div>
+</div>
+{% endif %}

@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% import "prompts/_message.html" as msg with context %}
+{% set is_version = state.mode == "version" %}
+{% block title %}{{ "New version of " ~ state.name if is_version else "New prompt" }}{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block scripts %}<script src="/static/prompts.js" defer></script>{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Breadcrumb"><a href="/project/{{ project.id }}/prompts">Prompts</a><span aria-hidden="true">/</span>{% if is_version %}<a href="{{ cancel_url }}">{{ state.name }}</a><span aria-hidden="true">/</span>{% endif %}<span>{{ "New version" if is_version else "New" }}</span></nav>
+{{ m.page_header("New version of " ~ state.name if is_version else "New prompt", ("Starts from v" ~ state.from_version ~ " and saves as the next version.") if is_version else "The first save creates version 1.") }}
+{% if errors.form %}{{ m.banner("err", errors.form) }}{% endif %}
+
+<form method="post" action="/project/{{ project.id }}/prompts/new" class="vsplit editor" data-prompt-form novalidate>
+  {{ m.csrf() }}
+  <input type="hidden" name="mode" value="{{ state.mode }}">
+  <div class="stack">
+    <div class="panel"><div class="panel-b stack">
+      <div class="field">
+        <label for="pn">Name</label>
+        {% if is_version %}
+          <input class="input mono" id="pn" name="name" value="{{ state.name }}" readonly>
+        {% else %}
+          <input class="input mono" id="pn" name="name" value="{{ state.name }}" maxlength="200" autocomplete="off" required
+                 {% if errors.name %}aria-invalid="true" aria-describedby="e-pn"{% else %}aria-describedby="h-pn"{% endif %}>
+          {% if errors.name %}<div class="field-error" id="e-pn" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ errors.name }}</span></div>
+          {% else %}<span class="hint" id="h-pn">Use / to make folders, for example support/triage-classifier.</span>{% endif %}
+        {% endif %}
+      </div>
+      <div class="row-wrap">
+        <div class="field"><span class="lbl" id="type-lbl">Type</span>
+          {% if is_version %}
+            <input type="hidden" name="type" value="{{ state.type }}">
+            <span class="type-pill">{{ "Chat" if state.type == "chat" else "Text" }}</span>
+          {% else %}
+          <div class="seg radios" role="radiogroup" aria-labelledby="type-lbl">
+            <input type="radio" name="type" id="type-text" value="text"{% if state.type == "text" %} checked{% endif %} data-type-toggle><label for="type-text">Text</label>
+            <input type="radio" name="type" id="type-chat" value="chat"{% if state.type == "chat" %} checked{% endif %} data-type-toggle><label for="type-chat">Chat</label>
+          </div>
+          {% endif %}
+        </div>
+        {% if not is_version %}
+        <div class="field grow"><label for="tg">Tags</label>
+          <input class="input" id="tg" name="tags" value="{{ state.tags }}" placeholder="support, policy" autocomplete="off" aria-describedby="h-tg">
+          <span class="hint" id="h-tg">Comma separated.</span></div>
+        {% endif %}
+      </div>
+
+      <div class="field" data-type-section="text"{% if state.type != "text" %} hidden{% endif %}>
+        <label for="content-text">Content</label>
+        <div class="ed-wrap ed" data-ed><pre class="ed-hl" aria-hidden="true"></pre><textarea class="ed-ta" id="content-text" name="text" rows="10" spellcheck="false" placeholder="Write the prompt. Use {{ '{{name}}' }} for variables.">{{ state.text }}</textarea></div>
+        <div class="ed-foot"><span>Text prompt</span><span data-var-count>{{ variables | length }} variable{{ "" if variables | length == 1 else "s" }}</span><span class="right">Include another prompt with <span class="mono">@@@prompt:name|label=production@@@</span></span></div>
+      </div>
+
+      <div class="stack-s" data-type-section="chat"{% if state.type != "chat" %} hidden{% endif %}>
+        <span class="lbl">Messages</span>
+        <div class="msgs" data-msgs>
+          {% for message in state.messages %}{{ msg.card(message, roles) }}{% endfor %}
+        </div>
+        <div><button type="button" class="btn btn-sm" data-msg-add>{{ m.icon("i-plus") }}Add message</button></div>
+        <template id="msg-tpl">{{ msg.card({"role": "user", "content": ""}, roles) }}</template>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="stack">
+    <div class="panel">
+      <div class="panel-h"><h2>{{ "Save the next version" if is_version else "Save version 1" }}</h2></div>
+      <div class="panel-b stack">
+        <div class="field">
+          <label for="cm">Commit message <span class="muted">(required)</span></label>
+          <input class="input" id="cm" name="commit_message" value="{{ state.commit_message }}" placeholder="What changed and why?" maxlength="500" autocomplete="off" required
+                 {% if errors.commit_message %}aria-invalid="true" aria-describedby="e-cm"{% endif %}>
+          {% if errors.commit_message %}<div class="field-error" id="e-cm" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ errors.commit_message }}</span></div>{% endif %}
+        </div>
+        <div class="stack-s">
+          <span class="lbl">Labels</span>
+          {% for lab in common_labels %}
+            {% set locked = (lab in protected) and not can_protected %}
+            <label class="check{% if locked %} is-locked{% endif %}">
+              <input type="checkbox" name="label" value="{{ lab }}"{% if lab in state.labels %} checked{% endif %}{% if locked %} disabled aria-disabled="true" aria-describedby="h-lock"{% endif %}>
+              <span>Set <span class="mono">{{ lab }}</span> to this version{% if lab in protected %} {{ m.icon("i-lock", "ico-sm") }}{% endif %}</span>
+            </label>
+          {% endfor %}
+          {% if protected and not can_protected %}<span class="hint" id="h-lock">Admins only. Members can set other labels such as <span class="mono">staging</span>.</span>
+          {% elif protected %}<span class="hint">Protected labels need an Admin, and the move is written to the audit log.</span>{% endif %}
+          <div class="field"><label for="other-labels" class="muted">Other labels</label>
+            <input class="input mono" id="other-labels" name="other_labels" value="{{ state.other_labels }}" placeholder="canary qa" autocomplete="off"
+                   {% if errors.labels %}aria-invalid="true" aria-describedby="e-lb"{% endif %}>
+            {% if errors.labels %}<div class="field-error" id="e-lb" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ errors.labels }}</span></div>{% endif %}
+          </div>
+          <span class="hint"><span class="mono">latest</span> always follows the newest version.</span>
+        </div>
+        <div class="row-wrap"><button class="btn btn-primary" type="submit">{{ "Save version" if is_version else "Create prompt" }}</button><a class="btn btn-ghost" href="{{ cancel_url }}">Cancel</a></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h"><h2>Variables</h2><span class="cnt right" data-var-total>{{ variables | length }}</span></div>
+      <div class="panel-b stack-s">
+        <ul class="vlist" data-vars>
+          {% for v in variables %}<li><span class="var">{{ "{{" ~ v ~ "}}" }}</span></li>{% endfor %}
+        </ul>
+        <p class="hint" data-vars-empty{% if variables %} hidden{% endif %}>No variables yet. Write <span class="mono">{{ "{{name}}" }}</span> in the content.</p>
+        <p class="hint">Found in the content as you type. Missing values are reported when you compile, never an error.</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <details class="cfg"{% if errors.config %} open{% endif %}>
+        <summary>Config {{ m.icon("i-down", "ico-sm") }}</summary>
+        <div>
+          <div class="field"><label for="cfg-model">Model</label><input class="input mono" id="cfg-model" name="cfg_model" value="{{ state.cfg_model }}" placeholder="claude-sonnet-5-5" autocomplete="off"></div>
+          <div class="grid2">
+            <div class="field"><label for="cfg-temp">Temperature</label><input class="input mono" id="cfg-temp" name="cfg_temperature" value="{{ state.cfg_temperature }}" inputmode="decimal" autocomplete="off"></div>
+            <div class="field"><label for="cfg-max">Max tokens</label><input class="input mono" id="cfg-max" name="cfg_max_tokens" value="{{ state.cfg_max_tokens }}" inputmode="numeric" autocomplete="off"></div>
+          </div>
+          <div class="field"><label for="cfg-json">Extra config (JSON object)</label>
+            <textarea class="textarea mono" id="cfg-json" name="config" rows="3" spellcheck="false" data-json-check
+                      {% if errors.config %}aria-invalid="true" aria-describedby="e-cfg"{% endif %}>{{ state.config }}</textarea>
+            <div class="field-error" id="e-cfg" role="alert"{% if not errors.config %} hidden{% endif %}>{{ m.icon("i-error", "ico-sm") }}<span data-json-error>{{ errors.config }}</span></div>
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+</form>
+{% endblock %}

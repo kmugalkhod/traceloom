@@ -1,0 +1,16 @@
+{# One chat message card. `message` has role and content; also used inside <template>. #}
+{% macro card(message, roles) -%}
+<div class="mcard {{ message.role }}{% if message.role == 'placeholder' %} ph{% endif %}" data-msg>
+  <header>
+    <span class="grip" aria-hidden="true">{{ m.icon("i-grip", "ico-sm") }}</span>
+    <select class="role-sel" name="role" aria-label="Role">
+      {% for r in roles %}<option value="{{ r }}"{% if r == message.role %} selected{% endif %}>{{ r | title }}</option>{% endfor %}
+    </select>
+    <span class="grow"></span>
+    <button type="button" class="btn btn-icon btn-sm btn-ghost" data-msg-up aria-label="Move message up">{{ m.icon("i-up", "ico-sm") }}</button>
+    <button type="button" class="btn btn-icon btn-sm btn-ghost" data-msg-down aria-label="Move message down">{{ m.icon("i-down", "ico-sm") }}</button>
+    <button type="button" class="btn btn-icon btn-sm btn-ghost" data-msg-remove aria-label="Remove message">{{ m.icon("i-x", "ico-sm") }}</button>
+  </header>
+  <div class="ed-wrap" data-ed><pre class="ed-hl" aria-hidden="true"></pre><textarea class="ed-ta" name="msg" rows="3" aria-label="Message content" spellcheck="false">{{ message.content }}</textarea></div>
+</div>
+{%- endmacro %}

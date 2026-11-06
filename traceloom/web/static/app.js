@@ -59,7 +59,10 @@
     var mt = t.closest('[data-menu-toggle]');
     if (mt) {
       var menu = document.getElementById(mt.getAttribute('data-menu-toggle'));
-      if (menu) { var show = menu.hidden; closeMenus(menu); menu.hidden = !show; mt.setAttribute('aria-expanded', String(show)); }
+      if (menu) {
+        var show = menu.hidden; closeMenus(menu); menu.hidden = !show; mt.setAttribute('aria-expanded', String(show));
+        if (show && e.detail === 0) { var first = menu.querySelector('.item, a[href], button, input'); if (first) { first.focus(); } } // opened by keyboard
+      }
       return;
     }
     if (!t.closest('[data-menu]')) { closeMenus(); }
@@ -139,7 +142,23 @@
     var row = list[cursor]; row.classList.add('is-cursor'); row.scrollIntoView({ block: 'nearest' });
   }
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { closeMenus(); toggleHelp(false); return; }
+    var openMenu = document.querySelector('[data-menu]:not([hidden])');
+    if (openMenu && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      var items = Array.prototype.slice.call(openMenu.querySelectorAll('.item:not([aria-disabled=true]):not([disabled])'));
+      if (items.length) {
+        e.preventDefault();
+        var at = items.indexOf(document.activeElement);
+        var next = e.key === 'ArrowDown' ? (at + 1) % items.length : (at <= 0 ? items.length - 1 : at - 1);
+        items[next].focus();
+      }
+      return;
+    }
+    if (e.key === 'Escape') {
+      var toggler = openMenu && document.querySelector('[data-menu-toggle="' + openMenu.id + '"]');
+      closeMenus(); toggleHelp(false);
+      if (toggler) { toggler.focus(); } // give focus back to the button that opened the menu
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) { return; }
     var openDialog = document.querySelector('dialog[open]');
     if (e.key === '?') { e.preventDefault(); toggleHelp(); return; }

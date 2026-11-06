@@ -42,6 +42,10 @@
       {% for item in nav %}
         <a href="{{ item.href }}" data-nav="{{ item.key }}"{% if item.current %} aria-current="page"{% endif %}>{{ m.icon(item.icon) }}{{ item.label }}</a>
       {% endfor %}
+      <div class="cap">Build</div>
+      {% for item in build_nav %}
+        <a href="{{ item.href }}" data-nav="{{ item.key }}"{% if item.current %} aria-current="page"{% endif %}>{{ m.icon(item.icon) }}{{ item.label }}</a>
+      {% endfor %}
       <div class="cap">Project</div>
       <a href="{{ settings.href }}" data-nav="settings"{% if settings.current %} aria-current="page"{% endif %}>{{ m.icon("i-settings") }}Settings</a>
       <button type="button" class="nav-btn" data-help-open>{{ m.icon("i-kbd") }}Shortcuts<kbd class="right">?</kbd></button>
@@ -88,15 +92,22 @@
 </div>
 
 <nav class="bottomnav" aria-label="Main">
-  {% for item in nav %}
+  {% for item in bottom_nav %}
     <a href="{{ item.href }}"{% if item.current %} aria-current="page"{% endif %}>{{ m.icon(item.icon) }}<span>{{ item.label }}</span></a>
   {% endfor %}
-  <a href="{{ settings.href }}"{% if settings.current %} aria-current="page"{% endif %}>{{ m.icon("i-settings") }}<span>Settings</span></a>
+  <div class="more-wrap">
+    <button type="button" class="more-btn" aria-haspopup="true" aria-expanded="false" data-menu-toggle="more-menu"{% if settings.current or more_nav | selectattr('current') | list %} aria-current="page"{% endif %}>{{ m.icon("i-more-h") }}<span>More</span></button>
+    <div class="pop pop-up" id="more-menu" data-menu hidden>
+      {% for item in more_nav %}<a class="item" href="{{ item.href }}">{{ m.icon(item.icon, "ico-sm") }}{{ item.label }}</a>{% endfor %}
+      <a class="item" href="{{ settings.href }}">{{ m.icon("i-settings", "ico-sm") }}Settings</a>
+    </div>
+  </div>
 </nav>
 </div>
 
 {% include "_help.html" %}
 {% block dialogs %}{% endblock %}
+{% block scripts %}{% endblock %}
 <script src="/static/vendor/htmx.min.js" defer></script>
 </body>
 </html>

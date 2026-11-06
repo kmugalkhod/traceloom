@@ -18,6 +18,7 @@
     <div><dt>Latency</dt><dd class="mono">{{ kv.latency }}</dd></div>
     <div><dt>Cost</dt><dd class="mono">{{ kv.cost }}</dd></div>
     <div><dt>Tokens</dt><dd class="mono">{{ kv.tokens }}</dd></div>
+    <div class="kvbreak" role="presentation"></div>
     <div><dt>Env</dt><dd>{{ trace.environment }}</dd></div>
     {% if trace.release %}<div><dt>Release</dt><dd class="mono">{{ trace.release }}</dd></div>{% endif %}
     {% if trace.version %}<div><dt>Version</dt><dd class="mono">{{ trace.version }}</dd></div>{% endif %}
