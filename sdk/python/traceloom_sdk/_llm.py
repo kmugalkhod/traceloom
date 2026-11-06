@@ -73,6 +73,16 @@ class Run:
             log.exception("Traceloom: could not start generation")
             return cls(None)
 
+    def link_prompt(self, prompt: Any) -> None:
+        """Attach a fetched prompt (name and version) to this generation. Fallbacks are not
+        linked. Never raises."""
+        if prompt is None or self.gen is None:
+            return
+        try:
+            self.gen.update(prompt=prompt)
+        except Exception:
+            log.exception("Traceloom: could not link the prompt")
+
     def first_token(self) -> None:
         if self._first_token or self.gen is None:
             return
@@ -233,6 +243,18 @@ class AsyncTracedStream:
         return await self._inner.close()
 
 
+def start_run(begin: Callable[[Dict[str, Any]], Run], kwargs: Dict[str, Any]) -> Run:
+    """Start a run for one provider call.
+
+    `traceloom_prompt` is removed from `kwargs` first, so the provider SDK never sees it (the
+    caller passes the same dict on to the provider), even if starting the run fails.
+    """
+    prompt = kwargs.pop("traceloom_prompt", None)
+    run = begin(kwargs)
+    run.link_prompt(prompt)
+    return run
+
+
 def wrap_method(
     owner: Any,
     attr: str,
@@ -251,7 +273,7 @@ def wrap_method(
 
     def start(kwargs: Dict[str, Any]) -> Run:
         try:
-            return begin(kwargs)
+            return start_run(begin, kwargs)
         except Exception:
             log.exception("Traceloom: could not start generation")
             return Run(None)
