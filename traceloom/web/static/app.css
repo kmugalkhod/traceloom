@@ -1118,3 +1118,21 @@ dialog.dlg .dialog{width:100%}
 
 /* Popup menus placed by app.js: fixed, so no ancestor overflow clips them */
 .pop.is-placed{position:fixed;right:auto;bottom:auto;margin:0;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;z-index:60}
+
+/* ===== Playground page ===== */
+.kbd-hint{margin-left:6px;font-size:12px;opacity:.7;font-weight:500}
+.pgx.with-drawer .drawer{display:block}
+.pgx .drawer[hidden]{display:none}
+.pgtool .input{min-width:220px}
+.pgtool .select{min-width:200px}
+#pg-out .toolcall pre{margin:0}
+.out .banner{white-space:normal}
+.mcard textarea.ed-ta{width:100%}
+@container app (max-width:760px){.pgtool .input,.pgtool .select{flex:1 1 100%}.kbd-hint{display:none}}
+#pg-root{display:flex;flex-direction:column;gap:var(--sp-5)}
+.pgtool .select,.pgtool .input{width:auto;flex:0 1 280px}
+@container app (max-width:760px){.pgtool .select,.pgtool .input{flex:1 1 100%;width:100%}}
+.mcard .msg-extra{padding:8px 12px 0;display:flex;flex-direction:column;gap:8px}
+.mcard .msg-id{display:flex;flex-direction:column;gap:4px}
+.mcard .msg-calls>summary{cursor:pointer;font-weight:600;font-size:13px;color:var(--ink-2)}
+.mcard.tool>header{background:var(--surface-2)}
