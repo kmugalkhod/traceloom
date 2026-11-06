@@ -12,3 +12,21 @@
 .tbl td.menu .menu-wrap{display:inline-flex;justify-content:flex-end}
 .conn .hbtn .menu-wrap{display:flex;justify-content:flex-end;width:48px}
 .conn .hbtn{align-items:center}
+
+/* ---- Auth pages (FR-SA2): 380px form column centred in its half, brand headline centred,
+   tagline pinned to the bottom, 40px inputs, labels 6px above, Forgot password on the label baseline ---- */
+.auth{min-height:100vh}
+.auth-side{display:grid;grid-template-rows:auto 1fr auto;gap:var(--sp-6);align-content:stretch}
+.auth-side>.stack{align-self:center;max-width:420px}
+.auth-side>.hint{align-self:end}
+.auth-main{align-items:center;justify-content:center}
+.auth-card{width:min(380px,100%)}
+.auth-card .field{gap:var(--sp-3)}
+.auth-card .field>label,.auth-card .label-row>label{line-height:20px}
+.auth-card .input,.auth-card .btn-block{height:40px}
+.auth-card .label-row{display:flex;align-items:baseline;justify-content:space-between;gap:var(--sp-4);line-height:20px}
+.auth-card .label-row>label{font-size:13px;font-weight:500;color:var(--ink)}
+.auth-card .label-row>a{font-size:13px;line-height:20px}
+@container app (max-width:760px){
+  .auth-card .input,.auth-card .btn-block{height:44px}
+}

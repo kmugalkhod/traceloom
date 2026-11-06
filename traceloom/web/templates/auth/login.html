@@ -13,7 +13,7 @@
   {% if errors.form %}{{ m.banner("err", errors.form) }}{% endif %}
   {{ m.field("email", "Email", type="email", value=values.email, required=True, autocomplete="email", autofocus=True) }}
   <div class="field">
-    <div class="row"><label for="password">Password</label><a class="right" href="/forgot">Forgot password?</a></div>
+    <div class="label-row"><label for="password">Password</label><a href="/forgot">Forgot password?</a></div>
     <input class="input" id="password" name="password" type="password" required autocomplete="current-password">
   </div>
   <button class="btn btn-primary btn-block" type="submit"{% if rate_limited %} aria-disabled="true"{% endif %}>Log in</button>
