@@ -185,6 +185,7 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     syncThemeControls();
+    document.querySelectorAll('dialog[data-autoopen]').forEach(function (d) { if (typeof d.showModal === 'function' && !d.open) { d.showModal(); } }); // server asked for it (an error to fix, a secret to copy)
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { syncThemeControls(); });
     var focusMe = document.querySelector('[autofocus-field]'); if (focusMe) { focusMe.focus(); }
   });
