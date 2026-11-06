@@ -69,16 +69,10 @@ def prompt_list(
             page=page,
             limit=PAGE_SIZE,
         )
-        everything = service.list_prompts(db, project, actor, limit=1)
     except PromptError as exc:
         raise HTTPException(400, str(exc)) from exc
     tags, labels = service.facets(db, project, actor)
-    root = service.list_prompts(db, project, actor, folder="", direct_only=True, limit=1)
-    inside = (
-        service.list_prompts(db, project, actor, folder=folder, direct_only=True, limit=1)
-        if folder
-        else root
-    )
+    total_prompts, root_folders, child_folders = service.folder_tree(db, project, actor, folder)
 
     people = {
         u.id: (u.name or u.email)
@@ -94,10 +88,10 @@ def prompt_list(
         active="prompts",
         items=result.items,
         total=result.total,
-        everything=everything.total,
+        everything=total_prompts,
         folder=folder,
-        root_folders=root.folders,
-        child_folders=inside.folders if folder else [],
+        root_folders=root_folders,
+        child_folders=child_folders,
         crumbs=_crumbs(folder),
         people=people,
         tags=tags,

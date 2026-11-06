@@ -16,7 +16,7 @@ from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import ColumnElement, Integer, Select, and_, cast, func, or_, select
+from sqlalchemy import ColumnElement, Integer, Select, and_, case, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from traceloom.adapters.lite.sql_read import _scores_by_trace, score_to_row, trace_to_row
@@ -477,18 +477,17 @@ class SqlAnalyticsMixin:
             duration = _epoch_ms(Observation.end_time, dialect) - _epoch_ms(
                 Observation.start_time, dialect
             )
-            count, tokens, cost = s.execute(
+            # One pass over the matching generations. Rows without an end time have a NULL
+            # duration, which the median ignores.
+            finished = case((Observation.end_time.is_not(None), duration))
+            count, tokens, cost, median = s.execute(
                 select(
                     func.count(),
                     func.coalesce(func.sum(_obs_tokens()), 0),
                     func.coalesce(func.sum(_obs_cost()), 0.0),
+                    _percentile(finished, 0.5, dialect),
                 ).where(*where)
             ).one()
-            median = s.execute(
-                select(_percentile(duration, 0.5, dialect)).where(
-                    *where, Observation.end_time.is_not(None)
-                )
-            ).scalar_one()
             scores: dict[str, float] = {}
             if count:
                 trace_ids = select(Observation.trace_id).where(*where)
