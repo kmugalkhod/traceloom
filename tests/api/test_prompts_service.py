@@ -214,10 +214,30 @@ def test_saving_a_missing_reference_is_rejected(db, project, member):
         save(db, project, member, content="@@@prompt:ghost|label=x@@@")
 
 
-def test_cycle_created_by_a_later_version_errors_on_get(db, project, member):
+def test_saving_a_loop_is_rejected(db, project, member):
     save(db, project, member, name="a", content="A", labels=["x"])
     save(db, project, member, name="b", content="B @@@prompt:a|label=x@@@", labels=["x"])
-    save(db, project, member, name="a", content="A @@@prompt:b|label=x@@@", labels=["x"])
+    with pytest.raises(PromptError, match="Circular"):
+        save(db, project, member, name="a", content="A @@@prompt:b|label=x@@@", labels=["x"])
+    assert service.get(db, project, member, "a", label="x").prompt == "A"
+
+
+def test_get_still_reports_a_loop_already_in_the_data(db, project, member):
+    """Data written before the save-time check (or by hand) must not hang or 500 a read."""
+    save(db, project, member, name="a", content="A", labels=["x"])
+    save(db, project, member, name="b", content="B @@@prompt:a|label=x@@@", labels=["x"])
+    prompt = db.scalar(select(Prompt).where(Prompt.name == "a"))
+    db.add(
+        PromptVersion(
+            project_id=project.id,
+            prompt_id=prompt.id,
+            version=2,
+            content="A @@@prompt:b|label=x@@@",
+            commit_message="legacy",
+        )
+    )
+    db.get(PromptLabel, (prompt.id, "x")).version = 2  # a@x -> v2 -> b -> a@x
+    db.commit()
     with pytest.raises(PromptError, match="Circular"):
         service.get(db, project, member, "a", label="x")
 

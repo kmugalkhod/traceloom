@@ -33,7 +33,7 @@
         {% for key in keys %}
           <tr{% if key.revoked_at %} class="is-dim"{% endif %}>
             <td class="mono">{{ key.public_key }}</td>
-            <td class="c-name">{{ key.note or "—" }}</td>
+            <td class="c-name">{{ key.note or "—" }}{% if key.may_move_protected_labels %} <span class="hint">· can move protected labels</span>{% endif %}</td>
             <td class="hide-m muted">{{ key.created_at | date }}</td>
             <td class="hide-m muted">{{ key.last_used_at | ago }}</td>
             <td>{% if key.revoked_at %}<span class="lv ERROR">Revoked</span>{% else %}<span class="lv ok">Active</span>{% endif %}</td>
@@ -61,6 +61,7 @@
       {{ m.csrf() }}
       <div class="body">
         <div class="field"><label for="key-note">Note</label><input class="input" id="key-note" name="note" value="{{ note }}" maxlength="200" placeholder="What is this key for?"><div class="hint">Shown in the list so you can tell keys apart.</div></div>
+        <div class="field"><label><input type="checkbox" name="may_move_protected_labels" value="true"> May move protected prompt labels</label><div class="hint">Lets this key move labels like production through the prompt API. Off by default.</div></div>
       </div>
       <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">Create key</button></footer>
     </form>
