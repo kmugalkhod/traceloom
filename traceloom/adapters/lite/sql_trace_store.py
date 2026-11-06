@@ -90,7 +90,7 @@ def _cost(cost: Mapping[str, float]) -> float:
 
 class SqlTraceStore(SqlReadMixin, SqlAnalyticsMixin):
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
-        self._sessions = session_factory
+        self.session_factory = session_factory
 
     # --- writes -----------------------------------------------------------------------------
 
@@ -102,7 +102,7 @@ class SqlTraceStore(SqlReadMixin, SqlAnalyticsMixin):
         scores: Sequence[ScoreRow],
     ) -> None:
         """Insert rows, or replace a stored row when the incoming `event_ts` is not older."""
-        with self._sessions.begin() as s:
+        with self.session_factory.begin() as s:
             self._upsert_kind(s, project_id, Trace, traces, AGGREGATE_FIELDS)
             self._upsert_kind(s, project_id, Observation, observations)
             self._upsert_kind(s, project_id, Score, scores)
@@ -145,7 +145,7 @@ class SqlTraceStore(SqlReadMixin, SqlAnalyticsMixin):
             "score": (Score, ScoreRow),
         }
         out: dict[str, dict[str, Any]] = {}
-        with self._sessions() as s:
+        with self.session_factory() as s:
             for kind, ids in ids_by_kind.items():
                 model_cls, row_cls = kinds[kind]
                 found = out.setdefault(kind, {})
@@ -159,7 +159,7 @@ class SqlTraceStore(SqlReadMixin, SqlAnalyticsMixin):
         return out
 
     def refresh_trace_aggregates(self, project_id: str, trace_ids: Sequence[str]) -> None:
-        with self._sessions.begin() as s:
+        with self.session_factory.begin() as s:
             for chunk in _chunks(list(dict.fromkeys(trace_ids))):
                 observed = self._observation_summary(s, project_id, chunk)
                 for trace in s.scalars(
@@ -213,7 +213,7 @@ class SqlTraceStore(SqlReadMixin, SqlAnalyticsMixin):
         for name, value in fields.items():
             if name not in FLAG_FIELDS or not isinstance(value, FLAG_FIELDS[name]):
                 raise ValueError(f"cannot set {name!r} to {value!r}")
-        with self._sessions.begin() as s:
+        with self.session_factory.begin() as s:
             trace = s.get(Trace, (project_id, trace_id))
             if trace is None:
                 return False
@@ -228,7 +228,7 @@ class SqlTraceStore(SqlReadMixin, SqlAnalyticsMixin):
             else list(dict.fromkeys(target))
         )
         deleted = 0
-        with self._sessions.begin() as s:
+        with self.session_factory.begin() as s:
             for chunk in _chunks(ids):
                 s.execute(
                     delete(Comment).where(
@@ -255,7 +255,7 @@ class SqlTraceStore(SqlReadMixin, SqlAnalyticsMixin):
     # --- helpers for tests and ops ----------------------------------------------------------
 
     def count_traces(self, project_id: str) -> int:
-        with self._sessions() as s:
+        with self.session_factory() as s:
             return s.scalar(
                 select(func.count()).select_from(Trace).where(Trace.project_id == project_id)
             )
