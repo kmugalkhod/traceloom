@@ -20,7 +20,11 @@ def configure(container: Container) -> None:
     import clickhouse_connect
     import redis
 
-    from traceloom.adapters.full.clickhouse_trace_store import ClickHouseTraceStore, apply_schema
+    from traceloom.adapters.full.clickhouse_trace_store import (
+        ClickHouseTraceStore,
+        apply_migrations,
+        apply_schema,
+    )
     from traceloom.adapters.full.redis_limiter import RedisCache, RedisRateLimiter
     from traceloom.adapters.full.redis_queue import RedisQueue
     from traceloom.adapters.full.s3_blob import S3BlobStore
@@ -56,6 +60,7 @@ def configure(container: Container) -> None:
     def prepare(c: Container) -> None:
         blobs.ensure_bucket()
         apply_schema(ch_client, s.clickhouse_database)
+        apply_migrations(ch_client, s.clickhouse_database)
 
     def start_consumer() -> None:
         from traceloom.ingest.process import process_message

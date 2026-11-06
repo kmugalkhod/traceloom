@@ -14,6 +14,10 @@ from traceloom.main import create_app
 
 pytest_plugins = ["tests.factories", "tests.contract.stores"]
 
+# Outside dev Settings requires an encryption key; tests share a fixed throwaway one.
+TEST_ENCRYPTION_KEY = "dHJhY2Vsb29tLXRlc3Qta2V5LW5vdC1mb3ItcHJvZCE="
+os.environ.setdefault("TRACELOOM_ENCRYPTION_KEY", TEST_ENCRYPTION_KEY)
+
 _LOOPBACK = {"127.0.0.1", "::1", "localhost"}
 
 

@@ -43,6 +43,7 @@ from traceloom.ports import (
 )
 
 SCHEMA_FILE = Path(__file__).with_name("clickhouse_schema.sql")
+MIGRATIONS_FILE = Path(__file__).with_name("clickhouse_migrations.sql")
 MAX_PAGE_SIZE = 200
 SEARCH_TEXT_LIMIT = 4096
 RECENT_LIMIT = 50
@@ -722,6 +723,14 @@ def apply_schema(client: Any, database: str) -> None:
         client.command(statement.replace("EXISTS ", f"EXISTS {database}.", 1))
 
 
+def apply_migrations(client: Any, database: str) -> None:
+    """Run the idempotent upgrade statements for installs that predate the current schema."""
+    if not _IDENT.match(database):
+        raise ValueError(f"invalid database name {database!r}")
+    for statement in split_statements(MIGRATIONS_FILE.read_text()):
+        client.command(statement.rstrip(";").replace("ALTER TABLE ", f"ALTER TABLE {database}.", 1))
+
+
 class ClickHouseTraceStore:
     """TraceStore over a clickhouse_connect client (anything with query/insert/command)."""
 
@@ -1097,6 +1106,7 @@ def build_trace_rows(project_id: str, trace_ids: Sequence[str], table: str = "tr
 
 __all__ = [
     "ClickHouseTraceStore",
+    "apply_migrations",
     "apply_schema",
     "build_dashboard",
     "build_list_traces",

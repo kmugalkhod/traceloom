@@ -14,6 +14,9 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
+    event,
+    insert,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -78,6 +81,9 @@ class ApiKey(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     last_used_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     revoked_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    may_move_protected_labels: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="0"
+    )
 
 
 class PasswordReset(Base):
@@ -151,6 +157,123 @@ class AuditLog(Base):
     __table_args__ = (Index("ix_audit_log_org_created", "org_id", "created_at"),)
 
 
+# --- Prompts, LLM connections, webhooks (Phase 2) -------------------------------------------
+
+PRODUCTION_LABEL = "production"
+
+
+class Prompt(Base):
+    __tablename__ = "prompts"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(200))
+    type: Mapped[str] = mapped_column(String(16))  # text | chat
+    tags: Mapped[list] = mapped_column(JSON, default=list)
+    created_by: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+    __table_args__ = (UniqueConstraint("project_id", "name", name="uq_prompts_project_name"),)
+
+
+class PromptVersion(Base):
+    __tablename__ = "prompt_versions"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    prompt_id: Mapped[str] = mapped_column(ForeignKey("prompts.id", ondelete="CASCADE"))
+    version: Mapped[int] = mapped_column(Integer)
+    content: Mapped[object] = mapped_column(JSON)  # str (text) or list of messages (chat)
+    config: Mapped[dict] = mapped_column(JSON, default=dict)
+    commit_message: Mapped[str] = mapped_column(Text, default="")
+    created_by: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    dependencies: Mapped[list] = mapped_column(JSON, default=list)
+
+    __table_args__ = (
+        UniqueConstraint("prompt_id", "version", name="uq_prompt_versions_prompt_version"),
+        Index("ix_prompt_versions_project_prompt_version", "project_id", "prompt_id", "version"),
+    )
+
+
+class PromptLabel(Base):
+    __tablename__ = "prompt_labels"
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    prompt_id: Mapped[str] = mapped_column(
+        ForeignKey("prompts.id", ondelete="CASCADE"), primary_key=True
+    )
+    label: Mapped[str] = mapped_column(String(36), primary_key=True)
+    version: Mapped[int] = mapped_column(Integer)
+    updated_by: Mapped[str | None] = mapped_column(String(64))
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+
+class ProtectedLabel(Base):
+    __tablename__ = "protected_labels"
+    project_id: Mapped[str] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True
+    )
+    label: Mapped[str] = mapped_column(String(36), primary_key=True)
+
+
+@event.listens_for(Project, "after_insert")
+def _protect_production(mapper, connection, project: Project) -> None:
+    """Every new project starts with `production` protected (FR-P4)."""
+    connection.execute(insert(ProtectedLabel).values(project_id=project.id, label=PRODUCTION_LABEL))
+
+
+class LLMConnection(Base):
+    __tablename__ = "llm_connections"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    provider: Mapped[str] = mapped_column(String(32))
+    name: Mapped[str] = mapped_column(String(200))
+    base_url: Mapped[str | None] = mapped_column(String(500))
+    config: Mapped[dict] = mapped_column(JSON, default=dict)
+    secret_ciphertext: Mapped[str] = mapped_column(Text, default="")
+    secret_hint: Mapped[str] = mapped_column(String(16), default="")
+    custom_models: Mapped[list] = mapped_column(JSON, default=list)
+    created_by: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+    __table_args__ = (Index("ix_llm_connections_project", "project_id"),)
+
+
+class Webhook(Base):
+    __tablename__ = "webhooks"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    url: Mapped[str] = mapped_column(String(2000))
+    secret_ciphertext: Mapped[str] = mapped_column(Text, default="")
+    events: Mapped[list] = mapped_column(JSON, default=list)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+    __table_args__ = (Index("ix_webhooks_project", "project_id"),)
+
+
+class WebhookDelivery(Base):
+    __tablename__ = "webhook_deliveries"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    webhook_id: Mapped[str] = mapped_column(ForeignKey("webhooks.id", ondelete="CASCADE"))
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    event: Mapped[str] = mapped_column(String(64))
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending|succeeded|failed
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    last_status_code: Mapped[int | None] = mapped_column(Integer)
+    last_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    delivered_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+
+    __table_args__ = (
+        Index("ix_webhook_deliveries_webhook_created", "webhook_id", "created_at"),
+        Index("ix_webhook_deliveries_status_next", "status", "next_attempt_at"),
+    )
+
+
 # --- Lite trace tables (project_id is part of every key and every index) --------------------
 
 
@@ -218,6 +341,7 @@ class Observation(Base):
     __table_args__ = (
         Index("ix_observations_project_trace", "project_id", "trace_id"),
         Index("ix_observations_project_start", "project_id", "start_time"),
+        Index("ix_observations_project_prompt", "project_id", "prompt_name", "prompt_version"),
     )
 
 
@@ -249,15 +373,22 @@ __all__ = [
     "AuditLog",
     "Comment",
     "Invite",
+    "LLMConnection",
     "Membership",
     "ModelDefinition",
     "Observation",
     "Organization",
     "PasswordReset",
     "Project",
+    "Prompt",
+    "PromptLabel",
+    "PromptVersion",
+    "ProtectedLabel",
     "SavedView",
     "Score",
     "Trace",
     "User",
     "UserPref",
+    "Webhook",
+    "WebhookDelivery",
 ]
