@@ -46,7 +46,7 @@
       <a class="btn btn-primary btn-sm" href="/project/{{ project.id }}/settings/models?new=1">{{ m.icon("i-plus") }}Add model</a></div>
     <div class="rack">
       <table class="tbl tbl-flat stack-m">
-        <thead><tr><th>Match</th><th>Scope</th><th class="r">Input</th><th class="r">Output</th><th class="hide-m">Valid from</th><th class="r"><span class="sr">Actions</span></th></tr></thead>
+        <thead><tr><th>Match</th><th>Scope</th><th class="r">Input</th><th class="r">Output</th><th class="hide-m">Valid from</th><th class="r menu"><span class="sr">Actions</span></th></tr></thead>
         <tbody>
         {% for d in definitions %}
           <tr>
@@ -55,7 +55,7 @@
             <td class="num">${{ (d.prices or {}).get("input") | per_million }}</td>
             <td class="num">${{ (d.prices or {}).get("output") | per_million }}</td>
             <td class="hide-m muted">{{ d.valid_from | date }}</td>
-            <td class="r">
+            <td class="r menu">
               {% if d.project_id %}
               <div class="menu-wrap">
                 <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="More actions for {{ d.model_name }}" aria-haspopup="true" aria-expanded="false" data-menu-toggle="md-menu-{{ d.id }}">{{ m.icon("i-more-h") }}</button>
