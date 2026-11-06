@@ -35,11 +35,19 @@
             <td class="r">
               {% if row.last_owner %}<span class="hint row jc-end gap-4">{{ m.icon("i-lock", "ico-sm") }}Last Owner</span>
               {% elif row.can_remove or row.can_leave %}
-              <form class="inline-form" method="post" action="/orgs/{{ org.id }}/members/{{ row.user.id }}/remove"
-                    data-confirm="{{ 'Leave ' ~ org.name ~ '?' if row.is_self else 'Remove ' ~ (row.user.name or row.user.email) ~ ' from ' ~ org.name ~ '?' }}">
-                {{ m.csrf() }}<input type="hidden" name="back" value="{{ back }}">
-                <button class="btn btn-sm btn-ghost" type="submit">{{ 'Leave' if row.is_self else 'Remove' }}</button>
-              </form>
+              {% set who = row.user.name or row.user.email %}
+              <div class="menu-wrap">
+                <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="More actions for {{ who }}" aria-haspopup="true" aria-expanded="false" data-menu-toggle="mb-menu-{{ row.user.id }}">{{ m.icon("i-more-h") }}</button>
+                <div class="pop pop-right" id="mb-menu-{{ row.user.id }}" data-menu hidden role="menu" aria-label="Actions for {{ who }}">
+                  <button type="button" class="item" role="menuitem" data-copy="{{ row.user.email }}">{{ m.icon("i-copy", "ico-sm") }}Copy email</button>
+                  <div class="sep"></div>
+                  <form method="post" action="/orgs/{{ org.id }}/members/{{ row.user.id }}/remove"
+                        data-confirm="{{ 'Leave ' ~ org.name ~ '?' if row.is_self else 'Remove ' ~ who ~ ' from ' ~ org.name ~ '?' }}">
+                    {{ m.csrf() }}<input type="hidden" name="back" value="{{ back }}">
+                    <button class="item danger" type="submit" role="menuitem">{{ m.icon("i-trash", "ico-sm") }}{{ 'Leave' if row.is_self else 'Remove' }}</button>
+                  </form>
+                </div>
+              </div>
               {% endif %}
             </td>
           </tr>
@@ -72,10 +80,17 @@
             <td><span class="chip">{{ inv.role | title }}</span></td>
             <td class="muted">{% set left = inv.expires_at | ago %}{% if inv.expires_at > now_utc() %}{{ left }}{% else %}<span class="lv ERROR">Expired</span>{% endif %}</td>
             <td class="r">
-              <form class="inline-form" method="post" action="/orgs/{{ org.id }}/invites/{{ inv.id }}/revoke">
-                {{ m.csrf() }}<input type="hidden" name="back" value="{{ back }}">
-                <button class="btn btn-sm btn-ghost" type="submit">Revoke</button>
-              </form>
+              <div class="menu-wrap">
+                <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="More actions for the invite to {{ inv.email }}" aria-haspopup="true" aria-expanded="false" data-menu-toggle="inv-menu-{{ inv.id }}">{{ m.icon("i-more-h") }}</button>
+                <div class="pop pop-right" id="inv-menu-{{ inv.id }}" data-menu hidden role="menu" aria-label="Invite actions">
+                  <button type="button" class="item" role="menuitem" data-copy="{{ inv.email }}">{{ m.icon("i-copy", "ico-sm") }}Copy email</button>
+                  <div class="sep"></div>
+                  <form method="post" action="/orgs/{{ org.id }}/invites/{{ inv.id }}/revoke">
+                    {{ m.csrf() }}<input type="hidden" name="back" value="{{ back }}">
+                    <button class="item danger" type="submit" role="menuitem">{{ m.icon("i-x", "ico-sm") }}Revoke invite</button>
+                  </form>
+                </div>
+              </div>
             </td>
           </tr>
         {% endfor %}

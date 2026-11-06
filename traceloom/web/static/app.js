@@ -38,8 +38,45 @@
   }
   function closeMenus(except) {
     document.querySelectorAll('[data-menu]:not([hidden])').forEach(function (m) {
-      if (m !== except) { m.hidden = true; var t = document.querySelector('[data-menu-toggle="' + m.id + '"]'); if (t) { t.setAttribute('aria-expanded', 'false'); } }
+      if (m !== except) { m.hidden = true; unplaceMenu(m); var t = document.querySelector('[data-menu-toggle="' + m.id + '"]'); if (t) { t.setAttribute('aria-expanded', 'false'); } }
     });
+  }
+  // Keep a popup menu inside the viewport. It is position:fixed, so no ancestor's overflow can
+  // clip it: right-aligned to its button, flipped above it when there is no room below, never
+  // off an edge. It closes on scroll or resize rather than drifting away from its button.
+  function placeMenu(menu, toggle) {
+    if (menu.classList.contains('pop-picker') || menu.classList.contains('pop-user')) { return; } // sidebar menus size to their box
+    var t = toggle.getBoundingClientRect();
+    var margin = 8, vw = document.documentElement.clientWidth, vh = window.innerHeight;
+    menu.classList.add('is-placed');
+    menu.style.left = '0px'; menu.style.top = '0px'; // measure at a neutral spot
+    var w = menu.offsetWidth, h = menu.offsetHeight;
+    var rightAligned = menu.classList.contains('pop-right') || t.left + w > vw - margin;
+    var left = rightAligned ? t.right - w : t.left;
+    left = Math.max(margin, Math.min(left, vw - w - margin));
+    var top = t.bottom + 4;
+    if (top + h > vh - margin) { top = t.top - 4 - h >= margin ? t.top - 4 - h : Math.max(margin, vh - h - margin); }
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+  }
+  function unplaceMenu(menu) { menu.classList.remove('is-placed'); menu.style.left = ''; menu.style.top = ''; }
+  document.addEventListener('scroll', function (e) {
+    var open = document.querySelector('[data-menu]:not([hidden]).is-placed');
+    if (open && !open.contains(e.target)) { closeMenus(); }
+  }, true);
+  window.addEventListener('resize', function () { closeMenus(); });
+  // Tabs: a [data-tabs] tablist of role=tab buttons, each naming its panel with aria-controls.
+  // Roving tabindex: only the selected tab is in the Tab order; arrows, Home and End move along.
+  function selectTab(tab, focus) {
+    var list = tab.closest('[data-tabs]');
+    list.querySelectorAll('[role=tab]').forEach(function (t) {
+      var on = t === tab;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+      var panel = document.getElementById(t.getAttribute('aria-controls'));
+      if (panel) { panel.hidden = !on; }
+    });
+    if (focus) { tab.focus(); }
   }
   function helpDialog() { return document.getElementById('help-dialog'); }
   function toggleHelp(force) {
@@ -56,13 +93,28 @@
     var toggle = t.closest('[data-theme-toggle]');
     if (toggle) { applyTheme(effectiveTheme() === 'dark' ? 'light' : 'dark'); return; }
 
+    var tab = t.closest('[data-tabs] [role=tab]');
+    if (tab) { selectTab(tab); return; }
+
     var mt = t.closest('[data-menu-toggle]');
     if (mt) {
       var menu = document.getElementById(mt.getAttribute('data-menu-toggle'));
-      if (menu) { var show = menu.hidden; closeMenus(menu); menu.hidden = !show; mt.setAttribute('aria-expanded', String(show)); }
+      if (menu) {
+        var show = menu.hidden; closeMenus(menu); menu.hidden = !show; mt.setAttribute('aria-expanded', String(show));
+        if (show) { placeMenu(menu, mt); } else { unplaceMenu(menu); }
+        if (show && e.detail === 0) { var first = menu.querySelector('.item, a[href], button, input'); if (first) { focusTarget(first).focus(); } } // opened by keyboard
+      }
       return;
     }
-    if (!t.closest('[data-menu]')) { closeMenus(); }
+    var inMenu = t.closest('[data-menu]');
+    if (!inMenu) { closeMenus(); }
+    else if (t.closest('[role=menuitem]') && !t.closest('.menu-form')) {
+      // An action was chosen: close its menu and put focus back on the "..." button, so a dialog
+      // the action opens hands focus back there when it closes. The action itself still runs.
+      var owner = document.querySelector('[data-menu-toggle="' + inMenu.id + '"]');
+      closeMenus();
+      if (owner && inMenu.contains(document.activeElement)) { owner.focus(); }
+    }
 
     if (t.closest('[data-help-open]')) { toggleHelp(true); return; }
     var open = t.closest('[data-dialog-open]');
@@ -138,8 +190,39 @@
     cursor = Math.max(0, Math.min(list.length - 1, (cursor < 0 ? (delta > 0 ? -1 : list.length) : cursor) + delta));
     var row = list[cursor]; row.classList.add('is-cursor'); row.scrollIntoView({ block: 'nearest' });
   }
+  // The control that takes focus for a menu item: the item itself, or the checkbox inside a
+  // label item (column chooser), which a label cannot take.
+  function focusTarget(item) {
+    return item.matches('a[href],button,input,[tabindex]') ? item : (item.querySelector('input,button,a[href]') || item);
+  }
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { closeMenus(); toggleHelp(false); return; }
+    var tabEl = e.target.closest && e.target.closest('[data-tabs] [role=tab]');
+    if (tabEl && /^(ArrowLeft|ArrowRight|Home|End)$/.test(e.key)) {
+      var all = Array.prototype.slice.call(tabEl.closest('[data-tabs]').querySelectorAll('[role=tab]'));
+      var i = all.indexOf(tabEl), n = all.length;
+      var to = e.key === 'Home' ? 0 : e.key === 'End' ? n - 1 : (i + (e.key === 'ArrowRight' ? 1 : -1) + n) % n;
+      e.preventDefault();
+      selectTab(all[to], true);
+      return;
+    }
+    var openMenu = document.querySelector('[data-menu]:not([hidden])');
+    if (openMenu && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      var items = Array.prototype.slice.call(openMenu.querySelectorAll('.item:not([aria-disabled=true]):not([disabled])'));
+      if (items.length) {
+        e.preventDefault();
+        var at = -1;
+        items.forEach(function (it, k) { if (it === document.activeElement || it.contains(document.activeElement)) { at = k; } });
+        var next = e.key === 'ArrowDown' ? (at + 1) % items.length : (at <= 0 ? items.length - 1 : at - 1);
+        focusTarget(items[next]).focus();
+      }
+      return;
+    }
+    if (e.key === 'Escape') {
+      var toggler = openMenu && document.querySelector('[data-menu-toggle="' + openMenu.id + '"]');
+      closeMenus(); toggleHelp(false);
+      if (toggler) { toggler.focus(); } // give focus back to the button that opened the menu
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) { return; }
     var openDialog = document.querySelector('dialog[open]');
     if (e.key === '?') { e.preventDefault(); toggleHelp(); return; }
@@ -166,6 +249,7 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     syncThemeControls();
+    document.querySelectorAll('dialog[data-autoopen]').forEach(function (d) { if (typeof d.showModal === 'function' && !d.open) { d.showModal(); } }); // server asked for it (an error to fix, a secret to copy)
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { syncThemeControls(); });
     var focusMe = document.querySelector('[autofocus-field]'); if (focusMe) { focusMe.focus(); }
   });

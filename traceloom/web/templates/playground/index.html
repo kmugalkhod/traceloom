@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% import "playground/_message.html" as msg with context %}
+{% block title %}Playground{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block scripts %}<link rel="stylesheet" href="/static/playground_compare.css">
+<script src="/static/playground.js" defer></script>
+<script src="/static/playground_compare.js" defer></script>
+<script src="/static/playground_save.js" defer></script>{% endblock %}
+{% block content %}
+{% if not has_connections %}
+  {{ m.page_header("Playground") }}
+  {% if notice %}{{ m.banner("warn", notice) }}{% endif %}
+  <div class="panel">
+    <div class="empty">
+      {{ m.icon("i-plug", "ico-lg") }}
+      {% if can_manage %}
+        <h2>Connect a model provider to use the playground</h2>
+        <p>The playground runs prompts against your own provider keys. Add one in Settings and Members can start right away.</p>
+        <a class="btn btn-primary" href="{{ settings_url }}">{{ m.icon("i-plus") }}Add an LLM connection</a>
+        <span class="hint">Settings &rarr; LLM connections</span>
+      {% else %}
+        <h2>No LLM connections yet</h2>
+        <p>This project has no model provider set up, so there is nothing to run. Ask an Admin to add a connection under Settings &rarr; LLM connections.{% if admins %} {{ admins | join(" and ") }} {{ "is an Admin" if admins | length == 1 else "are Admins" }} here.{% endif %}</p>
+        <span class="hint">You can still edit prompts. Runs will work as soon as a connection exists.</span>
+      {% endif %}
+    </div>
+  </div>
+{% else %}
+<div id="pg-root" data-mode="single">
+  <script type="application/json" id="pg-config">{{ pg_config | tojson }}</script>
+  <div class="page-h">
+    <div class="grow"><h1>Playground</h1></div>
+    <div class="row-wrap">
+      <div class="menu-wrap">
+        <button type="button" class="btn btn-icon" aria-label="More actions" aria-haspopup="true" aria-expanded="false" data-menu-toggle="pg-menu">{{ m.icon("i-more-h") }}</button>
+        <div class="pop pop-right" id="pg-menu" data-menu hidden role="menu" aria-label="Playground actions">
+          <button type="button" class="item" role="menuitem" data-pg-action="compare">{{ m.icon("i-columns", "ico-sm") }}<span data-compare-label>Compare variants</span></button>
+          <button type="button" class="item" role="menuitem" data-pg-action="load-prompt">{{ m.icon("i-prompt", "ico-sm") }}Load prompt</button>
+          {% if can_write %}<button type="button" class="item" role="menuitem" data-pg-action="save-as-prompt">{{ m.icon("i-versions", "ico-sm") }}Save as prompt</button>{% endif %}
+        </div>
+      </div>
+      <button type="button" class="btn" id="pg-settings-btn" aria-pressed="false" aria-controls="pg-drawer">{{ m.icon("i-settings") }}Settings</button>
+      <button type="button" class="btn btn-primary" id="pg-run">{{ m.icon("i-play") }}Run<span class="kbd-hint" aria-hidden="true">⌘↵</span></button>
+      <button type="button" class="btn btn-stop" id="pg-stop" hidden>{{ m.icon("i-stop") }}Stop</button>
+    </div>
+  </div>
+
+  {% if notice %}{{ m.banner("warn", notice) }}{% endif %}
+  <div id="pg-note"></div>
+
+  <div class="pgtool">
+    <span class="lbl" id="pg-run-with">Run with</span>
+    <select class="select" id="pg-connection" aria-labelledby="pg-run-with"></select>
+    <input class="input mono" id="pg-model" list="pg-models" aria-label="Model" autocomplete="off" spellcheck="false">
+    <datalist id="pg-models"></datalist>
+  </div>
+
+  <div class="pgx with-drawer-slot" id="pg-grid">
+    <section class="panel" aria-label="Prompt">
+      <div class="panel-h"><h2>Prompt</h2><span class="right hint" id="pg-counts"></span></div>
+      <div class="panel-b stack">
+        <div class="msgs" id="pg-msgs"></div>
+        <div><button type="button" class="btn btn-sm" id="pg-add">{{ m.icon("i-plus") }}Add message</button></div>
+        <div class="inputs-row" id="pg-vars"></div>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="Response">
+      <div class="panel-h">
+        <h2>Response</h2>
+        <span class="stat-chip" id="pg-status" hidden></span>
+        <span class="right row">
+          <button class="switch" role="switch" aria-checked="false" aria-label="Trace this run" id="pg-trace"></button>
+          <span class="dim">Trace this run</span>
+        </span>
+      </div>
+      <div class="out idle" id="pg-out" aria-live="polite" aria-busy="false"><span id="pg-idle">Press Run (⌘↵) to see the response here.</span></div>
+      <dl class="usage" id="pg-usage">
+        <div><dt>Input tokens</dt><dd class="pend" data-u="input_tokens">-</dd></div>
+        <div><dt>Output tokens</dt><dd class="pend" data-u="output_tokens">-</dd></div>
+        <div><dt>Total tokens</dt><dd class="pend" data-u="total_tokens">-</dd></div>
+        <div><dt>Cost <span class="src calc" data-u-src hidden>calculated</span></dt><dd class="pend" data-u="cost">-</dd></div>
+        <div><dt>Latency</dt><dd class="pend" data-u="latency_ms">-</dd></div>
+        <div><dt>Time to first token</dt><dd class="pend" data-u="ttft_ms">-</dd></div>
+      </dl>
+    </section>
+
+    <aside class="drawer" id="pg-drawer" aria-label="Model settings" hidden>
+      <header><h2>Settings</h2><span class="right"><button type="button" class="btn btn-icon btn-sm btn-ghost" id="pg-drawer-close" aria-label="Close settings">{{ m.icon("i-x", "ico-sm") }}</button></span></header>
+      <div class="seg" role="group" aria-label="Settings section">
+        <button type="button" data-tab="params" aria-pressed="true">Parameters</button>
+        <button type="button" data-tab="tools" aria-pressed="false">Tools</button>
+        <button type="button" data-tab="schema" aria-pressed="false">Schema</button>
+      </div>
+      <div class="dbody" data-pane="params">
+        <div id="pg-params" class="stack-s"></div>
+        <span class="hint" id="pg-params-hint"></span>
+      </div>
+      <div class="dbody" data-pane="tools" hidden>
+        <div class="field"><label for="pg-tools">Tool definitions (JSON array)</label>
+          <textarea class="textarea mono" id="pg-tools" rows="8" spellcheck="false" placeholder='[{"name": "lookup_order", "description": "Find an order", "parameters": {"type": "object"}}]'></textarea>
+          <span class="field-error" id="pg-tools-err" role="alert" hidden>{{ m.icon("i-error", "ico-sm") }}<span data-msg></span></span></div>
+        <button type="button" class="btn btn-sm" id="pg-add-tool">{{ m.icon("i-plus") }}Add tool</button>
+      </div>
+      <div class="dbody" data-pane="schema" hidden>
+        <div class="row"><button class="switch" role="switch" aria-checked="false" aria-label="Structured output" id="pg-schema-on"></button><span>Require JSON output</span></div>
+        <div class="field" id="pg-schema-field" hidden><label for="pg-schema">JSON schema</label>
+          <textarea class="textarea mono" id="pg-schema" rows="8" spellcheck="false" placeholder='{"type": "object", "properties": {"category": {"type": "string"}}}'></textarea>
+          <span class="field-error" id="pg-schema-err" role="alert" hidden>{{ m.icon("i-error", "ico-sm") }}<span data-msg></span></span></div>
+        <span class="hint">Turn on to paste a JSON schema the response must match.</span>
+      </div>
+    </aside>
+  </div>
+
+  <div id="pg-compare-mount" hidden></div>
+  <div id="pg-dialogs"></div>
+  <template id="pg-msg-tpl">{{ msg.card("user", "") }}</template>
+</div>
+{% endif %}
+{% endblock %}

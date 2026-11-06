@@ -1,0 +1,155 @@
+{% extends "settings/base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}LLM connections{% endblock %}
+{% block scripts %}<script src="/static/connections.js" defer></script>{% endblock %}
+
+{# One provider's fields. `v` holds the values to show, `err` is (field, message) or None. #}
+{% macro field_error(err, name, id) -%}
+{% if err and err[0] == name %}<span class="field-error" id="e-{{ id }}" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ err[1] }}</span></span>{% endif %}
+{%- endmacro %}
+
+{% macro provider_fields(p, v, err, uid, editing=False, row=None) -%}
+  {% if p == "azure_openai" %}
+    <div class="field"><label for="{{ uid }}-key">API key</label>
+      <input class="input mono" id="{{ uid }}-key" name="api_key" type="password" autocomplete="off" placeholder="{{ 'Leave blank to keep the saved key' if editing and not row.needs_reentry else 'Azure OpenAI key' }}"{% if err and err[0] == "api_key" %} aria-invalid="true" aria-describedby="e-{{ uid }}-key"{% endif %}>
+      {{ field_error(err, "api_key", uid ~ "-key") }}<span class="hint">Stored encrypted. You will only see the last 4 characters afterwards.</span></div>
+    <div class="field"><label for="{{ uid }}-url">Endpoint</label>
+      <input class="input mono" id="{{ uid }}-url" name="base_url" value="{{ v.base_url }}" placeholder="https://acme-eu.openai.azure.com"{% if err and err[0] == "base_url" %} aria-invalid="true" aria-describedby="e-{{ uid }}-url"{% endif %}>{{ field_error(err, "base_url", uid ~ "-url") }}</div>
+    <div class="grid2">
+      <div class="field"><label for="{{ uid }}-ver">API version</label><input class="input mono" id="{{ uid }}-ver" name="api_version" value="{{ v.api_version }}" placeholder="2025-06-01"{% if err and err[0] == "api_version" %} aria-invalid="true" aria-describedby="e-{{ uid }}-ver"{% endif %}>{{ field_error(err, "api_version", uid ~ "-ver") }}</div>
+      <div class="field"><label for="{{ uid }}-dep">Deployments</label><input class="input mono" id="{{ uid }}-dep" name="deployments" value="{{ v.deployments }}" placeholder="gpt-4o=chat-prod"{% if err and err[0] == "deployments" %} aria-invalid="true" aria-describedby="e-{{ uid }}-dep"{% endif %}>{{ field_error(err, "deployments", uid ~ "-dep") }}<span class="hint">model=deployment, comma separated</span></div>
+    </div>
+  {% elif p == "bedrock" %}
+    <div class="grid2">
+      <div class="field"><label for="{{ uid }}-akid">Access key ID</label><input class="input mono" id="{{ uid }}-akid" name="access_key_id" type="password" autocomplete="off" placeholder="{{ 'Leave blank to keep' if editing and not row.needs_reentry else 'AKIA…' }}"></div>
+      <div class="field"><label for="{{ uid }}-reg">Region</label><input class="input mono" id="{{ uid }}-reg" name="region" value="{{ v.region }}" placeholder="us-east-1"{% if err and err[0] == "region" %} aria-invalid="true" aria-describedby="e-{{ uid }}-reg"{% endif %}>{{ field_error(err, "region", uid ~ "-reg") }}</div>
+    </div>
+    <div class="field"><label for="{{ uid }}-key">Secret access key</label>
+      <input class="input mono" id="{{ uid }}-key" name="api_key" type="password" autocomplete="off" placeholder="{{ 'Leave blank to keep the saved key' if editing and not row.needs_reentry else 'Stored encrypted' }}"{% if err and err[0] == "api_key" %} aria-invalid="true" aria-describedby="e-{{ uid }}-key"{% endif %}>{{ field_error(err, "api_key", uid ~ "-key") }}</div>
+  {% elif p == "openai_compatible" %}
+    <div class="field"><label for="{{ uid }}-url">Base URL</label>
+      <input class="input mono" id="{{ uid }}-url" name="base_url" value="{{ v.base_url }}" placeholder="https://…"{% if err and err[0] == "base_url" %} aria-invalid="true" aria-describedby="e-{{ uid }}-url"{% endif %}>{{ field_error(err, "base_url", uid ~ "-url") }}</div>
+    <div class="field"><label for="{{ uid }}-key">API key</label>
+      <input class="input mono" id="{{ uid }}-key" name="api_key" type="password" autocomplete="off" placeholder="{{ 'Leave blank to keep the saved key' if editing and not row.needs_reentry else 'Optional key' }}">
+      <span class="hint">Stored encrypted. You will only see the last 4 characters afterwards.</span></div>
+    <div class="field"><label for="{{ uid }}-hdr">Extra headers <span class="muted">(optional JSON)</span></label>
+      <input class="input mono" id="{{ uid }}-hdr" name="headers" placeholder='{"X-Team": "support"}' autocomplete="off"{% if err and err[0] == "headers" %} aria-invalid="true" aria-describedby="e-{{ uid }}-hdr"{% endif %}>{{ field_error(err, "headers", uid ~ "-hdr") }}
+      <span class="hint"{% if editing and row.header_names %} data-saved-headers{% endif %}>{% if editing and row.header_names %}Saved headers: {{ row.header_names | join(", ") }}. Values are never shown; entering new headers replaces them all.{% else %}Header values are stored encrypted.{% endif %}</span></div>
+  {% else %}
+    <div class="field"><label for="{{ uid }}-key">API key</label>
+      <input class="input mono" id="{{ uid }}-key" name="api_key" type="password" autocomplete="off" placeholder="{{ 'Leave blank to keep the saved key' if editing and not row.needs_reentry else ({'anthropic': 'sk-ant-…', 'openai': 'sk-…', 'google': 'Google AI key'}.get(p, '')) }}"{% if err and err[0] == "api_key" %} aria-invalid="true" aria-describedby="e-{{ uid }}-key"{% endif %}>
+      {{ field_error(err, "api_key", uid ~ "-key") }}<span class="hint">Stored encrypted. You will only see the last 4 characters afterwards.</span></div>
+  {% endif %}
+  {% if p != "azure_openai" %}
+    <div class="field"><label for="{{ uid }}-cm">{{ "Model names" if p == "openai_compatible" else "Custom model names" }} <span class="muted">(optional)</span></label>
+      <input class="input mono" id="{{ uid }}-cm" name="custom_models" value="{{ v.custom_models }}" placeholder="{{ 'llama-3.3-70b' if p == 'openai_compatible' else 'my-finetune, another-model' }}" autocomplete="off" data-chips>
+      <span class="hint">Press Enter or comma after each name.{% if p != "openai_compatible" %} Added to the built-in models.{% endif %}</span></div>
+  {% endif %}
+{%- endmacro %}
+
+{% block settings_body %}
+<div class="stack">
+  {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
+  {% if result %}
+    {% if result[1] %}{{ m.banner("ok", "Test passed for " ~ result[0] ~ ". " ~ result[2]) }}
+    {% else %}{{ m.banner("err", "Test failed for " ~ result[0] ~ ". " ~ result[2] ~ " The key is never shown here. Replace it and test again if needed.") }}{% endif %}
+  {% endif %}
+
+  {% if not rows %}
+  <div class="panel empty">
+    {{ m.icon("i-plug", "ico-lg") }}
+    <h2>No LLM connections yet</h2>
+    <p>A connection holds a provider key, stored encrypted, so Members can run prompts in the playground without ever seeing it.</p>
+    <button type="button" class="btn btn-primary" data-dialog-open="add-connection">{{ m.icon("i-plus") }}Add connection</button>
+  </div>
+  {% else %}
+  <div class="panel panel-vis">
+    <div class="panel-h"><h2>LLM connections</h2><span class="right"><button type="button" class="btn btn-primary btn-sm" data-dialog-open="add-connection">{{ m.icon("i-plus") }}Add connection</button></span></div>
+    {% for row in rows %}
+    {% set tile = info[row.provider] %}
+    <div class="conn">
+      <span class="ptile {{ tile[1] }}" aria-hidden="true">{{ tile[2] }}</span>
+      <div>
+        <b>{{ row.name }}</b>
+        <div class="vmeta">{{ tile[0] }} · {{ row.models | length }} model{{ "" if row.models | length == 1 else "s" }}{% if row.custom_models %} ({{ row.custom_models | length }} custom){% endif %}{% if row.provider == "azure_openai" and row.config.deployments %} · {{ row.config.deployments | length }} deployment{{ "" if row.config.deployments | length == 1 else "s" }}{% endif %}{% if row.secret_hint %} · key {{ row.secret_hint }}{% endif %}</div>
+      </div>
+      <div class="hbtn">
+        {% if row.needs_reentry %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Key needs re-entry</span>{% endif %}
+        <form method="post" action="/project/{{ project.id }}/settings/connections/{{ row.id }}/test" class="inline-form">{{ m.csrf() }}
+          <button class="btn btn-sm btn-ghost" type="submit"{% if row.needs_reentry %} aria-disabled="true"{% endif %}>Test</button></form>
+        <div class="menu-wrap">
+          <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="More actions for {{ row.name }}" aria-haspopup="true" aria-expanded="false" data-menu-toggle="cn-menu-{{ row.id }}">{{ m.icon("i-more-h") }}</button>
+          <div class="pop pop-right" id="cn-menu-{{ row.id }}" data-menu hidden role="menu" aria-label="Connection actions">
+            <button type="button" class="item" role="menuitem" data-dialog-open="edit-{{ row.id }}">{{ m.icon("i-pencil", "ico-sm") }}Edit</button>
+            <div class="sep"></div>
+            <form method="post" action="/project/{{ project.id }}/settings/connections/{{ row.id }}/delete" data-confirm="Delete the connection {{ row.name }}? Saved keys are removed.">{{ m.csrf() }}
+              <button class="item danger" type="submit" role="menuitem">{{ m.icon("i-trash", "ico-sm") }}Delete</button></form>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block dialogs %}
+<dialog class="dlg" id="add-connection" aria-label="Add LLM connection"{% if add_error %} data-autoopen{% endif %}>
+  <div class="dialog">
+    {{ m.dialog_head("Add LLM connection") }}
+    <form method="post" action="/project/{{ project.id }}/settings/connections" data-provider-form>
+      {{ m.csrf() }}
+      <div class="body">
+        {% if add_error and add_error[0] == "form" %}{{ m.banner("err", add_error[1]) }}{% endif %}
+        <div class="field"><label for="prv">Provider</label>
+          <select class="select" id="prv" name="provider" data-provider-select>
+            {% for key, meta in info.items() %}<option value="{{ key }}"{% if add.provider == key %} selected{% endif %}>{{ meta[0] }}</option>{% endfor %}
+          </select></div>
+        <div class="field"><label for="cn">Display name</label>
+          <input class="input" id="cn" name="name" value="{{ add.name }}" placeholder="Anthropic · production key" maxlength="200" autocomplete="off" required{% if add_error and add_error[0] == "name" %} aria-invalid="true" aria-describedby="e-cn"{% endif %}>
+          {{ field_error(add_error, "name", "cn") }}</div>
+        {% for key in info %}
+        <div class="stack-s" data-provider-fields="{{ key }}"{% if add.provider != key %} hidden{% endif %}>
+          {{ provider_fields(key, add, add_error if add.provider == key else None, "add-" ~ key) }}
+        </div>
+        {% endfor %}
+      </div>
+      <footer>
+        <button class="btn" type="submit" name="then" value="test">{{ m.icon("i-bolt") }}Save and test</button>
+        <button type="button" class="btn" data-dialog-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Save connection</button>
+      </footer>
+    </form>
+  </div>
+</dialog>
+
+{% for row in rows %}
+{% set open_edit = edit and edit[0] == row.id %}
+{% set vals = edit[1] if open_edit else {"base_url": row.base_url or "", "custom_models": row.custom_models | join(", "), "region": row.config.get("region", ""), "api_version": row.config.get("api_version", ""), "deployments": row.config.get("deployments", {}).items() | map("join", "=") | join(", ")} %}
+{% set err = edit[2] if open_edit else None %}
+<dialog class="dlg" id="edit-{{ row.id }}" aria-label="Edit connection"{% if open_edit %} data-autoopen{% endif %}>
+  <div class="dialog">
+    {{ m.dialog_head("Edit connection") }}
+    <form method="post" action="/project/{{ project.id }}/settings/connections/{{ row.id }}">
+      {{ m.csrf() }}
+      <div class="body">
+        {% if err and err[0] == "form" %}{{ m.banner("err", err[1]) }}{% endif %}
+        <div class="row">{{ m.icon("i-plug") }}<b>{{ info[row.provider][0] }}</b><span class="hint">Provider cannot be changed.</span></div>
+        <div class="field"><label for="en-{{ row.id }}">Display name</label>
+          <input class="input" id="en-{{ row.id }}" name="name" value="{{ edit[1].name if open_edit else row.name }}" maxlength="200" autocomplete="off" required></div>
+        <div class="field"><span class="lbl">Saved key</span>
+          {% if row.needs_reentry %}{{ m.banner("warn", "The saved key can no longer be read (the server's encryption key changed). Enter it again below.") }}
+          {% else %}<div class="masked">{{ m.icon("i-lock", "ico-sm") }}<span>{% if row.secret_hint %}Saved · ends in {{ row.secret_hint }}{% else %}No key saved{% endif %}</span></div>
+          <span class="hint">Saved keys are never shown again. Replacing one takes effect on the next run.</span>{% endif %}</div>
+        {{ provider_fields(row.provider, vals, err, "edit-" ~ row.id, editing=True, row=row) }}
+      </div>
+      <footer>
+        <button type="button" class="btn" data-dialog-close>Cancel</button>
+        <button type="submit" class="btn btn-primary">Save changes</button>
+      </footer>
+    </form>
+  </div>
+</dialog>
+{% endfor %}
+{% endblock %}

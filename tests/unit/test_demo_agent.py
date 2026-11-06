@@ -92,3 +92,32 @@ def test_calculator_rejects_unsafe_expressions():
     assert agent.calculator.__wrapped__("49.99 * 2") == "99.98"
     with pytest.raises(ValueError):
         agent.calculator.__wrapped__("__import__('os').system('x')")
+
+
+def _assert_replayable(messages):
+    """Every tool result answers a tool call of the assistant message before it, by id."""
+    open_calls: list[str] = []
+    for m in messages:
+        if m["role"] == "assistant":
+            open_calls = [c["id"] for c in m.get("tool_calls") or ()]
+            assert all(open_calls), m
+        elif m["role"] == "tool":
+            assert m["tool_call_id"] and m["tool_call_id"] in open_calls, m
+            open_calls.remove(m["tool_call_id"])
+
+
+def test_answer_generation_replays_with_tool_call_ids(sent):
+    from traceloom.llm import prefill
+
+    agent.run()
+    assert traceloom_sdk.flush() is True
+    answer = next(
+        e["body"]
+        for e in events(sent)
+        if e["type"] == "generation-create" and e["body"]["name"] == "answer"
+    )
+    recorded = [m for m in answer["input"] if m["role"] == "tool"]
+    assert len(recorded) == 3 and all(m.get("tool_call_id") for m in recorded)
+    messages = prefill.messages_from(answer["input"])
+    assert [m["role"] for m in messages].count("tool") == 3
+    _assert_replayable(messages)

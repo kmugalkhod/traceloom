@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from traceloom.ports import ObservationRow, TraceDetail, TraceRow
 from traceloom.web import tree
@@ -37,6 +37,15 @@ class DetailState:
         }
         base = f"/project/{self.project_id}/traces/{self.trace_id}"
         return f"{base}?{urlencode(query)}" if query else base
+
+    def playground_url(self, obs_id: str) -> str:
+        """The playground pre-filled from a generation of this trace (Open in playground)."""
+        query = urlencode({"trace": self.trace_id, "obs": obs_id})
+        return f"/project/{self.project_id}/playground?{query}"
+
+    def prompt_url(self, name: str, version: int | None) -> str:
+        suffix = f"?version={version}" if version else ""
+        return f"/project/{self.project_id}/prompts/{quote(name, safe='/')}{suffix}"
 
     def io_url(self, **changes) -> str:
         values = {"obs": self.obs, "mode": self.mode, "view": self.view, "debug": int(self.debug)}
@@ -76,6 +85,7 @@ class NodeRow:
     page_url: str
     io_url: str
     selected: bool
+    playground_url: str | None = None  # generations only
 
 
 def node_rows(roots: list[tree.TreeNode], state: DetailState) -> list[NodeRow]:
@@ -96,6 +106,7 @@ def node_rows(roots: list[tree.TreeNode], state: DetailState) -> list[NodeRow]:
                 page_url=state.page_url(obs=o.id),
                 io_url=state.io_url(obs=o.id),
                 selected=state.obs == o.id,
+                playground_url=state.playground_url(o.id) if o.type == "generation" else None,
             )
         )
     return rows
@@ -161,6 +172,9 @@ class IoPane:
     mode: str
     mode_urls: dict[str, tuple[str, str]]  # mode -> (page url, io url)
     trace_url: str
+    playground_url: str | None = None  # a generation can be reopened in the playground
+    prompt_label: str | None = None  # "support v2" when the generation is linked to a prompt
+    prompt_url: str | None = None
 
 
 def io_pane(detail: TraceDetail, state: DetailState) -> IoPane:
@@ -214,4 +228,19 @@ def io_pane(detail: TraceDetail, state: DetailState) -> IoPane:
         mode=state.mode,
         mode_urls={m: (state.page_url(mode=m), state.io_url(mode=m)) for m in MODES},
         trace_url=state.page_url(obs=None),
+        playground_url=(
+            state.playground_url(obs.id) if obs is not None and obs.type == "generation" else None
+        ),
+        prompt_label=_prompt_label(obs),
+        prompt_url=(
+            state.prompt_url(obs.prompt_name, obs.prompt_version)
+            if obs is not None and obs.prompt_name
+            else None
+        ),
     )
+
+
+def _prompt_label(obs: ObservationRow | None) -> str | None:
+    if obs is None or not obs.prompt_name:
+        return None
+    return f"{obs.prompt_name} v{obs.prompt_version}" if obs.prompt_version else obs.prompt_name

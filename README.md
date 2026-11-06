@@ -13,6 +13,26 @@ curl localhost:8000/api/public/health
 
 Lite mode needs only SQLite (or Postgres), an in-process queue and a local blob folder. All settings are documented in `.env.example`.
 
+## Prompts and playground
+
+Manage prompts in the web app under **Prompts**: each save creates an immutable version, and labels (`production` is protected, so only Admins move it) point at the version an app should get. Content can include other prompts with `@@@prompt:<name>|label=<label>@@@`. **Playground** runs a prompt against your own provider keys (Settings, LLM connections); set `TRACELOOM_ENCRYPTION_KEY` to a Fernet key first (`python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`). In dev an ephemeral key is generated with a warning.
+
+Fetch a prompt from your app with the Python SDK:
+
+```python
+import traceloom_sdk
+
+prompt = traceloom_sdk.get_prompt("support", fallback="You help {{name}}.")  # production label
+messages = prompt.compile(name="Ann")  # a str for text prompts, a list of messages for chat
+
+with traceloom_sdk.start_generation(
+    "answer", model="claude-sonnet-5-5", input=messages, prompt=prompt
+):  # links the generation to support vN
+    ...
+```
+
+`get_prompt` caches for `TRACELOOM_PROMPT_CACHE_TTL` seconds (default 60; `0` disables), serves the old version while refreshing in the background, and uses the fallback when the server is unreachable (a fallback prompt is not linked). It raises `PromptNotFound` only when there is no cached value and no fallback. With the OpenAI and Anthropic wrappers, pass `traceloom_prompt=prompt` to a call to link it. See `examples/prompt_app.py` and the public API under `/api/public/v2/prompts`.
+
 ## Tests
 
 ```

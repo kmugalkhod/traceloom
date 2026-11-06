@@ -27,21 +27,30 @@
     <div class="panel-h"><h2>API keys</h2><span class="grow"></span>
       <button type="button" class="btn btn-primary btn-sm" data-dialog-open="create-key">{{ m.icon("i-plus") }}Create API key</button></div>
     <div class="rack">
-      <table class="tbl tbl-flat keepcols">
+      <table class="tbl tbl-flat stack-m">
         <thead><tr><th>Public key</th><th>Note</th><th class="hide-m">Created</th><th class="hide-m">Last used</th><th>Status</th><th class="r"><span class="sr">Actions</span></th></tr></thead>
         <tbody>
         {% for key in keys %}
           <tr{% if key.revoked_at %} class="is-dim"{% endif %}>
-            <td class="mono">{{ key.public_key }}</td>
-            <td class="c-name">{{ key.note or "—" }}</td>
+            <td class="mono c-name">{{ key.public_key }}</td>
+            <td>{{ key.note or "—" }}{% if key.may_move_protected_labels %} <span class="hint">· can move protected labels</span>{% endif %}</td>
             <td class="hide-m muted">{{ key.created_at | date }}</td>
             <td class="hide-m muted">{{ key.last_used_at | ago }}</td>
             <td>{% if key.revoked_at %}<span class="lv ERROR">Revoked</span>{% else %}<span class="lv ok">Active</span>{% endif %}</td>
             <td class="r">
               {% if key.revoked_at %}<span class="hint">Rejected with 401</span>
-              {% else %}<button type="button" class="btn btn-sm btn-ghost" data-dialog-open="revoke-key"
-                       data-form-action="/project/{{ project.id }}/settings/keys/{{ key.id }}/revoke"
-                       data-fill-name="{{ key.note or key.public_key }}">Revoke</button>{% endif %}
+              {% else %}
+              <div class="menu-wrap">
+                <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="More actions for {{ key.note or key.public_key }}" aria-haspopup="true" aria-expanded="false" data-menu-toggle="key-menu-{{ key.id }}">{{ m.icon("i-more-h") }}</button>
+                <div class="pop pop-right" id="key-menu-{{ key.id }}" data-menu hidden role="menu" aria-label="Key actions">
+                  <button type="button" class="item" role="menuitem" data-copy="{{ key.public_key }}">{{ m.icon("i-copy", "ico-sm") }}Copy public key</button>
+                  <div class="sep"></div>
+                  <button type="button" class="item danger" role="menuitem" data-dialog-open="revoke-key"
+                          data-form-action="/project/{{ project.id }}/settings/keys/{{ key.id }}/revoke"
+                          data-fill-name="{{ key.note or key.public_key }}">{{ m.icon("i-trash", "ico-sm") }}Revoke…</button>
+                </div>
+              </div>
+              {% endif %}
             </td>
           </tr>
         {% endfor %}
@@ -61,6 +70,7 @@
       {{ m.csrf() }}
       <div class="body">
         <div class="field"><label for="key-note">Note</label><input class="input" id="key-note" name="note" value="{{ note }}" maxlength="200" placeholder="What is this key for?"><div class="hint">Shown in the list so you can tell keys apart.</div></div>
+        <div class="field"><label class="check"><input type="checkbox" name="may_move_protected_labels" value="true"> May move protected prompt labels</label><div class="hint">Lets this key move labels like production through the prompt API. Off by default.</div></div>
       </div>
       <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">Create key</button></footer>
     </form>

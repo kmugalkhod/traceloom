@@ -13,6 +13,7 @@ import pytest
 from sqlalchemy.orm import Session, sessionmaker
 
 from tests.contract import conftest_full
+from traceloom.adapters.lite.sql_analytics import SqlAnalyticsMixin
 from traceloom.adapters.lite.sql_read import SqlReadMixin
 from traceloom.db.base import Base
 from traceloom.db.models import Observation, Score, Trace
@@ -22,7 +23,7 @@ from traceloom.ports import ObservationRow, ScoreRow, TraceRow
 T0 = datetime(2026, 11, 1, 12, 0, tzinfo=UTC)
 
 
-class LiteReadStore(SqlReadMixin):
+class LiteReadStore(SqlReadMixin, SqlAnalyticsMixin):
     """The read side only, over a schema created straight from the models."""
 
     def __init__(self, session_factory: sessionmaker[Session]) -> None:

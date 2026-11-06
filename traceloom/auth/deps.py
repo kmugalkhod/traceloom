@@ -160,7 +160,9 @@ def project_key(
             or (now - key.last_used_at).total_seconds() > LAST_USED_RESOLUTION
         ):
             _stamp_last_used(container, key.id, now)
-        resolved = ResolvedKey(key.id, key.project_id, key.public_key)
+        resolved = ResolvedKey(
+            key.id, key.project_id, key.public_key, bool(key.may_move_protected_labels)
+        )
         container.api_key_cache.put(public_key, secret_hash, resolved)
     path_project = request.path_params.get("project_id")
     if path_project is not None and path_project != resolved.project_id:

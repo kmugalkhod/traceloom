@@ -1,0 +1,30 @@
+/* Playground compare columns: 1 to 4 variants, 2x2 at four, stacked under 1100px. */
+.compare{margin-top:16px}
+.compare-h{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.compare-h h2{margin:0}
+.cmp-grid{display:grid;gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.cmp-grid[data-count="1"]{grid-template-columns:minmax(0,1fr)}
+.cmp-grid[data-count="3"]{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:1099px){.cmp-grid,.cmp-grid[data-count="3"]{grid-template-columns:minmax(0,1fr)}}
+.variant{display:flex;flex-direction:column;gap:12px;min-width:0;padding:12px;border:1px solid var(--line);border-radius:var(--r-2,6px);background:var(--surface)}
+.variant-h{display:flex;align-items:center;gap:8px}
+.variant-h h3{margin:0;font-size:14px}
+.variant-cfg{display:grid;gap:8px}
+.variant-cfg .field{min-width:0}
+.v-msg{display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:6px;align-items:start}
+.variant-out{min-height:120px}
+.variant-out .out{white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--font-mono);font-size:13px}
+.variant-out .calls{margin:8px 0 0;padding:0;list-style:none;font-family:var(--font-mono);font-size:12px;overflow-wrap:anywhere}
+.variant-usage{display:flex;flex-wrap:wrap;gap:4px 16px;margin:0;font-size:12px}
+.variant-usage div{display:flex;gap:6px}
+.variant-usage dt{color:var(--ink-3)}
+.variant-usage dd{margin:0;font-family:var(--font-mono)}
+.v-note{grid-column:1/-1;margin:0}
+
+/* Compare mode keeps the shared prompt editor on screen and swaps the single Response panel for the columns. */
+#pg-root[data-mode="compare"] #pg-grid{grid-template-columns:minmax(0,1fr)}
+#pg-root[data-mode="compare"] #pg-grid>section[aria-label="Response"],#pg-root[data-mode="compare"] #pg-run,#pg-root[data-mode="compare"] #pg-stop{display:none}
+.variant-h .stat-chip{flex:none}
+.stat-chip[data-state="waiting"],.stat-chip[data-state="streaming"]{color:var(--accent)}
+.stat-chip[data-state="error"]{color:var(--err)}
+.stat-chip[data-state="early"]{color:var(--warn)}

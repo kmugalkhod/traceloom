@@ -1,0 +1,145 @@
+{% extends "settings/base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Webhooks{% endblock %}
+
+{% macro event_boxes(selected, prefix) -%}
+<fieldset class="stack-s"><legend class="lbl">Events</legend>
+  {% for key, label in all_events %}
+    <label class="check"><input type="checkbox" name="events" value="{{ key }}"{% if key in selected %} checked{% endif %}><span class="mono">{{ key }}</span><span class="hint">{{ label }}</span></label>
+  {% endfor %}
+</fieldset>
+{%- endmacro %}
+
+{% block settings_body %}
+<div class="stack">
+  {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
+
+  {% if not rows %}
+  <div class="panel empty">
+    {{ m.icon("i-webhook", "ico-lg") }}
+    <h2>No webhooks yet</h2>
+    <p>Get a signed request whenever a prompt version is created or a label moves, for CI checks or cache busting. Each request carries an <span class="mono">X-Traceloom-Signature</span> header you verify with a secret that is shown once.</p>
+    <button type="button" class="btn btn-primary" data-dialog-open="add-webhook">{{ m.icon("i-plus") }}Add webhook</button>
+  </div>
+  {% else %}
+  <div class="panel panel-vis">
+    <div class="panel-h"><h2>Webhooks</h2><span class="right"><button type="button" class="btn btn-primary btn-sm" data-dialog-open="add-webhook">{{ m.icon("i-plus") }}Add webhook</button></span></div>
+    <div class="rack">
+      <table class="tbl tbl-flat cardrows">
+        <thead><tr><th>Endpoint</th><th>Status</th><th class="r"><span class="sr">Actions</span></th></tr></thead>
+        <tbody>
+        {% for row in rows %}
+          <tr{% if not row.hook.enabled %} class="is-dim"{% endif %}>
+            <td class="c-name m-show"><div class="cell2"><b class="mono">{{ row.hook.url }}</b><span>{{ row.events }}</span></div></td>
+            <td class="m-show"><span class="lv {{ row.status.css }}">{% if row.status.icon %}{{ m.icon(row.status.icon, "ico-sm") }}{% endif %}{{ row.status.text }}</span></td>
+            <td class="r m-show m-full">
+              <div class="hbtn">
+                <form method="post" action="/project/{{ project.id }}/settings/webhooks/{{ row.hook.id }}/test" class="inline-form">{{ m.csrf() }}
+                  <button class="btn btn-sm btn-ghost" type="submit">{{ m.icon("i-send") }}Send test</button></form>
+                <div class="menu-wrap">
+                  <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="More actions for {{ row.hook.url }}" aria-haspopup="true" aria-expanded="false" data-menu-toggle="wh-menu-{{ row.hook.id }}">{{ m.icon("i-more-h") }}</button>
+                  <div class="pop pop-right" id="wh-menu-{{ row.hook.id }}" data-menu hidden role="menu" aria-label="Webhook actions">
+                    <button type="button" class="item" role="menuitem" data-dialog-open="edit-{{ row.hook.id }}">{{ m.icon("i-pencil", "ico-sm") }}Edit</button>
+                    <form method="post" action="/project/{{ project.id }}/settings/webhooks/{{ row.hook.id }}/toggle">{{ m.csrf() }}
+                      <button class="item" type="submit" role="menuitem">{{ m.icon("i-bolt", "ico-sm") }}{{ "Disable" if row.hook.enabled else "Enable" }}</button></form>
+                    <div class="sep"></div>
+                    <form method="post" action="/project/{{ project.id }}/settings/webhooks/{{ row.hook.id }}/delete" data-confirm="Delete this webhook and its delivery log?">{{ m.csrf() }}
+                      <button class="item danger" type="submit" role="menuitem">{{ m.icon("i-trash", "ico-sm") }}Delete</button></form>
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-h"><h2>Recent deliveries</h2></div>
+    {% if deliveries %}
+    <div class="rack">
+      <table class="tbl tbl-flat cardrows">
+        <thead><tr><th>Time</th><th>Event</th><th>Status</th><th>Detail</th></tr></thead>
+        <tbody>
+        {% for row in deliveries %}
+          <tr>
+            <td class="muted hide-m">{{ row.d.created_at | ago }}</td>
+            <td class="c-name m-show"><div class="cell2"><b class="mono">{{ row.d.event }}</b><span>{{ row.host }} · {{ row.d.created_at | ago }}</span></div></td>
+            <td class="m-show"><span class="lv {{ row.status.css }}">{% if row.status.icon %}{{ m.icon(row.status.icon, "ico-sm") }}{% endif %}{{ row.status.text }}</span></td>
+            <td class="muted m-show m-full">{{ row.detail }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}<div class="panel-b"><p class="hint">Nothing has been sent yet. Use Send test on an endpoint.</p></div>{% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block dialogs %}
+<dialog class="dlg" id="add-webhook" aria-label="Add webhook"{% if error %} data-autoopen{% endif %}>
+  <div class="dialog">
+    {{ m.dialog_head("Add webhook") }}
+    <form method="post" action="/project/{{ project.id }}/settings/webhooks">
+      {{ m.csrf() }}
+      <div class="body">
+        <div class="field">
+          <label for="wu">Endpoint URL</label>
+          <input class="input mono" id="wu" name="url" value="{{ form.url }}" placeholder="https://hooks.example.com/traceloom" autocomplete="off" maxlength="2000" required
+                 {% if error %}aria-invalid="true" aria-describedby="we"{% else %}aria-describedby="wh"{% endif %}>
+          {% if error %}<span class="field-error" id="we" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ error }}</span></span>
+          {% else %}<span class="hint" id="wh">Must be https. Private and loopback addresses are refused.</span>{% endif %}
+        </div>
+        {{ event_boxes(form.events, "add") }}
+        <label class="check"><input type="checkbox" name="enabled" value="1"{% if form.enabled %} checked{% endif %}><span>Enabled</span></label>
+        <div class="banner info">{{ m.icon("i-info") }}<span>A signing secret is generated when you save. You will see it once.</span></div>
+      </div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">Add webhook</button></footer>
+    </form>
+  </div>
+</dialog>
+
+{% for row in rows %}
+<dialog class="dlg" id="edit-{{ row.hook.id }}" aria-label="Edit webhook"{% if edit_error and edit_error[0] == row.hook.id %} data-autoopen{% endif %}>
+  <div class="dialog">
+    {{ m.dialog_head("Edit webhook") }}
+    <form method="post" action="/project/{{ project.id }}/settings/webhooks/{{ row.hook.id }}">
+      {{ m.csrf() }}
+      <div class="body">
+        <div class="field">
+          <label for="eu-{{ row.hook.id }}">Endpoint URL</label>
+          <input class="input mono" id="eu-{{ row.hook.id }}" name="url" value="{{ row.hook.url }}" autocomplete="off" maxlength="2000" required
+                 {% if edit_error and edit_error[0] == row.hook.id %}aria-invalid="true" aria-describedby="ee-{{ row.hook.id }}"{% endif %}>
+          {% if edit_error and edit_error[0] == row.hook.id %}<span class="field-error" id="ee-{{ row.hook.id }}" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ edit_error[1] }}</span></span>{% endif %}
+        </div>
+        {{ event_boxes(row.hook.events, "edit") }}
+        <label class="check"><input type="checkbox" name="enabled" value="1"{% if row.hook.enabled %} checked{% endif %}><span>Enabled</span></label>
+        <p class="hint">The signing secret cannot be shown again. To change it, delete this webhook and add a new one.</p>
+      </div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">Save changes</button></footer>
+    </form>
+  </div>
+</dialog>
+{% endfor %}
+
+{% if created %}
+<dialog class="dlg" id="secret-dialog" aria-label="Webhook added" data-autoopen>
+  <div class="dialog">
+    {{ m.dialog_head("Webhook added") }}
+    <div class="body">
+      {{ m.banner("ok", "Copy the signing secret now. It is shown once and cannot be retrieved later. If you lose it, delete the webhook and add a new one.") }}
+      <div class="field"><span class="lbl">Signing secret</span>
+        <div class="secret"><span id="new-secret" class="mono">{{ created[1] }}</span>{{ m.copy_button("#new-secret") }}</div></div>
+      <div class="field"><span class="lbl">Verify each request</span>
+        <pre class="code" tabindex="0">X-Traceloom-Signature: t=&lt;unix&gt;,v1=&lt;hex&gt;
+v1 = HMAC_SHA256(secret, t + "." + body)</pre></div>
+    </div>
+    <footer><button type="button" class="btn btn-primary" data-dialog-close>I have saved the secret</button></footer>
+  </div>
+</dialog>
+{% endif %}
+{% endblock %}

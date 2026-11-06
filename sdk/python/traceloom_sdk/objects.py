@@ -61,9 +61,26 @@ def _time(value: Any) -> Any:
     return value
 
 
+def prompt_link(prompt: Any) -> dict[str, Any]:
+    """promptName/promptVersion for a fetched prompt. A fallback or anything unusable links
+    nothing, and this never raises."""
+    try:
+        name = getattr(prompt, "name", None)
+        version = getattr(prompt, "version", None)
+        if prompt is None or getattr(prompt, "is_fallback", False) or not name or not version:
+            return {}
+        return {"promptName": str(name), "promptVersion": int(version)}
+    except Exception:
+        log.debug("Traceloom: could not link prompt", exc_info=True)
+        return {}
+
+
 def _body(fields: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for key, value in fields.items():
+        if key == "prompt":  # a TextPrompt/ChatPrompt from client.get_prompt
+            out.update(prompt_link(value))
+            continue
         key = _ALIASES.get(key, key)
         target = _BODY_KEYS.get(key)
         if target is None:

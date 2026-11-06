@@ -1,0 +1,37 @@
+{# Save as prompt: a new chat prompt, or a new version of an existing one. Posts via playground_save.js. #}
+{% import "_macros.html" as m with context %}
+<dialog class="dlg" id="save-prompt" aria-label="Save as prompt" data-save-url="/project/{{ project.id }}/playground/save">
+  <div class="dialog">
+    {{ m.dialog_head("Save as prompt") }}
+    <form data-save-form novalidate>
+      <div class="body">
+        <div data-save-error hidden>{{ m.banner("err", "") }}</div>
+        <div class="seg" role="radiogroup" aria-label="Save as">
+          <label><input type="radio" name="mode" value="new" checked> New prompt</label>
+          <label><input type="radio" name="mode" value="version"{% if not chat_prompts %} disabled{% endif %}> New version of an existing prompt</label>
+        </div>
+        <div class="field" data-save-new>
+          <label for="sp-name">Prompt name</label>
+          <input class="input" id="sp-name" name="name" maxlength="200" autocomplete="off" placeholder="support/greeting" required>
+          <p class="hint">Use / to put it in a folder. Saved as a chat prompt; its variables stay {{ "{{" }}variables{{ "}}" }}.</p>
+        </div>
+        <div class="field" data-save-existing hidden>
+          <label for="sp-existing">Chat prompt</label>
+          <select class="select" id="sp-existing" name="existing" disabled>
+            {% for p in chat_prompts %}<option value="{{ p.name }}">{{ p.name }} (latest v{{ p.latest_version }})</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="sp-msg">Commit message</label>
+          <input class="input" id="sp-msg" name="commit_message" maxlength="500" autocomplete="off" placeholder="What changed and why" required>
+        </div>
+        <p class="hint">The messages, model, parameters and tools are saved with the version. Labels follow the usual rules; this does not move any label.</p>
+        <div data-save-done hidden>{{ m.banner("ok", "") }}</div>
+      </div>
+      <footer>
+        <button type="button" class="btn" data-dialog-close>Cancel</button>
+        <button type="submit" class="btn btn-primary" data-save-submit>Save prompt</button>
+      </footer>
+    </form>
+  </div>
+</dialog>

@@ -10,9 +10,15 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from traceloom.config import Settings
+from traceloom.llm import providers
+from traceloom.llm.providers import DoneDelta, TextDelta
 from traceloom.main import create_app
 
 pytest_plugins = ["tests.factories", "tests.contract.stores"]
+
+# Outside dev Settings requires an encryption key; tests share a fixed throwaway one.
+TEST_ENCRYPTION_KEY = "dHJhY2Vsb29tLXRlc3Qta2V5LW5vdC1mb3ItcHJvZCE="
+os.environ.setdefault("TRACELOOM_ENCRYPTION_KEY", TEST_ENCRYPTION_KEY)
 
 _LOOPBACK = {"127.0.0.1", "::1", "localhost"}
 
@@ -39,9 +45,56 @@ def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(socket.socket, "connect", guarded)
 
 
+class FakeProvider:
+    """Scripted provider: each `script(...)` call queues one call's Deltas or exception."""
+
+    name = "fake"
+
+    def __init__(self) -> None:
+        self.scripts: list[list] = []
+        self.calls: list[dict] = []
+
+    def script(self, *deltas) -> None:
+        self.scripts.append(list(deltas))
+
+    def __call__(self, config) -> FakeProvider:  # the registry factory
+        self.config = config
+        return self
+
+    def stream(self, messages, model, params=None, tools=None, response_schema=None):
+        self.calls.append(
+            {
+                "messages": list(messages),
+                "model": model,
+                "params": dict(params or {}),
+                "tools": list(tools or []),
+                "response_schema": response_schema,
+            }
+        )
+        for item in self.scripts.pop(0) if self.scripts else [TextDelta("ok"), DoneDelta("stop")]:
+            if isinstance(item, BaseException):
+                raise item
+            yield item
+
+
 @pytest.fixture
-def settings(tmp_path: Path) -> Settings:
+def fake_provider() -> Iterator[FakeProvider]:
+    """A scripted adapter registered under the provider name "fake"."""
+    fake = FakeProvider()
+    providers.register("fake", fake)
+    yield fake
+    providers.unregister("fake")
+
+
+@pytest.fixture
+def encryption_key() -> str:
+    return TEST_ENCRYPTION_KEY
+
+
+@pytest.fixture
+def settings(tmp_path: Path, encryption_key: str) -> Settings:
     return Settings(
+        TRACELOOM_ENCRYPTION_KEY=encryption_key,
         TRACELOOM_ENV="test",
         TRACELOOM_MODE="lite",
         DATABASE_URL=f"sqlite:///{tmp_path / 'test.db'}",

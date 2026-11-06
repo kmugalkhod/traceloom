@@ -2,17 +2,27 @@
 
 from __future__ import annotations
 
+import logging
 import secrets
 from functools import lru_cache
 from typing import Literal
 
+from cryptography.fernet import Fernet
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from traceloom.llm.crypto import generate_key
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", extra="ignore", populate_by_name=True, case_sensitive=True
+        env_file=".env",
+        extra="ignore",
+        populate_by_name=True,
+        case_sensitive=True,
+        hide_input_in_errors=True,  # errors must never echo secrets from the environment
     )
 
     # Core
@@ -44,6 +54,16 @@ class Settings(BaseSettings):
     rate_auth: str = Field("10/minute", validation_alias="TRACELOOM_RATE_AUTH")
     rate_ingest: str = Field("600/minute", validation_alias="TRACELOOM_RATE_INGEST")
 
+    # Phase 2: prompts, playground, webhooks
+    # Fernet key(s), newest first, comma-separated for rotation.
+    encryption_key: str = Field("", validation_alias="TRACELOOM_ENCRYPTION_KEY")
+    webhook_allow_private: bool = Field(False, validation_alias="TRACELOOM_WEBHOOK_ALLOW_PRIVATE")
+    llm_allow_private: bool = Field(True, validation_alias="TRACELOOM_LLM_ALLOW_PRIVATE")
+    playground_rate: str = Field("30/minute", validation_alias="TRACELOOM_PLAYGROUND_RATE")
+    provider_timeout_seconds: int = Field(
+        120, validation_alias="TRACELOOM_PROVIDER_TIMEOUT_SECONDS"
+    )
+
     # Full mode: Redis, S3, ClickHouse
     redis_url: str = Field("redis://localhost:6379/0", validation_alias="REDIS_URL")
     s3_endpoint_url: str = Field("", validation_alias="S3_ENDPOINT_URL")
@@ -74,6 +94,40 @@ class Settings(BaseSettings):
                 )
             # Dev only: an ephemeral key, so sessions do not survive a restart.
             self.secret_key = secrets.token_urlsafe(32)
+        return self
+
+    @model_validator(mode="after")
+    def _require_encryption_key_outside_dev(self) -> Settings:
+        if not any(k.strip() for k in self.encryption_key.split(",")):
+            if self.env != "dev":
+                raise ValueError(
+                    "TRACELOOM_ENCRYPTION_KEY must be set when TRACELOOM_ENV is not dev"
+                )
+            # Dev only: stored provider keys and webhook secrets become unreadable on restart.
+            self.encryption_key = generate_key()
+            logger.warning(
+                "TRACELOOM_ENCRYPTION_KEY is not set; using an ephemeral key. "
+                "Stored LLM connection keys and webhook secrets will not survive a restart."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _check_encryption_keys(self) -> Settings:
+        """Every comma-separated key must be a Fernet key, so a typo fails at startup rather
+        than on the first encrypt or decrypt. The message names the key's position only."""
+        keys = [k.strip() for k in self.encryption_key.split(",")]
+        for position, key in enumerate(keys, 1):
+            if not key:
+                continue  # stray commas are ignored, as SecretBox does
+            try:
+                Fernet(key.encode())
+            except (ValueError, TypeError):
+                raise ValueError(
+                    f"TRACELOOM_ENCRYPTION_KEY key #{position} is not a valid Fernet key "
+                    "(32 url-safe base64-encoded bytes; generate one with "
+                    "`python -c 'from cryptography.fernet import Fernet; "
+                    "print(Fernet.generate_key().decode())'`)"
+                ) from None
         return self
 
     @property

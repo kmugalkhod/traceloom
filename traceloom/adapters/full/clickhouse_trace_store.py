@@ -24,6 +24,9 @@ from traceloom.ports import (
     InvalidCursor,
     ObservationRow,
     Page,
+    PromptGeneration,
+    PromptMetrics,
+    PromptMetricsQuery,
     ScoreRow,
     SessionDetail,
     SessionQuery,
@@ -40,6 +43,7 @@ from traceloom.ports import (
 )
 
 SCHEMA_FILE = Path(__file__).with_name("clickhouse_schema.sql")
+MIGRATIONS_FILE = Path(__file__).with_name("clickhouse_migrations.sql")
 MAX_PAGE_SIZE = 200
 SEARCH_TEXT_LIMIT = 4096
 RECENT_LIMIT = 50
@@ -601,6 +605,78 @@ def build_dashboard(
     return {name: (sql, dict(params)) for name, sql in panels.items()}
 
 
+_OBS_TOKENS = (
+    "if(JSONHas(usage_details, 'total'), JSONExtractFloat(usage_details, 'total'),"
+    " JSONExtractFloat(usage_details, 'input') + JSONExtractFloat(usage_details, 'output'))"
+)
+_OBS_COST = "JSONExtractFloat(cost_details, 'total')"
+
+
+def _prompt_where(
+    project_id: str, name: str, version: int | None, query: PromptMetricsQuery | None
+) -> tuple[str, dict[str, Any]]:
+    clauses = ["type = 'generation'", "prompt_name = {prompt_name:String}"]
+    params: dict[str, Any] = {"project_id": project_id, "prompt_name": name}
+    if version is not None:
+        clauses.append("prompt_version = {prompt_version:Int32}")
+        params["prompt_version"] = version
+    if query is not None:
+        if query.environment is not None:
+            clauses.append("environment = {environment:String}")
+            params["environment"] = query.environment
+        if query.from_time is not None:
+            clauses.append("start_time >= {from_time:DateTime64(3, 'UTC')}")
+            params["from_time"] = _utc(query.from_time)
+        if query.to_time is not None:
+            clauses.append("start_time <= {to_time:DateTime64(3, 'UTC')}")
+            params["to_time"] = _utc(query.to_time)
+    return _project_where(*clauses), params
+
+
+def build_prompt_metrics(
+    project_id: str,
+    name: str,
+    version: int | None,
+    query: PromptMetricsQuery | None,
+    observations: str = "observations",
+    scores: str = "scores",
+) -> dict[str, tuple[str, dict]]:
+    """The totals statement and the per-score-name averages, keyed by panel name."""
+    where, params = _prompt_where(project_id, name, version, query)
+    totals = (
+        f"SELECT count() AS count, sum({_OBS_TOKENS}) AS tokens, sum({_OBS_COST}) AS cost,"
+        f" quantileExactIf(0.5)({_DURATION_MS}, end_time IS NOT NULL) AS median"
+        f" FROM {observations} FINAL WHERE {where}"
+    )
+    numeric = _project_where("data_type = {numeric:String}", "value IS NOT NULL")
+    averages = (
+        "SELECT name, avg(value) AS average"
+        f" FROM {scores} FINAL WHERE {numeric}"
+        f" AND trace_id IN (SELECT trace_id FROM {observations} FINAL WHERE {where})"
+        " GROUP BY name ORDER BY name"
+    )
+    return {"totals": (totals, params), "scores": (averages, {**params, "numeric": "NUMERIC"})}
+
+
+def build_prompt_generations(
+    project_id: str,
+    name: str,
+    version: int | None,
+    limit: int,
+    query: PromptMetricsQuery | None,
+    observations: str = "observations",
+):
+    where, params = _prompt_where(project_id, name, version, query)
+    sql = (
+        f"SELECT id, trace_id, prompt_version, start_time, model, level,"
+        f" if(end_time IS NULL, NULL, {_DURATION_MS}) AS latency_ms,"
+        f" {_OBS_TOKENS} AS tokens, {_OBS_COST} AS cost"
+        f" FROM {observations} FINAL WHERE {where}"
+        " ORDER BY start_time DESC, id LIMIT {limit:UInt32}"
+    )
+    return sql, {**params, "limit": max(1, min(limit, MAX_PAGE_SIZE))}
+
+
 # --- Aggregates ------------------------------------------------------------------------------
 
 
@@ -645,6 +721,14 @@ def apply_schema(client: Any, database: str) -> None:
     for statement in split_statements(SCHEMA_FILE.read_text()):
         statement = statement.rstrip(";")
         client.command(statement.replace("EXISTS ", f"EXISTS {database}.", 1))
+
+
+def apply_migrations(client: Any, database: str) -> None:
+    """Run the idempotent upgrade statements for installs that predate the current schema."""
+    if not _IDENT.match(database):
+        raise ValueError(f"invalid database name {database!r}")
+    for statement in split_statements(MIGRATIONS_FILE.read_text()):
+        client.command(statement.rstrip(";").replace("ALTER TABLE ", f"ALTER TABLE {database}.", 1))
 
 
 class ClickHouseTraceStore:
@@ -970,6 +1054,51 @@ class ClickHouseTraceStore:
             ],
         )
 
+    def prompt_metrics(
+        self,
+        project_id: str,
+        name: str,
+        version: int | None,
+        query: PromptMetricsQuery | None = None,
+    ) -> PromptMetrics:
+        built = build_prompt_metrics(
+            project_id, name, version, query, self.observations, self.scores
+        )
+        (totals,) = self._select(built["totals"])
+        count = int(totals["count"])
+        median = totals["median"]
+        return PromptMetrics(
+            count=count,
+            median_latency_ms=float(median) if count and median == median else None,
+            total_tokens=int(totals["tokens"] or 0),
+            total_cost=float(totals["cost"] or 0.0),
+            scores={r["name"]: float(r["average"]) for r in self._select(built["scores"])},
+        )
+
+    def list_prompt_generations(
+        self,
+        project_id: str,
+        name: str,
+        version: int | None,
+        limit: int = RECENT_LIMIT,
+        query: PromptMetricsQuery | None = None,
+    ) -> list[PromptGeneration]:
+        built = build_prompt_generations(project_id, name, version, limit, query, self.observations)
+        return [
+            PromptGeneration(
+                observation_id=r["id"],
+                trace_id=r["trace_id"],
+                version=r["prompt_version"],
+                start_time=_utc(r["start_time"]),
+                model=r["model"],
+                latency_ms=None if r["latency_ms"] is None else float(r["latency_ms"]),
+                tokens=int(r["tokens"] or 0),
+                cost=float(r["cost"] or 0.0),
+                level=r["level"],
+            )
+            for r in self._select(built)
+        ]
+
 
 def build_trace_rows(project_id: str, trace_ids: Sequence[str], table: str = "traces"):
     return _by_ids(table, TRACE_COLUMNS, "id", trace_ids, project_id, "id")
@@ -977,6 +1106,7 @@ def build_trace_rows(project_id: str, trace_ids: Sequence[str], table: str = "tr
 
 __all__ = [
     "ClickHouseTraceStore",
+    "apply_migrations",
     "apply_schema",
     "build_dashboard",
     "build_list_traces",

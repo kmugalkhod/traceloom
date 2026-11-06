@@ -1,0 +1,17 @@
+{# The compare panel fragment (see routers/playground_compare.py). #}
+{% import "_macros.html" as m with context %}
+<section class="compare" id="compare-panel" aria-label="Compare variants" data-max="{{ max_variants }}" data-run-url="/project/{{ project.id }}/playground/run">
+  <script type="application/json" id="compare-data">{{ connections | tojson }}</script>
+  <header class="compare-h">
+    <h2>Compare</h2>
+    <span class="hint">Up to {{ max_variants }} variants run on the same inputs, side by side.</span>
+    <span class="right row">
+      <button type="button" class="btn btn-sm" data-add-variant>{{ m.icon("i-plus", "ico-sm") }}Add variant</button>
+      <button type="button" class="btn btn-primary btn-sm" data-run-all>{{ m.icon("i-play", "ico-sm") }}Run all</button>
+      <button type="button" class="btn btn-sm" data-stop-all disabled>{{ m.icon("i-stop", "ico-sm") }}Stop all</button>
+    </span>
+  </header>
+  {% if not connections %}{{ m.banner("warn", "Add an LLM connection in Settings to run variants.") }}{% endif %}
+  <div class="cmp-grid" data-count="1" data-grid></div>
+  <template id="variant-tpl">{% include "playground/_variant.html" %}</template>
+</section>

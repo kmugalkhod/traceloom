@@ -5,6 +5,7 @@
     {% if pane.kind == "observation" %}<span class="ty ty-{{ pane.type }}" title="{{ pane.type }}">{{ m.icon("i-" ~ pane.type if pane.type in icon_types else "i-span") }}</span>{% endif %}
     <h2>{{ pane.title }}</h2>
     {% if pane.level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif pane.level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% endif %}
+    {% if pane.kind == "observation" %}{% include "traces/_io_header.html" %}{% endif %}
     <span class="right row mono muted"><span id="pane-id">{{ pane.id }}</span><button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="Copy id" title="Copy id" data-copy="#pane-id">{{ m.icon("i-copy") }}</button></span>
   </div>
   {% if pane.kind == "observation" %}
@@ -22,6 +23,7 @@
     <div><dt>Cost</dt><dd>{{ pane.cost_total or "–" }}
       {% if pane.cost_source == "provided" %}<span class="src provided">provided</span>{% elif pane.cost_source == "calculated" %}<span class="src calc">calculated</span>{% endif %}</dd></div>
     <div><dt>First token</dt><dd>{{ pane.ttft or "–" }}</dd></div>
+    {% if pane.prompt_label %}<div><dt>Prompt</dt><dd><a href="{{ pane.prompt_url }}" data-prompt-link>{{ pane.prompt_label }}</a></dd></div>{% endif %}
     {% if pane.params %}<div class="wide"><dt>Parameters</dt><dd>{% for k, v in pane.params %}{{ k }} {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</dd></div>{% endif %}
   </dl>
   {% endif %}

@@ -23,6 +23,15 @@ NAV = (
 )
 
 
+BUILD_NAV = (
+    ("prompts", "Prompts", "i-prompt", "prompts"),
+    ("playground", "Playground", "i-play", "playground"),
+)
+# Phone bottom bar: four destinations and a "More" sheet holding the rest.
+BOTTOM_NAV = ("traces", "prompts", "playground", "dashboard")
+MORE_NAV = ("sessions", "users")
+
+
 def initials(text: str) -> str:
     parts = [p for p in text.replace("@", " ").replace(".", " ").split() if p]
     if not parts:
@@ -50,6 +59,19 @@ class Shell:
         project_id = self.project.id if self.project else None
         base = f"/project/{project_id}" if project_id else None
         can_fn: Callable[[Perm | str], bool] = lambda perm: can(self.role, Perm(perm))  # noqa: E731
+
+        def link(key: str, label: str, icon: str, path: str) -> dict[str, Any]:
+            return {
+                "key": key,
+                "label": label,
+                "icon": icon,
+                "href": f"{base}/{path}" if base else "/orgs/new",
+                "current": self.active == key,
+            }
+
+        everything = {
+            key: link(key, label, icon, path) for key, label, icon, path in NAV + BUILD_NAV
+        }
         return {
             "shell": True,
             "user": {
@@ -66,16 +88,10 @@ class Shell:
             "role_label": self.role.name.title() if self.role else "",
             "can": can_fn,
             "active": self.active,
-            "nav": [
-                {
-                    "key": key,
-                    "label": label,
-                    "icon": icon,
-                    "href": f"{base}/{path}" if base else "/orgs/new",
-                    "current": self.active == key,
-                }
-                for key, label, icon, path in NAV
-            ],
+            "nav": [link(*item) for item in NAV],
+            "build_nav": [link(*item) for item in BUILD_NAV],
+            "bottom_nav": [everything[key] for key in BOTTOM_NAV],
+            "more_nav": [everything[key] for key in MORE_NAV],
             "settings": {
                 "href": f"{base}/settings" if base else "/orgs/new",
                 "current": self.active == "settings",
@@ -166,6 +182,10 @@ def settings_tabs(project_id: str, current: str, role: Role | None) -> list[dict
         tabs.append(("keys", "API keys", f"{base}/keys"))
     if can(role, Perm.MODEL_DEFINITIONS):
         tabs.append(("models", "Models", f"{base}/models"))
+    if can(role, Perm.LLM_CONNECTIONS):
+        tabs.append(("connections", "LLM connections", f"{base}/connections"))
+    if can(role, Perm.WEBHOOKS):
+        tabs.append(("webhooks", "Webhooks", f"{base}/webhooks"))
     if can(role, Perm.PROJECT_SETTINGS):
         tabs.append(("audit", "Audit log", f"{base}/audit"))
     return [

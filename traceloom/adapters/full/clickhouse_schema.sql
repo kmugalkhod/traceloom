@@ -65,7 +65,8 @@ CREATE TABLE IF NOT EXISTS observations
     prompt_name Nullable(String),
     prompt_version Nullable(Int32),
     event_ts DateTime64(3, 'UTC'),
-    INDEX idx_start start_time TYPE minmax GRANULARITY 1
+    INDEX idx_start start_time TYPE minmax GRANULARITY 1,
+    INDEX idx_prompt_name coalesce(prompt_name, '') TYPE bloom_filter(0.01) GRANULARITY 4
 )
 ENGINE = ReplacingMergeTree(event_ts)
 ORDER BY (project_id, trace_id, id);

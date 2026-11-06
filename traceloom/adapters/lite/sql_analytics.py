@@ -16,7 +16,7 @@ from collections.abc import Sequence
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import ColumnElement, Integer, Select, and_, cast, func, or_, select
+from sqlalchemy import ColumnElement, Integer, Select, and_, case, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from traceloom.adapters.lite.sql_read import _scores_by_trace, score_to_row, trace_to_row
@@ -27,6 +27,9 @@ from traceloom.ports import (
     DashboardQuery,
     InvalidCursor,
     Page,
+    PromptGeneration,
+    PromptMetrics,
+    PromptMetricsQuery,
     SessionDetail,
     SessionQuery,
     SessionRow,
@@ -108,6 +111,26 @@ def _trace_filters(
         clauses.append(Trace.timestamp >= from_time)
     if to_time is not None:
         clauses.append(Trace.timestamp <= to_time)
+    return clauses
+
+
+def _prompt_filters(
+    project_id: str, name: str, version: int | None, query: PromptMetricsQuery | None
+) -> list[ColumnElement[bool]]:
+    clauses: list[ColumnElement[bool]] = [
+        Observation.project_id == project_id,
+        Observation.type == "generation",
+        Observation.prompt_name == name,
+    ]
+    if version is not None:
+        clauses.append(Observation.prompt_version == version)
+    if query is not None:
+        if query.environment is not None:
+            clauses.append(Observation.environment == query.environment)
+        if query.from_time is not None:
+            clauses.append(Observation.start_time >= query.from_time)
+        if query.to_time is not None:
+            clauses.append(Observation.start_time <= query.to_time)
     return clauses
 
 
@@ -438,6 +461,95 @@ class SqlAnalyticsMixin:
             }
         data.traces_over_time = _fill_buckets(counts, query.from_time, query.to_time, query.bucket)
         return data
+
+    # --- prompt metrics ---------------------------------------------------------------------
+
+    def prompt_metrics(
+        self,
+        project_id: str,
+        name: str,
+        version: int | None,
+        query: PromptMetricsQuery | None = None,
+    ) -> PromptMetrics:
+        where = _prompt_filters(project_id, name, version, query)
+        with self.session_factory() as s:
+            dialect = _dialect(s)
+            duration = _epoch_ms(Observation.end_time, dialect) - _epoch_ms(
+                Observation.start_time, dialect
+            )
+            # One pass over the matching generations. Rows without an end time have a NULL
+            # duration, which the median ignores.
+            finished = case((Observation.end_time.is_not(None), duration))
+            count, tokens, cost, median = s.execute(
+                select(
+                    func.count(),
+                    func.coalesce(func.sum(_obs_tokens()), 0),
+                    func.coalesce(func.sum(_obs_cost()), 0.0),
+                    _percentile(finished, 0.5, dialect),
+                ).where(*where)
+            ).one()
+            scores: dict[str, float] = {}
+            if count:
+                trace_ids = select(Observation.trace_id).where(*where)
+                scores = {
+                    n: float(avg)
+                    for n, avg in s.execute(
+                        select(Score.name, func.avg(Score.value))
+                        .where(
+                            Score.project_id == project_id,
+                            Score.data_type == "NUMERIC",
+                            Score.value.is_not(None),
+                            Score.trace_id.in_(trace_ids),
+                        )
+                        .group_by(Score.name)
+                        .order_by(Score.name)
+                    )
+                }
+        return PromptMetrics(
+            count=int(count),
+            median_latency_ms=None if median is None else float(median),
+            total_tokens=int(tokens),
+            total_cost=float(cost),
+            scores=scores,
+        )
+
+    def list_prompt_generations(
+        self,
+        project_id: str,
+        name: str,
+        version: int | None,
+        limit: int = RECENT_LIMIT,
+        query: PromptMetricsQuery | None = None,
+    ) -> list[PromptGeneration]:
+        where = _prompt_filters(project_id, name, version, query)
+        with self.session_factory() as s:
+            stmt = (
+                select(Observation, _obs_tokens().label("tokens"), _obs_cost().label("cost"))
+                .where(*where)
+                .order_by(Observation.start_time.desc(), Observation.id)
+                .limit(_page_limit(limit))
+            )
+            rows = [
+                PromptGeneration(
+                    observation_id=o.id,
+                    trace_id=o.trace_id,
+                    version=o.prompt_version,
+                    start_time=o.start_time.replace(tzinfo=UTC)
+                    if o.start_time.tzinfo is None
+                    else o.start_time,
+                    model=o.model,
+                    latency_ms=(
+                        None
+                        if o.end_time is None
+                        else (o.end_time - o.start_time).total_seconds() * 1000
+                    ),
+                    tokens=int(tokens or 0),
+                    cost=float(cost or 0.0),
+                    level=o.level,
+                )
+                for o, tokens, cost in s.execute(stmt)
+            ]
+        return rows
 
     @staticmethod
     def _by_model(

@@ -4,7 +4,19 @@
 {% block content %}
 <link rel="stylesheet" href="/static/pages.css">
 <div class="page-h"><div class="crumbs"><a href="/project/{{ project.id }}/sessions">Sessions</a>{{ m.icon("i-chev-r", "ico-sm") }}<span class="mono">{{ session.session_id }}</span></div></div>
-<h1 class="mono">{{ session.session_id }}</h1>
+<div class="th-title">
+  <h1 class="mono">{{ session.session_id }}</h1>
+  <span class="right row-wrap">
+    <a class="btn" href="/project/{{ project.id }}/traces?session={{ session.session_id | urlencode }}">{{ m.icon("i-traces") }}View traces</a>
+    <span class="menu-wrap">
+      <button type="button" class="btn btn-icon" aria-label="More session actions" aria-haspopup="true" aria-expanded="false" data-menu-toggle="session-menu">{{ m.icon("i-more-h") }}</button>
+      <span class="pop pop-right" id="session-menu" data-menu hidden role="menu" aria-label="Session actions">
+        <button type="button" class="item" role="menuitem" data-copy="{{ session.session_id }}">{{ m.icon("i-copy", "ico-sm") }}Copy session id</button>
+        {% for u in session.user_ids[:5] %}<a class="item" role="menuitem" href="/project/{{ project.id }}/users/{{ u | urlencode }}">{{ m.icon("i-user", "ico-sm") }}Open user <span class="mono trunc">{{ u }}</span></a>{% endfor %}
+      </span>
+    </span>
+  </span>
+</div>
 <div class="statrow">
   <div class="stat"><div class="top">Traces</div><b>{{ session.trace_count }}</b><span class="sub">in time order</span></div>
   <div class="stat"><div class="top">Duration</div><b>{{ session.duration_ms | duration }}</b><span class="sub">{{ session.first_trace_time | when(true) }} to {{ session.last_trace_time | when(true) }}</span></div>

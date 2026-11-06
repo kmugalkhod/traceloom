@@ -1,0 +1,8 @@
+{# Open in playground (Member+) and the prompt a generation was linked to. Part of the IO pane header. #}
+{% import "_macros.html" as m with context %}
+{% if pane.prompt_label and can("prompts:read") %}
+  <a class="chip io-prompt" href="{{ pane.prompt_url }}" title="Prompt {{ pane.prompt_label }}" data-prompt-link>{{ m.icon("i-prompt", "ico-sm") }}prompt: {{ pane.prompt_label }}</a>
+{% endif %}
+{% if pane.playground_url and can("playground:run") %}
+  <a class="btn btn-sm io-open-pg" href="{{ pane.playground_url }}" aria-label="Open in playground" title="Open in playground" data-open-playground>{{ m.icon("i-play", "ico-sm") }}<span class="lbl">Open in playground</span></a>
+{% endif %}
