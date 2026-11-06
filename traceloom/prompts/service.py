@@ -689,9 +689,10 @@ def list_prompts(
     needle = search.strip().lower()
     snippets: dict[str, str] = {}
     if needle:
+        contents = _latest_contents(db, project.id)  # one query, not one per prompt
         kept = []
         for p in prompts:
-            hit, snippet = _match(db, project.id, p, needle)
+            hit, snippet = _match(contents, p, needle)
             if hit:
                 kept.append(p)
                 snippets[p.id] = snippet
@@ -755,17 +756,29 @@ def list_prompts(
     )
 
 
-def _match(db: Session, project_id: str, prompt: Prompt, needle: str) -> tuple[bool, str]:
+def _latest_contents(db: Session, project_id: str) -> dict[str, Any]:
+    """prompt id -> the content of its newest version, for the whole project."""
+    newest = (
+        select(PromptVersion.prompt_id, func.max(PromptVersion.version).label("v"))
+        .where(PromptVersion.project_id == project_id)
+        .group_by(PromptVersion.prompt_id)
+        .subquery()
+    )
+    rows = db.execute(
+        select(PromptVersion.prompt_id, PromptVersion.content).join(
+            newest,
+            (PromptVersion.prompt_id == newest.c.prompt_id) & (PromptVersion.version == newest.c.v),
+        )
+    )
+    return dict(rows.all())
+
+
+def _match(contents: dict[str, Any], prompt: Prompt, needle: str) -> tuple[bool, str]:
     """(matched, snippet). The snippet is the matching content line, only when the name and
     tags did not already explain the match."""
     if needle in prompt.name.lower() or any(needle in t.lower() for t in prompt.tags or []):
         return True, ""
-    latest = db.scalar(
-        select(PromptVersion.content)
-        .where(PromptVersion.project_id == project_id, PromptVersion.prompt_id == prompt.id)
-        .order_by(PromptVersion.version.desc())
-        .limit(1)
-    )
+    latest = contents.get(prompt.id)
     if latest is None:
         return False, ""
     text = latest if isinstance(latest, str) else "\n".join(m.get("content", "") for m in latest)
@@ -773,6 +786,27 @@ def _match(db: Session, project_id: str, prompt: Prompt, needle: str) -> tuple[b
         if needle in line.lower():
             return True, line.strip()[:200]
     return False, ""
+
+
+def folder_tree(
+    db: Session, project: Project, actor: Actor, folder: str = ""
+) -> tuple[int, list[tuple[str, int]], list[tuple[str, int]]]:
+    """(prompts in the project, top-level folders, sub-folders of `folder`) with counts.
+
+    Reads names only, so it stays cheap on large projects.
+    """
+    actor.require(Perm.PROMPTS_READ, "You cannot read prompts in this project.")
+    names = list(db.scalars(select(Prompt.name).where(Prompt.project_id == project.id)))
+
+    def children(prefix: str) -> list[tuple[str, int]]:
+        counts: Counter[str] = Counter()
+        for name in names:
+            if name.startswith(prefix) and "/" in name[len(prefix) :]:
+                counts[prefix + name[len(prefix) :].split("/", 1)[0]] += 1
+        return sorted(counts.items())
+
+    folder = folder.strip("/")
+    return len(names), children(""), children(f"{folder}/") if folder else []
 
 
 def facets(db: Session, project: Project, actor: Actor) -> tuple[list[str], list[str]]:

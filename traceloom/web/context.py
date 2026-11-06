@@ -182,6 +182,10 @@ def settings_tabs(project_id: str, current: str, role: Role | None) -> list[dict
         tabs.append(("keys", "API keys", f"{base}/keys"))
     if can(role, Perm.MODEL_DEFINITIONS):
         tabs.append(("models", "Models", f"{base}/models"))
+    if can(role, Perm.LLM_CONNECTIONS):
+        tabs.append(("connections", "LLM connections", f"{base}/connections"))
+    if can(role, Perm.WEBHOOKS):
+        tabs.append(("webhooks", "Webhooks", f"{base}/webhooks"))
     if can(role, Perm.PROJECT_SETTINGS):
         tabs.append(("audit", "Audit log", f"{base}/audit"))
     return [

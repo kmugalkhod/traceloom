@@ -38,9 +38,33 @@
   }
   function closeMenus(except) {
     document.querySelectorAll('[data-menu]:not([hidden])').forEach(function (m) {
-      if (m !== except) { m.hidden = true; var t = document.querySelector('[data-menu-toggle="' + m.id + '"]'); if (t) { t.setAttribute('aria-expanded', 'false'); } }
+      if (m !== except) { m.hidden = true; unplaceMenu(m); var t = document.querySelector('[data-menu-toggle="' + m.id + '"]'); if (t) { t.setAttribute('aria-expanded', 'false'); } }
     });
   }
+  // Keep a popup menu inside the viewport. It is position:fixed, so no ancestor's overflow can
+  // clip it: right-aligned to its button, flipped above it when there is no room below, never
+  // off an edge. It closes on scroll or resize rather than drifting away from its button.
+  function placeMenu(menu, toggle) {
+    if (menu.classList.contains('pop-picker') || menu.classList.contains('pop-user')) { return; } // sidebar menus size to their box
+    var t = toggle.getBoundingClientRect();
+    var margin = 8, vw = document.documentElement.clientWidth, vh = window.innerHeight;
+    menu.classList.add('is-placed');
+    menu.style.left = '0px'; menu.style.top = '0px'; // measure at a neutral spot
+    var w = menu.offsetWidth, h = menu.offsetHeight;
+    var rightAligned = menu.classList.contains('pop-right') || t.left + w > vw - margin;
+    var left = rightAligned ? t.right - w : t.left;
+    left = Math.max(margin, Math.min(left, vw - w - margin));
+    var top = t.bottom + 4;
+    if (top + h > vh - margin) { top = t.top - 4 - h >= margin ? t.top - 4 - h : Math.max(margin, vh - h - margin); }
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+  }
+  function unplaceMenu(menu) { menu.classList.remove('is-placed'); menu.style.left = ''; menu.style.top = ''; }
+  document.addEventListener('scroll', function (e) {
+    var open = document.querySelector('[data-menu]:not([hidden]).is-placed');
+    if (open && !open.contains(e.target)) { closeMenus(); }
+  }, true);
+  window.addEventListener('resize', function () { closeMenus(); });
   function helpDialog() { return document.getElementById('help-dialog'); }
   function toggleHelp(force) {
     var d = helpDialog(); if (!d || typeof d.showModal !== 'function') { return; }
@@ -61,6 +85,7 @@
       var menu = document.getElementById(mt.getAttribute('data-menu-toggle'));
       if (menu) {
         var show = menu.hidden; closeMenus(menu); menu.hidden = !show; mt.setAttribute('aria-expanded', String(show));
+        if (show) { placeMenu(menu, mt); } else { unplaceMenu(menu); }
         if (show && e.detail === 0) { var first = menu.querySelector('.item, a[href], button, input'); if (first) { first.focus(); } } // opened by keyboard
       }
       return;
@@ -185,6 +210,7 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     syncThemeControls();
+    document.querySelectorAll('dialog[data-autoopen]').forEach(function (d) { if (typeof d.showModal === 'function' && !d.open) { d.showModal(); } }); // server asked for it (an error to fix, a secret to copy)
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () { syncThemeControls(); });
     var focusMe = document.querySelector('[autofocus-field]'); if (focusMe) { focusMe.focus(); }
   });
