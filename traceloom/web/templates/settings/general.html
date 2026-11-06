@@ -1,0 +1,37 @@
+{% extends "settings/base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Settings{% endblock %}
+{% block settings_body %}
+<div class="stack">
+  {% if saved %}{{ m.banner("ok", "Project settings saved.") }}{% endif %}
+  {% if error %}{{ m.banner("err", error) }}{% endif %}
+  <div class="panel w-640">
+    <div class="panel-h"><h2>Project</h2></div>
+    {% if can(Perm.PROJECT_SETTINGS) %}
+    <form class="panel-b stack" method="post" action="/project/{{ project.id }}/settings">
+      {{ m.csrf() }}
+      {{ m.field("name", "Project name", value=values.name, required=True) }}
+      {{ m.field("pid", "Project id", name="pid", value=project.id, readonly=True) }}
+      <div class="row"><button class="btn btn-primary" type="submit">Save changes</button></div>
+    </form>
+    {% else %}
+    <dl class="panel-b stack kv">
+      <div><dt class="lbl">Project name</dt><dd>{{ project.name }}</dd></div>
+      <div><dt class="lbl">Project id</dt><dd class="mono">{{ project.id }}</dd></div>
+      <div><dt class="lbl">Your role</dt><dd>{{ role_label }}</dd></div>
+    </dl>
+    {% endif %}
+  </div>
+
+  {% if can(Perm.PROJECT_CREATE) %}
+  <div class="panel w-640">
+    <div class="panel-h"><h2>New project</h2><span class="hint">in {{ org.name }}</span></div>
+    <form class="panel-b row-wrap items-end" method="post" action="/orgs/{{ org.id }}/projects">
+      {{ m.csrf() }}
+      <div class="field grow min-200"><label for="new-project">Project name</label><input class="input" id="new-project" name="name" value="{{ new_project_name }}" required></div>
+      <button class="btn" type="submit">{{ m.icon("i-plus") }}Create project</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

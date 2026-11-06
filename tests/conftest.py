@@ -46,7 +46,7 @@ def settings(tmp_path: Path) -> Settings:
         TRACELOOM_MODE="lite",
         DATABASE_URL=f"sqlite:///{tmp_path / 'test.db'}",
         TRACELOOM_BLOB_DIR=str(tmp_path / "blobs"),
-        TRACELOOM_SECRET_KEY="test-secret-key-not-for-production",
+        TRACELOOM_SERVER_SECRET="test-secret-key-not-for-production",
     )
 
 

@@ -37,7 +37,8 @@ def test_wrong_csrf_token_is_rejected(client, world, login):
     login(client, world.user(Role.ADMIN), csrf=False)
     client.get("/api/public/health")
     assert client.post("/probe/echo", headers={"X-CSRF-Token": "forged.token"}).status_code == 403
-    other = client.cookies[CSRF_COOKIE][:-1] + "0"
+    token = client.cookies[CSRF_COOKIE]
+    other = token[:-1] + ("1" if token[-1] == "0" else "0")  # always differs from the real token
     assert client.post("/probe/echo", headers={"X-CSRF-Token": other}).status_code == 403
 
 
@@ -78,7 +79,7 @@ def test_session_and_csrf_cookies_are_secure_in_production(tmp_path):
 
     s = Settings(
         TRACELOOM_ENV="production",
-        TRACELOOM_SECRET_KEY="p" * 32,
+        TRACELOOM_SERVER_SECRET="p" * 32,
         DATABASE_URL=f"sqlite:///{tmp_path / 'p.db'}",
     )
     with TestClient(create_app(s)) as c:

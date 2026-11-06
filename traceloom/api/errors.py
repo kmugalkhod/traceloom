@@ -6,12 +6,11 @@ get a redirect to the login page on 401, and a plain HTML error page otherwise.
 
 from __future__ import annotations
 
-from html import escape
 from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 CODES = {
@@ -56,8 +55,9 @@ def _respond(request: Request, status: int, message: str, headers: dict | None =
         if request.headers.get("hx-request"):  # HTMX swaps would nest the login page
             return Response(status_code=401, headers={"HX-Redirect": login})
         return RedirectResponse(login, status_code=303)
-    page = f"<!doctype html><title>{status}</title><h1>{status}</h1><p>{escape(message)}</p>"
-    return HTMLResponse(page, status_code=status, headers=headers)
+    from traceloom.web.pages import error_page  # late import: web depends on this module
+
+    return error_page(request, status, message, headers)
 
 
 def install_error_handlers(app: FastAPI) -> None:

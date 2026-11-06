@@ -1,9 +1,9 @@
 # Full mode: web, worker, Postgres, Redis, ClickHouse and MinIO. Memory limits total 4.8 GB.
-#   TRACELOOM_SECRET_KEY=$(openssl rand -hex 32) docker compose up --build
+#   TRACELOOM_SERVER_SECRET=$(openssl rand -hex 32) docker compose up --build
 x-traceloom-env: &traceloom-env
   TRACELOOM_MODE: full
   TRACELOOM_ENV: ${TRACELOOM_ENV:-dev}
-  TRACELOOM_SECRET_KEY: ${TRACELOOM_SECRET_KEY:-}
+  TRACELOOM_SERVER_SECRET: ${TRACELOOM_SERVER_SECRET:-}
   DATABASE_URL: postgresql+psycopg://traceloom:${POSTGRES_PASSWORD:-traceloom}@postgres:5432/traceloom
   REDIS_URL: redis://redis:6379/0
   S3_ENDPOINT_URL: http://minio:9000

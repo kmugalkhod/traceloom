@@ -34,7 +34,7 @@ Full mode runs web, worker, Postgres, Redis, ClickHouse and MinIO. Memory limits
 (web 768 MB, worker 768 MB, Postgres 512 MB, Redis 256 MB, ClickHouse 2 GB, MinIO 512 MB).
 
 ```bash
-export TRACELOOM_SECRET_KEY=$(openssl rand -hex 32)   # keep it: API key hashes depend on it
+export TRACELOOM_SERVER_SECRET=$(openssl rand -hex 32)   # keep it: API key hashes depend on it
 docker compose up --build
 docker compose exec web traceloom seed-demo
 ```
