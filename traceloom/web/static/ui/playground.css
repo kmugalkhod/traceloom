@@ -1,0 +1,10 @@
+/* Playground (FR-PP3): the Run-with row and the Prompt/Response panels follow the shared
+   control heights (36px) and panel header rules (52px); the two panels share a top. */
+.pgtool{align-items:center;gap:var(--sp-5)}
+.pgtool .lbl{display:inline-flex;align-items:center;height:var(--ctl-h)}
+.pgtool .select,.pgtool .input{height:var(--ctl-h)}
+.pgx{align-items:stretch;gap:var(--sp-7)}
+.pgx>.panel{align-self:stretch;margin:0}
+.pgx>.panel>.panel-h{height:var(--panel-head-h);flex:none}
+.pgx .variant-h{min-height:var(--panel-head-h);padding:0 var(--sp-6)}
+.pgx .variant-cfg .field{gap:var(--sp-3)}
