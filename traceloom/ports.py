@@ -277,8 +277,13 @@ class TraceStore(Protocol):
     def get_existing(
         self, project_id: str, ids_by_kind: Mapping[str, Sequence[str]]
     ) -> dict[str, dict[str, Any]]:
-        """Stored rows for the given ids, keyed kind -> id. Kinds: trace, observation, score."""
+        """Stored rows (TraceRow / ObservationRow / ScoreRow) keyed kind -> id.
+
+        Kinds: trace, observation, score. Missing ids are simply absent.
+        """
         ...
+
+    def add_score(self, project_id: str, score: ScoreRow) -> None: ...
 
     def refresh_trace_aggregates(self, project_id: str, trace_ids: Sequence[str]) -> None: ...
 
@@ -303,6 +308,14 @@ class TraceStore(Protocol):
     def get_user_summary(self, project_id: str, user_id: str) -> UserSummary | None: ...
 
     def dashboard(self, project_id: str, query: DashboardQuery) -> DashboardData: ...
+
+
+class BlobStoreError(Exception):
+    """A blob operation failed (disk full, S3 unreachable, ...)."""
+
+
+class BlobNotFound(BlobStoreError):
+    pass
 
 
 @runtime_checkable
