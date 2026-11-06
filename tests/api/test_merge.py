@@ -229,3 +229,49 @@ def test_derived_total_does_not_go_stale_when_parts_change():
     explicit = ev("generation-update", 3, id="o1", usage_details={"total": 99})
     again = merge_events([explicit], Existing(first.traces, {"o1": got})).observations["o1"]
     assert again.usage_details["total"] == 99
+
+
+class _NoModels:
+    def find(self, *args):
+        return None
+
+
+def _ingest(stored, event):
+    """One batch: merge against what is stored, derive totals, store the result."""
+    from traceloom.cost.pricing import apply_cost
+
+    result = merge_events([event], stored)
+    for obs in result.observations.values():
+        apply_cost(obs, "p1", _NoModels())
+    return Existing(
+        {**stored.traces, **result.traces}, {**stored.observations, **result.observations}
+    )
+
+
+def test_derived_totals_do_not_depend_on_arrival_order():
+    a = ev(
+        "generation-create", 1, id="o1", trace_id="t1",
+        usage_details={"output": 5}, cost_details={"output": 0.5},
+    )  # fmt: skip
+    b = ev(
+        "generation-update", 2, id="o1", usage_details={"input": 10}, cost_details={"input": 0.25}
+    )
+    for first, second in ((a, b), (b, a)):
+        got = _ingest(_ingest(Existing(), first), second).observations["o1"]
+        assert got.usage_details == {"input": 10, "output": 5, "total": 15}
+        assert got.cost_details == {"input": 0.25, "output": 0.5, "total": 0.75}
+
+
+def test_a_provided_total_survives_an_older_event():
+    newer = ev("generation-create", 2, id="o1", trace_id="t1", usage_details={"total": 99})
+    older = ev(
+        "generation-update", 1, id="o1", usage_details={"input": 10}, cost_details={"total": 1.5}
+    )
+    newest = ev("generation-update", 3, id="o1", cost_details={"input": 0.25})
+    got = _ingest(_ingest(Existing(), newer), older).observations["o1"]
+    assert got.usage_details == {"input": 10, "total": 99}
+    assert got.cost_details == {"total": 1.5}
+    # an older derived total gives way to a provided one
+    stored = _ingest(Existing(), newest)
+    got = _ingest(stored, older).observations["o1"]
+    assert got.cost_details == {"input": 0.25, "total": 1.5}

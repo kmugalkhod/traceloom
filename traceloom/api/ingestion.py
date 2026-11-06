@@ -34,7 +34,7 @@ async def read_body(request: Request, max_bytes: int) -> bytes:
 
 @router.post("/ingestion", status_code=207)
 async def ingest(request: Request, key: ResolvedKey = Depends(project_key)) -> JSONResponse:
-    enforce_ingest_rate_limit(request, key)
+    await run_in_threadpool(enforce_ingest_rate_limit, request, key)  # Redis in full mode
     container = request.app.state.container
     limits = IngestLimits(container.settings.ingest_max_events, container.settings.ingest_max_bytes)
     try:

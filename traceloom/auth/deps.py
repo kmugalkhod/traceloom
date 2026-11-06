@@ -11,11 +11,12 @@ import binascii
 import hmac
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi import Depends, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
+from starlette.datastructures import FormData
 
 from traceloom.auth.api_keys import ResolvedKey, hash_secret
 from traceloom.auth.permissions import Perm, Role, can
@@ -27,6 +28,13 @@ from traceloom.db.session import get_db
 
 def get_container(request: Request) -> Container:
     return request.app.state.container
+
+
+async def form_data(request: Request) -> FormData:
+    """The parsed form body, read on the event loop. Routes that take it stay plain `def`, so
+    their database and store work runs in the thread pool, not on the loop. List it after the
+    auth dependencies so a 401/403 never reads the body."""
+    return await request.form()
 
 
 # --- Users --------------------------------------------------------------------------------
@@ -151,14 +159,28 @@ def project_key(
             key.last_used_at is None
             or (now - key.last_used_at).total_seconds() > LAST_USED_RESOLUTION
         ):
-            key.last_used_at = now
-            db.flush()
+            _stamp_last_used(container, key.id, now)
         resolved = ResolvedKey(key.id, key.project_id, key.public_key)
         container.api_key_cache.put(public_key, secret_hash, resolved)
     path_project = request.path_params.get("project_id")
     if path_project is not None and path_project != resolved.project_id:
         raise HTTPException(403, "This API key belongs to a different project.")
     return resolved
+
+
+def _stamp_last_used(container: Container, key_id: str, now: datetime) -> None:
+    """Record use in a short transaction of its own. On the request session the write lock
+    would be held until the endpoint finishes, slow body upload included."""
+    stale = now - timedelta(seconds=LAST_USED_RESOLUTION)
+    with container.session_factory.begin() as s:
+        s.execute(
+            update(ApiKey)
+            .where(
+                ApiKey.id == key_id,
+                or_(ApiKey.last_used_at.is_(None), ApiKey.last_used_at < stale),
+            )
+            .values(last_used_at=now)
+        )
 
 
 def revoke_api_key(db: Session, container: Container, key_id: str) -> bool:

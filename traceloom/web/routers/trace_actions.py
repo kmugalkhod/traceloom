@@ -16,8 +16,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from starlette.datastructures import FormData
 
-from traceloom.auth.deps import Access, get_container, require
+from traceloom.auth.deps import Access, form_data, get_container, require
 from traceloom.auth.permissions import Perm, can
 from traceloom.container import Container
 from traceloom.db.models import Comment, User
@@ -220,14 +221,14 @@ def discussion_fragment(
 
 
 @router.post(BASE + "/comments", response_class=HTMLResponse)
-async def add_comment(
+def add_comment(
     request: Request,
     trace_id: str,
     access: Access = Depends(require(Perm.ANNOTATE)),
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
+    form: FormData = Depends(form_data),
 ):
-    form = await request.form()
     detail = _detail(container, access.project.id, trace_id)
     body = str(form.get("body", ""))
     observation_id = str(form.get("observation_id", "")) or None
@@ -273,8 +274,8 @@ def delete_comment(
     detail = _detail(container, access.project.id, trace_id)
     try:
         found = comment_service.delete_comment(
-            db, project_id=access.project.id, comment_id=comment_id, user=access.user,
-            role=access.role,
+            db, project_id=access.project.id, trace_id=trace_id, comment_id=comment_id,
+            user=access.user, role=access.role,
         )  # fmt: skip
     except comment_service.NotAllowed as exc:
         raise HTTPException(403, str(exc)) from exc
@@ -316,14 +317,14 @@ def parse_score(data_type: str, raw: str) -> tuple[float | None, str | None, str
 
 
 @router.post(BASE + "/scores", response_class=HTMLResponse)
-async def add_score(
+def add_score(
     request: Request,
     trace_id: str,
     access: Access = Depends(require(Perm.ANNOTATE)),
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
+    form: FormData = Depends(form_data),
 ):
-    form = await request.form()
     detail = _detail(container, access.project.id, trace_id)
     fields = {
         "name": str(form.get("name", "")).strip(),
@@ -371,14 +372,14 @@ async def add_score(
 
 
 @router.post(BASE + "/bookmark", response_class=HTMLResponse)
-async def set_bookmark(
+def set_bookmark(
     request: Request,
     trace_id: str,
     access: Access = Depends(require(Perm.ANNOTATE)),
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
+    form: FormData = Depends(form_data),
 ):
-    form = await request.form()
     detail = _detail(container, access.project.id, trace_id)
     value = str(form.get("value", "1")) in ("1", "true", "on")
     container.trace_store.update_trace_flags(access.project.id, trace_id, bookmarked=value)
@@ -395,14 +396,14 @@ def _clean_tag(raw: str) -> str:
 
 
 @router.post(BASE + "/tags", response_class=HTMLResponse)
-async def add_tag(
+def add_tag(
     request: Request,
     trace_id: str,
     access: Access = Depends(require(Perm.ANNOTATE)),
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
+    form: FormData = Depends(form_data),
 ):
-    form = await request.form()
     detail = _detail(container, access.project.id, trace_id)
     tag = _clean_tag(str(form.get("tag", "")))
     if not tag:
@@ -427,14 +428,14 @@ async def add_tag(
 
 
 @router.post(BASE + "/tags/remove", response_class=HTMLResponse)
-async def remove_tag(
+def remove_tag(
     request: Request,
     trace_id: str,
     access: Access = Depends(require(Perm.ANNOTATE)),
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
+    form: FormData = Depends(form_data),
 ):
-    form = await request.form()
     detail = _detail(container, access.project.id, trace_id)
     tag = str(form.get("tag", ""))
     tags = [t for t in detail.trace.tags if t != tag]
@@ -452,14 +453,14 @@ async def remove_tag(
 
 
 @router.post(BASE + "/share", response_class=HTMLResponse)
-async def set_share(
+def set_share(
     request: Request,
     trace_id: str,
     access: Access = Depends(require(Perm.SHARE_TOGGLE)),
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
+    form: FormData = Depends(form_data),
 ):
-    form = await request.form()
     _detail(container, access.project.id, trace_id)
     enabled = str(form.get("enabled", "0")) in ("1", "true", "on")
     container.trace_store.update_trace_flags(access.project.id, trace_id, public=enabled)

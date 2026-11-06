@@ -157,3 +157,17 @@ def test_notes_are_escaped(client, world, login):
     create(client, world, note="<img src=x onerror=alert(1)>")
     html = client.get(keys_url(world), headers=H).text
     assert "<img src=x" not in html and "&lt;img src=x" in html
+
+
+def test_last_used_is_committed_on_its_own_not_with_the_request(client, world, make_key, container):
+    """The stamp is a short transaction of its own: a request that fails (and rolls back its
+    session) still records it, and no write lock is held while the request runs."""
+    key, public, secret = make_key(world.project)
+    r = client.post(
+        "/api/public/ingestion",
+        content=b"not json",
+        headers={**basic(public, secret), "Content-Type": "application/json"},
+    )
+    assert r.status_code == 400
+    with container.session_factory() as s:
+        assert s.get(ApiKey, key.id).last_used_at is not None
