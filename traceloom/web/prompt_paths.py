@@ -1,8 +1,9 @@
 """URL helpers shared by the prompt pages.
 
 Prompt names contain `/`, so routes take them as paths. `{name:promptname}` is a path that is
-never the literal `new`, which keeps `/prompts/new` for the new-prompt editor regardless of the
-order the routers are included in.
+never the literal `new` (that is the new-prompt editor) and never ends in `/metrics` (that is
+the metrics tab), whatever order the routers are included in. A prompt whose name ends in
+`/metrics` therefore has no page of its own; it is still reachable through the API.
 """
 
 from __future__ import annotations
@@ -13,7 +14,7 @@ from starlette.convertors import CONVERTOR_TYPES, StringConvertor
 
 
 class PromptNameConvertor(StringConvertor):
-    regex = r"(?!new$)[^/].*"
+    regex = r"(?!new$)(?!.*/metrics$)[^/].*"
 
     def convert(self, value: str) -> str:
         return str(value)

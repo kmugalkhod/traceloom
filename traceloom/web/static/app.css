@@ -1080,3 +1080,13 @@ dialog.dlg .dialog{width:100%}
 .mcard.ph .ed-hl,.mcard.ph .ed-ta{font-family:var(--font-ui)}
 .mcard .role-sel{font:inherit;font-size:12.5px;font-weight:600}
 .mcard header .grow{flex:1}
+
+/* ===== Prompt detail ===== */
+.toast-pos{position:fixed}
+.menu-form{display:flex;flex-direction:column;gap:6px;padding:6px 8px}
+.menu-form .hd{padding:0}
+.pop .item.danger{color:var(--err)}
+.tabs a[role=tab]{display:inline-flex;align-items:center;padding:0 14px;color:var(--ink-2);font-weight:500;border-bottom:2px solid transparent}
+.tabs a[role=tab][aria-selected=true]{color:var(--ink);font-weight:600;border-bottom-color:var(--accent-solid)}
+.compare-arrow{align-self:end;padding-bottom:8px}
+.sk-line{height:14px;margin:6px 0}

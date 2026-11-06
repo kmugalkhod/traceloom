@@ -1,0 +1,59 @@
+{# Resolved preview: includes expanded, variables filled from the form. Text is escaped upstream. #}
+{% import "_macros.html" as m with context %}
+{% macro parts(items) -%}
+{%- for p in items -%}
+  {%- if p.kind == "text" -%}{{ p.html }}
+  {%- else -%}<div class="incl"><header>{{ m.icon("i-link", "ico-sm") }}Included from {{ p.name }} · {{ p.via }} → v{{ p.version }}</header><div>{{ parts(p.children) }}</div></div>
+  {%- endif -%}
+{%- endfor -%}
+{%- endmacro %}
+<div class="vsplit">
+  <form class="panel" method="get" action="{{ base }}" hx-get="{{ base }}" hx-target="#tab-panel" hx-push-url="true" hx-trigger="change, keyup changed delay:400ms">
+    <div class="panel-h"><h2>Variables</h2></div>
+    <div class="panel-b stack">
+      <input type="hidden" name="tab" value="preview">
+      <div class="field"><label for="pv-version">Version</label>
+        <select class="select" id="pv-version" name="version" data-autosubmit>
+          {% for v in versions %}<option value="{{ v.row.version }}"{% if v.row.version == selected.version %} selected{% endif %}>v{{ v.row.version }}{% if v.labels %} · {{ v.labels | join(", ") }}{% endif %}</option>{% endfor %}
+        </select></div>
+      {% for var in preview_variables %}
+        <div class="field"><label for="pv-{{ loop.index }}">{{ var }}</label>
+          <input class="input" id="pv-{{ loop.index }}" name="v_{{ var }}" value="{{ preview_values.get(var, '') }}" autocomplete="off"></div>
+      {% else %}
+        <p class="hint">This prompt has no variables.</p>
+      {% endfor %}
+      {% if preview_variables %}
+        <div class="row-wrap">{% if preview_missing %}<span class="stat-chip">{{ preview_missing | length }} left empty</span>{% else %}<span class="stat-chip ok">All variables filled</span>{% endif %}</div>
+      {% endif %}
+      <noscript><button class="btn" type="submit">Update preview</button></noscript>
+    </div>
+  </form>
+
+  <div class="stack">
+    {% if preview_error %}
+      {{ m.banner("err", preview_error) }}
+    {% else %}
+    <div class="panel">
+      <div class="panel-h"><h2>Resolved preview</h2><span class="hint right">Exactly what <span class="mono">get_prompt</span> returns</span></div>
+      <div class="panel-b stack-s">
+        {% for message in preview_messages %}
+          <div class="mcard {{ message.role }}{% if message.role == 'placeholder' %} ph{% endif %}">
+            <header><span class="role-sel">{{ "Prompt" if message.role == "text" else message.role | title }}</span></header>
+            <div class="body">{% if message.role == "placeholder" %}Placeholder for <span class="mono">{{ message.placeholder }}</span>{% else %}{{ parts(message.parts) }}{% endif %}</div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="panel"><div class="panel-h"><h2>Dependencies</h2></div><div class="panel-b">
+      {% if dependencies %}
+      <ul class="deps">
+        {% for d in dependencies %}
+          <li><a href="{{ prompt_url_for(d.name) }}" class="mono">{{ d.name }}</a><span class="vp">v{{ d.version }}</span><span class="muted">via {{ "label" if d.label else "version" }}</span>{% if d.label == PRODUCTION %}<span class="lab prod">{{ m.icon("i-lock", "ico-sm") }}production</span>{% elif d.label %}<span class="lab">{{ d.label }}</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="hint">This prompt includes no other prompts.</p>{% endif %}
+      <p class="hint">Nested up to 5 levels. The resolved result records these exact versions.</p>
+    </div></div>
+    {% endif %}
+  </div>
+</div>

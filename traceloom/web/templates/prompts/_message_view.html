@@ -1,0 +1,4 @@
+{# A read-only message card / text body. `body` is already escaped Markup. #}
+{% macro card(role, body) -%}
+<div class="mcard {{ role }}{% if role == 'placeholder' %} ph{% endif %}"><header><span class="role-sel">{{ role | title }}</span></header><div class="body">{{ body }}</div></div>
+{%- endmacro %}

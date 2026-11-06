@@ -1,0 +1,6 @@
+{# Container only: the metrics partial loads itself from its own URL (T-9). #}
+{% import "_macros.html" as m with context %}
+<div id="metrics-pane" hx-get="{{ metrics_url }}" hx-trigger="load" hx-swap="innerHTML" aria-live="polite" aria-busy="true">
+  <div class="panel"><div class="panel-b stack-s"><div class="sk sk-line"></div><div class="sk sk-line"></div><div class="sk sk-line"></div></div></div>
+  <noscript><p class="hint"><a href="{{ metrics_url }}">Open the metrics</a></p></noscript>
+</div>

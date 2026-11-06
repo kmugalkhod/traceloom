@@ -143,6 +143,44 @@ def resolve_messages(
     return out, run.dependencies
 
 
+@dataclass(frozen=True)
+class Segment:
+    """A piece of an expanded text: literal `text`, or an `include` with its own segments."""
+
+    kind: str  # text | include
+    text: str = ""
+    ref: Reference | None = None
+    resolved: Resolved | None = None
+    children: tuple[Segment, ...] = ()
+
+
+def expand_segments(
+    text: str, resolver: Resolver, *, root: tuple[str, int] | None = None
+) -> tuple[Segment, ...]:
+    """Like `resolve_text`, but keeps the structure so a page can show where text came from.
+
+    Raises CompositionError first for any missing include, cycle or excess depth.
+    """
+    resolve_text(text, resolver, root=root)  # validate; everything below is then safe
+
+    def build(value: str) -> tuple[Segment, ...]:
+        out: list[Segment] = []
+        last = 0
+        for match in _REF_RE.finditer(value):
+            if match.start() > last:
+                out.append(Segment("text", value[last : match.start()]))
+            ref = parse_reference(match.group(0))
+            found = resolver(ref)
+            assert found is not None  # validated above
+            out.append(Segment("include", ref=ref, resolved=found, children=build(found.content)))
+            last = match.end()
+        if last < len(value):
+            out.append(Segment("text", value[last:]))
+        return tuple(out)
+
+    return build(text)
+
+
 def resolve_content(
     prompt_type: str, content: Any, resolver: Resolver, *, root: tuple[str, int] | None = None
 ) -> tuple[Any, list[dict[str, Any]]]:

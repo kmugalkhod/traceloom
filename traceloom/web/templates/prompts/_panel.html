@@ -1,0 +1,6 @@
+{# The active tab's content: swapped in place by HTMX, and included by the full page. #}
+{% import "_macros.html" as m with context %}
+{% if tab == "compare" %}{% include "prompts/_diff.html" %}
+{% elif tab == "preview" %}{% include "prompts/_preview.html" %}
+{% elif tab == "metrics" %}{% include "prompts/_metrics_tab.html" %}
+{% else %}{% include "prompts/_versions.html" %}{% endif %}
