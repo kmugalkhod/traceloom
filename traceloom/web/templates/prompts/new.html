@@ -4,9 +4,10 @@
 {% set is_version = state.mode == "version" %}
 {% block title %}{{ "New version of " ~ state.name if is_version else "New prompt" }}{% endblock %}
 {% block ctx_m %}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Prompts", "href": "/project/" ~ project.id ~ "/prompts"}] + ([{"label": state.name, "href": cancel_url}] if is_version else []) + [{"label": "New version" if is_version else "New"}]) }}{% endblock %}
 {% block scripts %}<script src="/static/prompts.js" defer></script>{% endblock %}
 {% block content %}
-<nav class="crumbs" aria-label="Breadcrumb"><a href="/project/{{ project.id }}/prompts">Prompts</a><span aria-hidden="true">/</span>{% if is_version %}<a href="{{ cancel_url }}">{{ state.name }}</a><span aria-hidden="true">/</span>{% endif %}<span>{{ "New version" if is_version else "New" }}</span></nav>
+<div class="crumbs-m">{{ self.crumbs() }}</div>
 {{ m.page_header("New version of " ~ state.name if is_version else "New prompt", ("Starts from v" ~ state.from_version ~ " and saves as the next version.") if is_version else "The first save creates version 1.") }}
 {% if errors.form %}{{ m.banner("err", errors.form) }}{% endif %}
 
@@ -14,7 +15,7 @@
   {{ m.csrf() }}
   <input type="hidden" name="mode" value="{{ state.mode }}">
   <div class="stack">
-    <div class="panel"><div class="panel-b stack">
+    <div class="panel"><div class="panel-h"><h2>Prompt</h2></div><div class="panel-b stack">
       <div class="field">
         <label for="pn">Name</label>
         {% if is_version %}
@@ -26,7 +27,7 @@
           {% else %}<span class="hint" id="h-pn">Use / to make folders, for example support/triage-classifier.</span>{% endif %}
         {% endif %}
       </div>
-      <div class="row-wrap">
+      <div class="field-row">
         <div class="field"><span class="lbl" id="type-lbl">Type</span>
           {% if is_version %}
             <input type="hidden" name="type" value="{{ state.type }}">

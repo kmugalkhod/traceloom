@@ -1,0 +1,25 @@
+/* Prompts (FR-PP1, FR-PP2): centred empty state, form rhythm, 52px panel headers.
+   Shared control, table and empty-state rules live in base.css. */
+
+/* the folder path shows in the page body on mobile only; desktop has it in the context bar */
+.crumbs-m{display:none}
+@container app (max-width:760px){.crumbs-m{display:block}}
+
+/* forms: label 6px above its field, 16px between fields */
+.editor .field{gap:var(--sp-3)}
+.editor .field>label,.editor .field>.lbl{display:block;line-height:20px}
+.editor .panel-b.stack,.editor .stack-s{gap:var(--sp-6)}
+.editor .stack-s>.field{margin-top:var(--sp-2)}
+
+/* Type and Tags on one row, tops aligned so both labels share a baseline */
+.editor .field-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:var(--sp-6)}
+.editor .field-row>.field{min-width:0}
+.editor .field-row>.field.grow{flex:1 1 220px}
+.editor .seg.radios label{height:var(--ctl-h-sm);min-height:0}
+.editor .field-row .type-pill{display:inline-flex;align-items:center;height:var(--ctl-h)}
+
+/* panel headers, including the collapsible Config panel, are 52px with 16px padding */
+.editor .panel>.panel-h{height:var(--panel-head-h)}
+.editor .panel .cfg>summary{min-height:var(--panel-head-h);padding:0 var(--sp-6)}
+.editor .panel .cfg>div{padding:0 var(--sp-6) var(--sp-6)}
+.vhead{min-height:var(--panel-head-h)}
