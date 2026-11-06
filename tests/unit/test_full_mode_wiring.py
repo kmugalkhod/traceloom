@@ -44,7 +44,7 @@ def test_lite_mode_never_imports_the_full_mode_clients(tmp_path):
         "from traceloom.config import Settings\n"
         "from traceloom.container import build_container\n"
         f"s = Settings(TRACELOOM_ENV='test', TRACELOOM_MODE='lite', DATABASE_URL='sqlite:///{tmp_path}/x.db',"
-        " TRACELOOM_SECRET_KEY='k'*32)\n"
+        " TRACELOOM_SERVER_SECRET='k'*32)\n"
         "c = build_container(s)\n"
         "import traceloom.main\n"
         "full = ('boto3', 'redis', 'dramatiq', 'clickhouse_connect', 'traceloom.container_full')\n"
@@ -100,7 +100,7 @@ def test_configure_wires_the_full_adapters(monkeypatch, tmp_path):
         TRACELOOM_ENV="test",
         TRACELOOM_MODE="full",
         DATABASE_URL=f"sqlite:///{tmp_path}/m.db",
-        TRACELOOM_SECRET_KEY="k" * 32,
+        TRACELOOM_SERVER_SECRET="k" * 32,
         S3_BUCKET="tl-wiring",
     )
     container = Container(settings=settings)

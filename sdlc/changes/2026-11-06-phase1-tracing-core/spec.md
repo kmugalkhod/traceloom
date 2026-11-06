@@ -103,7 +103,7 @@ Build the first runnable Traceloom: a FastAPI web/API server with a worker, lite
 - **FR-P7** `examples/agent.py` runs a support agent: the planner LLM chooses tools, a search tool, a calculator tool and a failing `lookup_order` tool, and a final answer. The result is a 3+ level tree with an agent span, tool spans, generations and one tool ERROR. It runs offline against a built-in fake LLM, with realistic model names and usage, or against Anthropic when `ANTHROPIC_API_KEY` is set. `examples/README.md` explains both.
 
 ### Platform (X)
-- **FR-X1** All settings come from env, documented in `.env.example`. Nothing is hardcoded: ports, `DATABASE_URL`, `TRACELOOM_SECRET_KEY` (startup fails in non-dev if it is unset), mode, Redis, S3, ClickHouse, SMTP, limits and rate limits.
+- **FR-X1** All settings come from env, documented in `.env.example`. Nothing is hardcoded: ports, `DATABASE_URL`, `TRACELOOM_SERVER_SECRET` (startup fails in non-dev if it is unset), mode, Redis, S3, ClickHouse, SMTP, limits and rate limits. — renamed TRACELOOM_SERVER_SECRET (it clashed with the SDK's TRACELOOM_SECRET_KEY, the project API secret), decided by Kunal Mugalkhod 2026-11-06
 - **FR-X2** `docker-compose.yml` runs web, worker, Postgres, Redis, ClickHouse and MinIO with memory limits totalling under 6 GB. `docker-compose.lite.yml` runs the web server alone.
 - **FR-X3** `traceloom` CLI entry points: `traceloom migrate`, `traceloom worker` and `traceloom seed-demo`. `seed-demo` creates a demo user, org, project and key and prints them, for QA.
 

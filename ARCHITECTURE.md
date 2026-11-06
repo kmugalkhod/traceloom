@@ -48,7 +48,7 @@ Every process imports one core package (`traceloom`). Three **ports** isolate th
 
 ## Security model
 - Sessions use signed, HttpOnly, SameSite=Lax cookies. Passwords are hashed with argon2id. CSRF is checked with a per-session token on every unsafe cookie-authenticated request: form field or `X-CSRF-Token` header, which HTMX sends.
-- Project API keys: public key `tl-pk-<random>`, secret key `tl-sk-<random>`. Only `HMAC-SHA256(secret, TRACELOOM_SECRET_KEY)` is stored (ADR-0009). Auth is HTTP Basic.
+- Project API keys: public key `tl-pk-<random>`, secret key `tl-sk-<random>`. Only `HMAC-SHA256(secret, TRACELOOM_SERVER_SECRET)` is stored (ADR-0009). Auth is HTTP Basic.
 - One dependency resolves `(user|key) → project → role` for every route, then checks a permission from a single matrix (`traceloom/auth/permissions.py`).
 - Templates autoescape. User content is rendered as text, JSON (escaped) or Markdown (sanitised, with no raw HTML). A strict CSP (`script-src 'self'`) blocks inline scripts.
 

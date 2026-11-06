@@ -8,7 +8,7 @@ services:
     environment:
       TRACELOOM_MODE: lite
       TRACELOOM_ENV: ${TRACELOOM_ENV:-dev}
-      TRACELOOM_SECRET_KEY: ${TRACELOOM_SECRET_KEY:-}
+      TRACELOOM_SERVER_SECRET: ${TRACELOOM_SERVER_SECRET:-}
       DATABASE_URL: sqlite:////data/traceloom.db
       TRACELOOM_BLOB_DIR: /data/blobs
     volumes:

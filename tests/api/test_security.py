@@ -78,7 +78,7 @@ def test_session_and_csrf_cookies_are_secure_in_production(tmp_path):
 
     s = Settings(
         TRACELOOM_ENV="production",
-        TRACELOOM_SECRET_KEY="p" * 32,
+        TRACELOOM_SERVER_SECRET="p" * 32,
         DATABASE_URL=f"sqlite:///{tmp_path / 'p.db'}",
     )
     with TestClient(create_app(s)) as c:

@@ -27,7 +27,7 @@ SERVER_KEY = "server-key-for-tests"
 
 @pytest.fixture
 def settings():
-    return Settings(TRACELOOM_ENV="test", TRACELOOM_SECRET_KEY=SERVER_KEY)
+    return Settings(TRACELOOM_ENV="test", TRACELOOM_SERVER_SECRET=SERVER_KEY)
 
 
 # --- passwords ---
@@ -61,7 +61,7 @@ def test_tampered_session_rejected(settings):
     forged = token[:-1] + ("A" if token[-1] != "A" else "B")
     assert read_session(settings, forged) is None
     assert read_session(settings, None) is None
-    other = Settings(TRACELOOM_ENV="test", TRACELOOM_SECRET_KEY="another-key")
+    other = Settings(TRACELOOM_ENV="test", TRACELOOM_SERVER_SECRET="another-key")
     assert read_session(other, token) is None
 
 
@@ -74,13 +74,13 @@ def test_expired_session_rejected(settings):
     token = issue_session(settings, "u1", 1)
     time.sleep(1.1)
     short = Settings(
-        TRACELOOM_ENV="test", TRACELOOM_SECRET_KEY=SERVER_KEY, TRACELOOM_SESSION_HOURS=0
+        TRACELOOM_ENV="test", TRACELOOM_SERVER_SECRET=SERVER_KEY, TRACELOOM_SESSION_HOURS=0
     )
     assert read_session(short, token) is None
 
 
 def test_session_cookie_flags():
-    prod = Settings(TRACELOOM_ENV="production", TRACELOOM_SECRET_KEY=SERVER_KEY)
+    prod = Settings(TRACELOOM_ENV="production", TRACELOOM_SERVER_SECRET=SERVER_KEY)
     response = Response()
     set_session_cookie(response, prod, "tok")
     header = response.headers["set-cookie"].lower()
@@ -148,7 +148,7 @@ def test_outbox_captures_messages(settings):
 def test_console_fallback_never_logs_secrets(caplog):
     s = Settings(
         TRACELOOM_ENV="test",
-        TRACELOOM_SECRET_KEY=SERVER_KEY,
+        TRACELOOM_SERVER_SECRET=SERVER_KEY,
         SMTP_PASSWORD="smtp-pass-123",
     )
     mailer = Mailer(s)
