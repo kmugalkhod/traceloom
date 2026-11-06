@@ -1,7 +1,7 @@
-/* Save as prompt dialog. Opens on the page's 'pg:action' event {action: 'save-as-prompt'} (or any
-   [data-save-as-prompt] button); the dialog fragment is fetched on first use into #pg-dialogs. The
-   editor state comes from window.Playground.getState(). Text from the server or the user is only
-   written with textContent. */
+/* Save as prompt and Load prompt dialogs. They open on the page's 'pg:action' events
+   ('save-as-prompt', 'load-prompt'); each fragment is fetched once into #pg-dialogs. The editor
+   state comes from window.Playground.getState(). Text from the server or the user is only written
+   with textContent. */
 (function () {
   'use strict';
 
@@ -79,11 +79,30 @@
     });
   }
 
-  function open() {
-    var dlg = document.getElementById('save-prompt');
+  function wireLoad(dlg) {
+    var form = dlg.querySelector('[data-load-form]');
+    var select = form.elements.prompt, version = form.elements.version;
+    if (select) {
+      select.addEventListener('change', function () {
+        var opt = select.options[select.selectedIndex];
+        version.value = opt.getAttribute('data-latest');
+      });
+    }
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var n = parseInt(version.value, 10);
+      if (!select || !n || n < 1) { version.focus(); return; }
+      var q = '?prompt=' + encodeURIComponent(select.value) + '&version=' + n;
+      window.location.assign(dlg.getAttribute('data-playground-url') + q);
+    });
+  }
+
+  // Open a dialog the server renders: reuse it if it is already on the page, else fetch it once.
+  function openDialog(id, path, wire) {
+    var dlg = document.getElementById(id);
     if (dlg) { dlg.showModal(); return; }
     var base = '/project/' + window.Playground.config.projectId + '/playground';
-    fetch(base + '/save-dialog', { credentials: 'same-origin', headers: { 'Accept': 'text/html' } })
+    fetch(base + path, { credentials: 'same-origin', headers: { 'Accept': 'text/html' } })
       .then(function (r) { if (!r.ok) { throw new Error('status ' + r.status); } return r.text(); })
       .then(function (html) {
         var holder = document.createElement('div');
@@ -93,11 +112,15 @@
         wire(fresh);
         fresh.showModal();
       })
-      .catch(function () { window.alert('Could not open the save dialog.'); });
+      .catch(function () { window.alert('Could not open the dialog.'); });
   }
 
+  function open() { openDialog('save-prompt', '/save-dialog', wire); }
+
   document.addEventListener('pg:action', function (e) {
-    if (e.detail && e.detail.action === 'save-as-prompt') { open(); }
+    var action = e.detail && e.detail.action;
+    if (action === 'save-as-prompt') { open(); }
+    else if (action === 'load-prompt') { openDialog('load-prompt', '/load-dialog', wireLoad); }
   });
 
   document.addEventListener('click', function (e) {
