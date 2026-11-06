@@ -14,7 +14,7 @@ from urllib.parse import urlencode
 from starlette.datastructures import QueryParams
 
 from traceloom.ports import LEVELS, TraceQuery, TraceRow
-from traceloom.web.context import avatar_class, initials
+from traceloom.web.context import avatar_class
 
 PAGE_SIZE = 50
 COLUMNS = (
@@ -43,6 +43,23 @@ DEFAULT_RANGE = "24h"
 SORTS = {"time": "timestamp", "latency": "latency", "cost": "cost", "tokens": "tokens"}
 TABS = ("all", "errors", "warnings", "bookmarked")
 MAX_METADATA_FILTERS = 10
+
+
+_GENERIC_PREFIXES = {"usr", "user", "u", "uid"}
+
+
+def user_initials(user_id: str) -> str:
+    """Two letters for the avatar: `usr_maria` -> MA, `maria.chen@acme` -> MC."""
+    import re
+
+    parts = [p for p in re.split(r"[_\-.@ ]+", user_id) if p]
+    while len(parts) > 1 and parts[0].lower() in _GENERIC_PREFIXES:
+        parts = parts[1:]
+    if not parts:
+        return "?"
+    if len(parts) > 1:
+        return (parts[0][0] + parts[1][0]).upper()
+    return parts[0][:2].upper()
 
 
 def parse_columns(stored: str | None) -> tuple[str, ...]:
@@ -359,7 +376,7 @@ def row_model(project_id: str, trace: TraceRow) -> Row:
         observation_count=trace.observation_count,
         bookmarked=trace.bookmarked,
         user=trace.user_id,
-        user_initials=initials(trace.user_id or ""),
+        user_initials=user_initials(trace.user_id or ""),
         user_av=avatar_class(trace.user_id or ""),
         session=trace.session_id,
         tags=list(trace.tags),

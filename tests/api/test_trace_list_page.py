@@ -530,3 +530,13 @@ def test_filter_values_in_the_url_are_escaped(client, world, login, seeded):
     payload = '"><img src=x onerror=alert(1)>'
     html = client.get(url(world, "q=" + payload.replace('"', "%22")), headers=H).text
     assert "<img src=x" not in html and "&lt;img src=x" in html
+
+
+@pytest.mark.parametrize(
+    ("user", "initials"),
+    [("usr_maria", "MA"), ("maria.chen", "MC"), ("user-dev", "DE"), ("x", "X"), ("", "?")],
+)
+def test_avatar_initials(user, initials):
+    from traceloom.web.trace_list import user_initials
+
+    assert user_initials(user) == initials
