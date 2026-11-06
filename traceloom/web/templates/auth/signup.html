@@ -1,0 +1,27 @@
+{% extends "base_auth.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Create your account{% endblock %}
+{% block content %}
+<div class="stack-s"><h1>Create your account</h1><p class="dim">{% if invite_only %}Invite-only server{% elif invite_token %}You were invited. Create your account to join.{% else %}Start tracing in a few minutes.{% endif %}</p></div>
+
+<form class="stack" method="post" action="/signup">
+  {{ m.csrf() }}
+  {% if invite_token %}<input type="hidden" name="invite" value="{{ invite_token }}">{% endif %}
+  {% if rate_limited %}
+    {{ m.banner("err", "Too many attempts. Wait " ~ rate_limited.wait ~ " seconds, then try again.") }}
+  {% endif %}
+  {% if errors.form %}{{ m.banner("err", errors.form) }}{% endif %}
+
+  {% if invite_only %}
+    {{ m.banner("info", "Sign-up is invite-only on this server. Use the email address your invite was sent to, or ask an Owner for one.") }}
+    {{ m.field("email", "Email", type="email", value=values.email, error=errors.email, placeholder="you@company.com", required=True, autocomplete="email", autofocus=True) }}
+    <button class="btn btn-primary btn-block" type="submit">{{ m.icon("i-mail") }}Continue with invite</button>
+  {% else %}
+    {{ m.field("name", "Name", value=values.name, error=errors.name, autocomplete="name", autofocus=(values.email|length == 0)) }}
+    {{ m.field("email", "Email", type="email", value=values.email, error=errors.email, required=True, readonly=(invite_email|length > 0), autocomplete="email") }}
+    {{ m.field("password", "Password", type="password", error=errors.password, hint="At least 10 characters. A passphrase works well.", placeholder="At least 10 characters", required=True, autocomplete="new-password", autofocus=(values.email|length > 0)) }}
+    <button class="btn btn-primary btn-block" type="submit">Create account</button>
+  {% endif %}
+</form>
+<p class="dim">Already have an account? <a href="/login">Log in</a></p>
+{% endblock %}

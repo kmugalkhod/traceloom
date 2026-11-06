@@ -1,0 +1,20 @@
+{% extends "base_auth.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Choose a new password{% endblock %}
+{% block content %}
+{% if valid %}
+<div class="stack-s"><h1>Choose a new password</h1><p class="dim">You will be signed out of all other sessions.</p></div>
+<form class="stack" method="post">
+  {{ m.csrf() }}
+  {{ m.field("password", "New password", type="password", error=errors.password, hint="At least 10 characters. Setting it signs you out everywhere.", placeholder="At least 10 characters", required=True, autocomplete="new-password", autofocus=True) }}
+  {{ m.field("password2", "Repeat password", type="password", error=errors.password2, required=True, autocomplete="new-password") }}
+  <button class="btn btn-primary btn-block" type="submit">Set new password</button>
+</form>
+{% else %}
+<div class="stack-s"><h1>Link no longer valid</h1></div>
+<div class="stack">
+  {{ m.banner("err", "This link has expired or was already used. Reset links work once and expire after a short time.") }}
+  <a class="btn btn-primary btn-block" href="/forgot">Request a new link</a>
+</div>
+{% endif %}
+{% endblock %}
