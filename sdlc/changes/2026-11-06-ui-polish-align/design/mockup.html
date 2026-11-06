@@ -1,0 +1,930 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Traceloom v3.2 alignment mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ===== Tokens: identical to DESIGN.md v3.1 (no colour, font, radius or shadow changed). v3.2 adds four size tokens. ===== */
+:root,[data-theme="light"]{
+  --font-ui:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --bg:#e9e9e6; --main:#f8f8f7; --surface:#ffffff; --surface-2:#f2f2f0; --sunken:#ececea; --line:#e5e5e2; --line-strong:#d3d3cf; --field-line:#8d908d;
+  --ink:#111214; --ink-2:#4b4f54; --ink-3:#62666b;
+  --accent:#2a55d8; --accent-solid:#111214; --accent-solid-hover:#2b2d31; --on-accent:#ffffff; --accent-soft:#e9eefc; --focus:#2a55d8; --seg-on:#ffffff;
+  --ok:#17683a; --ok-bg:#e3f4e9; --ok-line:#a9d8b9; --warn:#7d4a00; --warn-bg:#fdf0d3; --warn-line:#e6c27a; --warn-bar:#d99a1d;
+  --err:#b0201c; --err-bg:#fde8e6; --err-line:#efb1ac; --err-bar:#d4413a; --err-solid:#c42b22;
+  --t-generation:#6d3fc4; --t-span:#55616b; --t-agent:#0a7570; --t-tool:#a8327a; --t-chain:#3f55b5; --t-retriever:#2f7d32;
+  --s1:#2a55d8; --s2:#0a7570; --s3:#8a4fd6; --s4:#c27a12; --s5:#b8447f; --s6:#7b8791;
+  --scrim:rgba(12,14,18,.45);
+  --sh-1:0 1px 2px rgba(17,18,20,.05); --sh-pop:0 16px 40px -8px rgba(17,18,20,.25),0 2px 8px rgba(17,18,20,.08);
+  --r-1:6px; --r-2:10px; --r-3:16px; --r-4:20;
+  --sp-2:4px; --sp-4:8px; --sp-5:12px; --sp-6:16px; --sp-7:24px; --sp-8:32px; --sp-9:48px;
+  /* v3.2 */
+  --row-h:44px; --ctl-h:36px; --ctl-h-sm:30px; --panel-head-h:52px;
+}
+[data-theme="dark"]{
+  --bg:#08090b; --main:#111316; --surface:#171a1e; --surface-2:#1d2126; --sunken:#0d0f12; --line:#262a30; --line-strong:#353b43; --field-line:#6b727b;
+  --ink:#f1f2f4; --ink-2:#b7bdc4; --ink-3:#8f979f;
+  --accent:#8fb0ff; --accent-solid:#f1f2f4; --accent-solid-hover:#ffffff; --on-accent:#111214; --accent-soft:#1c2740; --focus:#8fb0ff; --seg-on:#2a2f36;
+  --ok:#6fd29a; --ok-bg:#12301f; --ok-line:#2f7a4d; --warn:#f2c14e; --warn-bg:#33270b; --warn-line:#7a5a12; --warn-bar:#e0a526;
+  --err:#ff9b93; --err-bg:#3a1716; --err-line:#8f2f2a; --err-bar:#ef5b52; --err-solid:#d1382c;
+  --t-generation:#b69cf5; --t-span:#9aa7b1; --t-agent:#4fd1c5; --t-tool:#f08fc6; --t-chain:#94a5f2; --t-retriever:#7fd085;
+  --s1:#6f97ff; --s2:#4fd1c5; --s3:#b69cf5; --s4:#f0b455; --s5:#f08fc6; --s6:#8c99a2; --scrim:rgba(0,0,0,.62);
+  --sh-1:0 1px 2px rgba(0,0,0,.4); --sh-pop:0 16px 40px -8px rgba(0,0,0,.7),0 2px 8px rgba(0,0,0,.4);
+}
+/* ===== base ===== */
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;font-family:var(--font-ui);font-size:14px;line-height:1.5;color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased}
+.ico{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+a{color:var(--accent);text-decoration:none}
+button{font:inherit;color:inherit}
+:focus-visible,.is-focus{outline:2px solid var(--focus);outline-offset:2px}
+h1,h2,h3{margin:0;font-weight:600;line-height:1.2;letter-spacing:-.02em}
+p{margin:0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:var(--font-mono);font-size:12.5px}
+.num{font-family:var(--font-ui);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.muted{color:var(--ink-3)}.dim{color:var(--ink-2)}
+.cap{font-size:11px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3)}
+.row{display:flex;align-items:center;gap:8px}.grow{flex:1;min-width:0}.right{margin-left:auto}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ===== mockup chrome (not part of the product) ===== */
+.sheet-nav{position:relative;top:0;z-index:50;display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--line)}
+.sheet-nav a{font-size:12px;font-weight:600;color:var(--ink-2);padding:4px 8px;border-radius:6px}
+.sheet-nav a:hover{background:var(--surface-2)}
+.sheet-nav b{font-size:13px;margin-right:8px}
+.sec{max-width:1320px;margin:0 auto;padding:40px 24px 8px}
+.sec>h2{font-size:22px;margin-bottom:4px}
+.sec>.lead{color:var(--ink-2);margin-bottom:16px;max-width:90ch}
+.tag-t{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.04em;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--accent);margin-right:6px}
+.label-t{font-size:12px;font-weight:600;color:var(--ink-2);margin:20px 0 8px}
+.pair{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap}
+.pair>.frame{flex:1 1 760px;min-width:0}
+.phone-col{display:flex;gap:24px;flex-wrap:wrap}
+.phone-col .lbl2{font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:6px}
+
+/* ===== shell ===== */
+.frame{display:grid;grid-template-columns:244px 1fr;gap:12px;padding:12px;background:var(--bg);border:1px solid var(--line-strong);border-radius:20px;color:var(--ink)}
+.side{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 12px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--sh-1)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;letter-spacing:-.02em;color:var(--ink)}
+.brand .tile{width:32px;height:32px;border-radius:10px;background:var(--accent-solid);color:var(--on-accent);display:grid;place-items:center}
+.picker{display:flex;align-items:center;gap:8px;height:var(--ctl-h);padding:0 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-weight:600;font-size:13px}
+.picker small{color:var(--ink-3);font-weight:500}
+.sidenav{display:flex;flex-direction:column;gap:2px;flex:1}
+.sidenav .cap{padding:12px 8px 4px}
+.sidenav a{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:12px;color:var(--ink-2);font-weight:500}
+.sidenav a[aria-current=page]{background:var(--surface-2);color:var(--ink);font-weight:600;box-shadow:inset 0 0 0 1px var(--line)}
+.sidenav a[aria-current=page] .ico{color:var(--accent)}
+.kb{margin-left:auto;font-family:var(--font-mono);font-size:11px;min-width:18px;height:18px;display:inline-grid;place-items:center;border:1px solid var(--line-strong);border-radius:5px;color:var(--ink-3)}
+.usercard{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--line);border-radius:12px}
+.usercard b{display:block;font-size:13px;line-height:1.2}.usercard small{color:var(--ink-3);font-size:12px}
+.avatar{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:11px;flex:none}
+.av1{background:#dfe8ff;color:#2a45a8}.av2{background:#dff3ea;color:#17683a}.av3{background:#f3e3f7;color:#7d2f93}.av4{background:#fdeccf;color:#8a5600}.av5{background:#e3ecf0;color:#37566a}
+[data-theme="dark"] .av1{background:#1c2740;color:#8fb0ff}[data-theme="dark"] .av2{background:#12301f;color:#6fd29a}[data-theme="dark"] .av3{background:#2d1a35;color:#d9a3ec}[data-theme="dark"] .av4{background:#33270b;color:#f2c14e}[data-theme="dark"] .av5{background:#1d2a31;color:#9fc0d3}
+.card{background:var(--main);border:1px solid var(--line);border-radius:20px;min-width:0;display:flex;flex-direction:column}
+.ctxbar{display:flex;align-items:center;gap:8px;height:56px;padding:0 24px;border-bottom:1px solid var(--line);flex:none}
+.ctxbar .crumbs{margin-right:auto}
+.crumbs{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-3);min-width:0}
+.crumbs a{color:var(--ink-2);font-weight:500}.crumbs [aria-current]{color:var(--ink);font-weight:600}
+.crumbs .ico{width:14px;height:14px}
+.main{padding:24px;display:flex;flex-direction:column;gap:24px;min-width:0}
+.page-h{display:flex;align-items:center;gap:16px}
+.page-h .ttl{flex:1;min-width:0}
+.page-h h1{font-size:24px}
+.page-h .sub{color:var(--ink-3);font-size:14px;margin-top:2px}
+.page-h .acts{display:flex;align-items:center;gap:8px;flex:none}
+
+/* ===== controls (FR-S1): every control in a toolbar row is 36px; 30 small; 44 at <=760 ===== */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--ctl-h);padding:0 14px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);font-weight:600;font-size:13px;cursor:pointer;box-shadow:var(--sh-1);white-space:nowrap}
+.btn:hover,.btn.is-hover{background:var(--surface-2)}
+.btn-primary{background:var(--accent-solid);border-color:var(--accent-solid);color:var(--on-accent)}
+.btn-primary:hover{background:var(--accent-solid-hover)}
+.btn-danger{background:var(--err-solid);border-color:var(--err-solid);color:#fff}
+.btn-ghost{background:transparent;border-color:transparent;box-shadow:none;color:var(--ink-2)}
+.btn-ghost:hover{background:var(--sunken)}
+.btn-sm{height:var(--ctl-h-sm);padding:0 10px;font-size:12px}
+.btn-icon{width:var(--ctl-h);padding:0}.btn-sm.btn-icon{width:var(--ctl-h-sm)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn .spin,.spin{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>label,.lbl{font-size:12px;font-weight:600;color:var(--ink-2);line-height:16px;display:flex;align-items:center;justify-content:space-between}
+.input,.select{height:var(--ctl-h);width:100%;padding:0 12px;border:1px solid var(--field-line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px}
+.select{appearance:none;padding-right:32px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238d908d' stroke-width='2' stroke-linecap='round'><path d='m6 9 6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 10px center}
+.input::placeholder{color:var(--ink-3)}
+.input:hover{border-color:var(--ink-3)}
+.input[aria-invalid=true]{border-color:var(--err);background:var(--err-bg)}
+.input-wrap{position:relative;display:flex;align-items:center}
+.input-wrap .ico{position:absolute;left:12px;color:var(--ink-3)}
+.input-wrap .input{padding-left:36px}
+.field-error{display:flex;gap:6px;align-items:flex-start;color:var(--err);font-size:12px;font-weight:500}
+.hint{font-size:12px;color:var(--ink-3)}
+.seg{display:inline-flex;align-items:center;height:var(--ctl-h);padding:2px;gap:2px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);box-shadow:var(--sh-1);flex:none}
+.seg button{height:var(--ctl-h-sm);padding:0 12px;border:0;border-radius:8px;background:transparent;font-weight:600;font-size:12px;color:var(--ink-2);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.seg button:hover{background:var(--surface-2)}
+.seg button[aria-pressed=true]{background:var(--accent-solid);color:var(--on-accent)}
+.seg button .c{font-variant-numeric:tabular-nums;color:var(--ink-3);font-weight:500}
+.seg button[aria-pressed=true] .c{color:inherit;opacity:.75}
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.env-dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
+.env-sel{position:relative;width:176px}
+.env-sel .select{padding-left:30px}
+.env-sel .env-dot{position:absolute;left:13px;top:14px}
+
+/* pills, chips, tags */
+.pill{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line);white-space:nowrap}
+.pill .ico{width:12px;height:12px}
+.pill.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line)}
+.pill.err{background:var(--err-bg);color:var(--err);border-color:var(--err-line)}
+.pill.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+.chip{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:6px;background:var(--surface-2);border:1px solid var(--line);font-size:12px;font-weight:500;color:var(--ink-2)}
+.chip button{border:0;background:none;width:16px;height:16px;padding:0;display:grid;place-items:center;color:var(--ink-3);cursor:pointer;border-radius:4px}
+.chip button:hover{background:var(--sunken);color:var(--ink)}
+.chip.add{border-style:dashed;background:transparent;color:var(--ink-2);cursor:pointer;font-weight:600}
+.chip.add-open{height:var(--ctl-h-sm);padding:0 4px 0 0;border-style:solid;border-color:var(--field-line);background:var(--surface)}
+.chip.add-open input{height:28px;border:0;background:none;width:120px;padding:0 8px;font:inherit;font-size:13px;color:var(--ink)}
+.chip.add-open input:focus{outline:none}
+.chip.add-open{outline:2px solid var(--focus);outline-offset:1px}
+
+/* panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh-1);min-width:0;display:flex;flex-direction:column}
+.panel-h{display:flex;align-items:center;gap:8px;height:var(--panel-head-h);padding:0 16px;border-bottom:1px solid var(--line);flex:none}
+.panel-h h2{font-size:15px}.panel-h .u{color:var(--ink-3);font-size:12px;margin-left:4px;font-weight:500}
+.panel-h .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.panel-b{padding:16px;min-width:0}
+.panel-b.flush{padding:0}
+
+/* tables (FR-S4, FR-S5) */
+.tbl{width:100%;border-collapse:separate;border-spacing:0}
+.tbl th{height:40px;padding:0 12px;text-align:left;font-size:12px;font-weight:500;color:var(--ink-2);background:var(--surface-2);border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{height:var(--row-h);padding:0 12px;border-bottom:1px solid var(--line);vertical-align:middle;font-size:14px}
+.tbl th:first-child,.tbl td:first-child{padding-left:16px}.tbl th:last-child,.tbl td:last-child{padding-right:16px}
+.tbl th.r,.tbl td.r{text-align:right}.tbl th.c,.tbl td.c{text-align:center}
+.tbl td.num{font-size:14px}
+.tbl tbody tr:last-child td{border-bottom:0}
+.tbl tbody tr:hover td{background:var(--surface-2)}
+.tbl tr.sel td{background:var(--accent-soft)}
+.tbl td:first-child{position:relative}
+.tbl tr.err td:first-child::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--err-bar)}
+.tbl tr.warn td:first-child::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--warn-bar)}
+.tbl .two{display:flex;flex-direction:column;line-height:1.2;padding:0}
+.tbl .two small{color:var(--ink-3);font-size:12px}
+.tbl .two b{font-weight:600}
+.tbl td.menu{width:48px;padding:0 8px;text-align:right}
+.tbl th.menu{width:48px}
+.tbl td:nth-child(4){white-space:nowrap}
+.user{display:inline-flex;align-items:center;gap:8px}
+
+/* stat cards (FR-D1): same anatomy everywhere, 112px */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.stat{height:112px;padding:16px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh-1);display:grid;grid-template-columns:1fr 24px;grid-template-rows:20px 36px 20px;align-content:space-between;column-gap:8px}
+.stat .l{font-size:13px;color:var(--ink-3);font-weight:500}
+.stat .chipi{width:24px;height:24px;border-radius:6px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}
+.stat .chipi .ico{width:14px;height:14px}
+.stat .chipi.ok{background:var(--ok-bg);color:var(--ok)}.stat .chipi.warn{background:var(--warn-bg);color:var(--warn)}.stat .chipi.err{background:var(--err-bg);color:var(--err)}
+.stat .v{grid-column:1/3;font-size:28px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:36px}
+.stat .cp{grid-column:1/3;font-size:13px;color:var(--ink-3);line-height:20px}
+
+/* empty state (FR-S6) */
+.empty{max-width:520px;margin:0 auto;padding:48px 16px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px}
+.empty .tile{width:40px;height:40px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;margin-bottom:8px}
+.empty .tile .ico{width:20px;height:20px}
+.empty h2{font-size:17px}
+.empty p{color:var(--ink-3);max-width:60ch}
+.empty .acts{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;justify-content:center}
+.code{width:100%;text-align:left;margin-top:16px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-family:var(--font-mono);font-size:12.5px;line-height:1.6;color:var(--ink-2);overflow:hidden}
+.code .k{color:var(--t-generation)}.code .s{color:var(--ok)}
+
+/* skeleton */
+.sk{display:block;height:12px;border-radius:6px;background:linear-gradient(90deg,var(--surface-2),var(--sunken),var(--surface-2));background-size:200% 100%;animation:sh 1.4s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.sk,.spin{animation:none}}
+
+/* kv grid (FR-TD1) */
+.kv{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px 24px;align-items:start}
+.kv>div{min-width:0}
+.kv dt,.kv .k{font-size:11px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);line-height:16px;margin:0 0 4px}
+.kv dd,.kv .val{margin:0;font-size:14px;line-height:20px;height:20px;display:flex;align-items:center;gap:6px;min-width:0}
+.kv .tags-cell{grid-column:4 / 7}
+.kv .tags-cell .val{height:auto;min-height:24px;flex-wrap:wrap;gap:6px}
+.copy{width:20px;height:20px;border:0;background:none;border-radius:4px;display:grid;place-items:center;color:var(--ink-3);cursor:pointer;flex:none;padding:0}
+.copy:hover{background:var(--sunken);color:var(--ink)}
+.copy .ico{width:14px;height:14px}
+
+/* split pane (FR-TD3, FR-TD4) */
+.split{display:grid;grid-template-columns:minmax(360px,40%) minmax(0,1fr);gap:24px;align-items:start}
+.split>.panel:first-child{position:sticky;top:16px;max-height:calc(100vh - 32px)}
+.tree-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px;border-bottom:1px solid var(--line)}
+.tree{overflow:auto;padding:8px}
+.tree-bar .seg button{padding:0 10px}
+.trow{display:grid;grid-template-columns:minmax(0,1fr) 72px 72px;align-items:center;height:36px;padding:0 8px;border-radius:8px;gap:8px;font-size:13px}
+.trow:hover{background:var(--surface-2)}
+.trow.sel{background:var(--accent-soft)}
+.trow .nm{display:flex;align-items:center;gap:8px;min-width:0}
+.trow .nm .ind{flex:none}
+.trow .nm span.t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trow .d,.trow .cst{font-variant-numeric:tabular-nums;text-align:right;color:var(--ink-2);font-size:12.5px}
+.trow .cst{color:var(--ink-3)}
+.ty{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;color:#fff;flex:none}
+.ty .ico{width:12px;height:12px}
+.ty-gen{background:var(--t-generation)}.ty-span{background:var(--t-span)}.ty-agent{background:var(--t-agent)}.ty-tool{background:var(--t-tool)}.ty-ret{background:var(--t-retriever)}
+.trow .lvp{flex:none}
+
+/* IO viewer (FR-TD5) */
+.io{margin-bottom:16px}
+.io-h{display:flex;align-items:center;height:28px;font-size:13px;font-weight:600}
+.io-h .copy{margin-left:auto}
+.io-b{margin-top:6px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-family:var(--font-mono);font-size:12.5px;line-height:1.6;color:var(--ink);white-space:pre-wrap;word-break:break-word}
+.pair2{display:grid;grid-template-columns:2fr 1fr;gap:24px;align-items:start}
+.cm{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.cm:last-child{border-bottom:0}
+.cm small{color:var(--ink-3)}
+
+/* dashboard (FR-D2..D5) */
+.grid-12{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:24px;align-items:stretch}
+.c8{grid-column:span 8}.c4{grid-column:span 4}.c6{grid-column:span 6}.c12{grid-column:span 12}
+.chart{display:grid;grid-template-columns:36px 1fr;grid-template-rows:180px auto;column-gap:8px}
+.chart .ya{display:flex;flex-direction:column;justify-content:space-between;text-align:right;padding:0}
+.chart .ya,.chart .xa{font-family:var(--font-ui);font-size:11px;font-variant-numeric:tabular-nums;color:var(--ink-3);line-height:1}
+.chart .xa{grid-column:2;display:flex;justify-content:space-between;padding-top:8px}
+.chart svg{width:100%;height:100%;display:block;overflow:visible}
+.errpanel .body{flex:1;display:flex;flex-direction:column;gap:16px;padding:16px}
+.stackbar{display:flex;height:12px;border-radius:999px;overflow:hidden;gap:2px;flex:none}
+.stackbar i{display:block;height:100%}
+.leg{display:grid;grid-template-columns:12px 1fr 56px 56px;align-items:center;gap:8px;height:36px;border-bottom:1px solid var(--line);font-size:14px}
+.leg:last-of-type{border-bottom:0}
+.leg .dot{width:10px;height:10px;border-radius:50%}
+.leg .p,.leg .n{text-align:right;font-variant-numeric:tabular-nums}.leg .n{color:var(--ink-3)}
+.brk{display:grid;grid-template-columns:200px minmax(0,1fr) 96px;align-items:center;gap:16px;height:var(--row-h);border-bottom:1px solid var(--line);padding:0 16px}
+.brk:last-child{border-bottom:0}
+.brk .bar{height:8px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.brk .bar i{display:block;height:100%;border-radius:999px;background:var(--s1)}
+.brk .v{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);padding:0 16px}
+.tab{height:40px;padding:0 12px;border:0;background:none;font-weight:600;font-size:13px;color:var(--ink-3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center}
+.tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent-solid)}
+.tab:hover{color:var(--ink)}
+.rank{color:var(--ink-3);font-variant-numeric:tabular-nums;width:32px}
+
+/* popover menu */
+.pop{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh-pop);padding:6px;width:200px}
+.pop .item{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;font-size:13px;font-weight:500;color:var(--ink)}
+.pop .item:hover{background:var(--surface-2)}.pop .item.danger{color:var(--err)}
+.pop .sep{height:1px;background:var(--line);margin:4px 0}
+.rel{position:relative}.pop.abs{position:absolute;right:0;top:calc(100% + 4px);z-index:5}
+
+/* forms */
+.stackf{display:flex;flex-direction:column;gap:16px}
+.form2{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:24px;align-items:start}
+.row-fields{display:grid;gap:16px;align-items:start}
+.editor{min-height:140px;padding:12px;border:1px solid var(--field-line);border-radius:10px;background:var(--surface);font-family:var(--font-mono);font-size:12.5px;line-height:1.6;color:var(--ink)}
+.var{background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:0 4px;font-weight:600}
+.msg{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface-2);font-size:14px}
+.msg-user{background:var(--surface)}
+.cursor{display:inline-block;width:7px;height:14px;background:var(--ink);vertical-align:-2px}
+.banner{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:12px;border:1px solid var(--warn-line);background:var(--warn-bg);color:var(--warn);font-weight:500;font-size:13px}
+.banner.err{border-color:var(--err-line);background:var(--err-bg);color:var(--err)}
+
+/* settings tabs (FR-SA1) */
+.stabs{display:flex;gap:4px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.stabs a{height:40px;display:inline-flex;align-items:center;padding:0 12px;font-weight:600;font-size:13px;color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.stabs a:first-child{padding-left:0}
+.stabs a[aria-current=page]{color:var(--ink);border-bottom-color:var(--accent-solid)}
+
+/* auth (FR-SA2) */
+.auth{display:grid;grid-template-columns:1fr 1fr;min-height:640px;border:1px solid var(--line-strong);border-radius:20px;overflow:hidden;background:var(--main)}
+.auth .brandp{background:var(--surface-2);border-right:1px solid var(--line);padding:32px 48px;display:grid;grid-template-rows:auto 1fr auto}
+.auth .brandp .hl{align-self:center;max-width:420px}
+.auth .brandp h1{font-size:30px;line-height:1.15}
+.auth .brandp p{margin-top:12px;color:var(--ink-2);font-size:15px}
+.auth .formp{display:grid;grid-template-columns:minmax(0,1fr);justify-items:center;align-items:center;padding:32px}
+.auth .formc{width:380px;max-width:100%;display:flex;flex-direction:column;gap:16px}
+.auth .formc h1{font-size:24px}
+.auth .formc .input{height:40px}
+.auth .btn-block{width:100%;height:40px}
+
+/* mobile frames (<=760px rules, scoped to .m in this sheet; developers use @media (max-width:760px)) */
+.m{width:390px;display:block;padding:8px;border-radius:28px}
+.m .side,.m .ctxbar{display:none}
+.m .card{border-radius:16px}
+.m .mtop{display:flex;align-items:center;gap:8px;padding:8px 8px 12px}
+.m .mtop .brand .tile{width:28px;height:28px;border-radius:8px}
+.m .mtop .picker{flex:1;min-width:0}
+.m .main{padding:16px 14px 16px;gap:16px}
+.mtop{display:none}
+.m .mtop{display:flex}
+.ctx-m{display:none}
+.m .ctx-m{display:flex;gap:8px;align-items:center}
+.m .ctx-m .env-sel{flex:1;width:auto;min-width:0}
+.m .ctx-m .seg{flex:none}
+.m .ctx-m .seg button{padding:0 8px}
+.m .btn,.m .input,.m .select,.m .seg{height:44px}
+.m .btn-sm{height:36px}
+.m .seg button{height:38px}
+.m .btn-icon{width:44px}
+.m .env-sel .env-dot{top:18px}
+.m .page-h{flex-wrap:wrap}
+.m .page-h h1{font-size:22px}
+.m .page-h .acts{flex:1 0 100%}
+.m .page-h .acts .btn:not(.btn-icon){flex:1}
+.m .stats{grid-template-columns:1fr 1fr;gap:12px}
+.m .stat{padding:12px;height:112px}
+.m .stat .v{font-size:24px}
+.m .grid-12>*{grid-column:span 12}
+.m .kv{grid-template-columns:repeat(3,minmax(0,1fr));gap:16px 12px}
+.m .kv .tags-cell{grid-column:1 / 4}
+.m .split{grid-template-columns:1fr}
+.m .split>.panel:first-child{position:static;max-height:none}
+.m .pair2,.m .form2{grid-template-columns:1fr}
+.m .tbl.stackm thead{display:none}
+.m .tbl.stackm tr{display:grid;grid-template-columns:1fr auto;padding:10px 16px;border-bottom:1px solid var(--line);gap:2px 8px;position:relative}
+.m .tbl.stackm td{display:block;height:auto;border:0;padding:0}
+.m .tbl.stackm td:first-child{position:static}
+.m .tbl.stackm tr.err::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--err-bar)}
+.m .tbl.stackm td.hide-m{display:none}
+.m .tbl.stackm td.r{text-align:right}
+.m .seg.scroll{max-width:100%;overflow-x:auto;scrollbar-width:none}
+.m .brk{grid-template-columns:100px 1fr 72px;gap:8px;padding:0 12px}
+.m .auth{grid-template-columns:1fr;min-height:0;border:0;border-radius:16px}
+.m .auth .brandp{display:none}
+.m .auth .formp{padding:24px 16px;min-height:540px}
+.m .auth .formc .input{height:44px}
+.bnav{display:none}
+.m .bnav{display:flex;justify-content:space-around;padding:8px 4px 4px;margin-top:8px;background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.bnav a{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--ink-3);min-width:56px;height:44px;justify-content:center}
+.bnav a[aria-current=page]{color:var(--ink)}.bnav a[aria-current=page] .ico{color:var(--accent)}
+.m .empty{padding:32px 12px}
+.m .hide-m{display:none}
+.m .kv-wrap{overflow:hidden}
+.m .tree-bar{flex-wrap:wrap}
+.m .stabs a{height:44px}
+
+
+/* ===== trace workspace (FR-TD1..TD6 revised) ===== */
+.mline{display:flex;flex-wrap:wrap;align-items:center;row-gap:4px;font-size:14px;line-height:24px;color:var(--ink-2);margin:0}
+.mline>*+*::before{content:"·";margin:0 8px;color:var(--ink-3);font-weight:400}
+.mline .chip{margin-right:6px}.mline .chip+.chip::before,.mline .chip.add::before,.mline .add-open::before{content:none;margin:0}
+.mline .sepdot::before{content:"·";margin:0 8px;color:var(--ink-3)}
+.mline .tags{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px}
+.mline .tags::before{content:"·";margin:0 2px 0 8px;color:var(--ink-3)}
+.mline .tags>*::before{content:none!important;margin:0!important}
+.wsh{padding-top:16px;display:flex;flex-direction:column;gap:6px}
+.ws{height:900px}
+.ws .card{min-height:0}
+.ws .main{padding:0 24px 24px;gap:16px;flex:1;min-height:0}
+.ws .split{flex:1;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
+.ws .split>.panel{position:static;max-height:none;min-height:0;overflow:hidden}
+.ws .tree{flex:1;min-height:0;overflow:auto}
+.dpane .dm{padding:12px 16px 0}
+.dpane .tabs{padding:0 16px;margin-top:4px}
+.dpane .dbody{flex:1;min-height:0;overflow:auto;padding:16px}
+.tab .c2{margin-left:6px;font-variant-numeric:tabular-nums;color:var(--ink-3);font-weight:500}
+.seg.sm{height:var(--ctl-h-sm)}.seg.sm button{height:24px;padding:0 10px}
+.mrow{display:grid;grid-template-columns:140px minmax(0,1fr);align-items:center;min-height:var(--row-h);border-bottom:1px solid var(--line);font-size:14px;gap:12px}
+.mrow:last-child{border-bottom:0}.mrow dt{color:var(--ink-3);font-size:12px;font-weight:500;margin:0}.mrow dd{margin:0;display:flex;align-items:center;gap:6px;min-width:0}
+.io-top{display:flex;align-items:center;margin-bottom:12px}
+.tree-pane-h .seg button{padding:0 10px}
+.m.ws{height:auto}
+.m.ws .main{padding:0 14px 16px;flex:none}
+.m.ws .split{grid-template-rows:none}
+.m.ws .split>.panel:first-child{max-height:50vh}
+.m.ws .split>.panel{overflow:visible}
+.m.ws .split>.panel:first-child{overflow:hidden}
+.m.ws .tree{max-height:none}
+.m .mline{font-size:13px}
+.m .dpane .dbody{overflow:visible}
+
+/* Dark scope: a frame can be forced dark independent of the page */
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-logo" viewBox="0 0 24 24"><path d="M4 7c4 0 4 10 8 10s4-10 8-10"/><circle cx="4" cy="7" r="1.2"/><circle cx="20" cy="7" r="1.2"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+<symbol id="i-filter" viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></symbol>
+<symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/></symbol>
+<symbol id="i-kbd" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-chev-r" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.01"/></symbol>
+<symbol id="i-traces" viewBox="0 0 24 24"><path d="M3 6h10M7 12h10M11 18h10"/></symbol>
+<symbol id="i-dash" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+<symbol id="i-sessions" viewBox="0 0 24 24"><path d="M4 5h16v10H9l-5 4z"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .7 3.5 2.6 3.5 5.5"/></symbol>
+<symbol id="i-prompts" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 12h7M9 16h5"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z"/></symbol>
+<symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+<symbol id="i-cost" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M14.5 8.5c-.5-1-1.5-1.5-2.7-1.5-1.6 0-2.8.8-2.8 2s1 1.7 3 2.2 3 1 3 2.3-1.2 2-2.9 2c-1.3 0-2.4-.6-2.9-1.7M12 5.5V7M12 17v1.5"/></symbol>
+<symbol id="i-tokens" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+<symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8M16 7l3 3"/></symbol>
+<symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></symbol>
+<symbol id="i-gen" viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></symbol>
+<symbol id="i-span" viewBox="0 0 24 24"><path d="M4 12h16M4 8v8M20 8v8"/></symbol>
+<symbol id="i-tool" viewBox="0 0 24 24"><path d="M14.5 6.5a4 4 0 0 0 5 5L13 18l-3-3zM3 21l7-7"/></symbol>
+<symbol id="i-agent" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01"/></symbol>
+<symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3 3 7 3s7-1.3 7-3V6"/></symbol>
+</defs></svg>
+
+<nav class="sheet-nav" aria-label="Mockup sections">
+  <b>Traceloom v3.2 alignment pass</b>
+  <a href="#rules">1 Shared rules</a><a href="#traces">2 Traces</a><a href="#detail">3 Trace detail</a><a href="#dash">4 Dashboard</a><a href="#lists">5 Sessions / users</a><a href="#prompts">6 Prompts</a><a href="#play">7 Playground</a><a href="#settings">8 Settings</a><a href="#auth">9 Auth</a><a href="#mobile">10 Mobile 390</a><a href="#dark">11 Dark</a>
+  <button class="btn btn-sm right" id="themeBtn" type="button">[[sun]] Theme</button>
+</nav>
+
+<!-- ============ 1 SHARED RULES (T-2, T-3, T-4) ============ -->
+<section class="sec" id="rules">
+  <h2>1 Shared rules <span class="tag-t">T-2</span><span class="tag-t">T-3</span><span class="tag-t">T-4</span></h2>
+  <p class="lead">Every toolbar control is 36px (30px small, 44px at 760px and below). Rows are 44px, numeric columns are right-aligned Inter tabular figures, errored rows are not tinted, and every empty state is one centred 520px column.</p>
+
+  <div class="label-t">Controls in one toolbar row: all 36px (FR-S1) <span class="tag-t">AC-1</span></div>
+  <div class="panel"><div class="panel-b">
+    <div class="toolbar">
+      <div class="env-sel"><span class="env-dot"></span><select class="select" aria-label="Environment"><option>production</option></select></div>
+      <div class="seg" role="group" aria-label="Range"><button aria-pressed="false">1h</button><button aria-pressed="true">24h</button><button aria-pressed="false">7d</button><button aria-pressed="false">30d</button></div>
+      <div class="input-wrap" style="width:240px">[[search]]<input class="input" placeholder="Search traces" aria-label="Search"></div>
+      <button class="btn">[[filter]]Filter</button>
+      <button class="btn btn-primary">Save view</button>
+      <button class="btn btn-icon" aria-label="Keyboard shortcuts">[[kbd]]</button>
+      <button class="btn btn-icon" aria-label="Switch theme">[[sun]]</button>
+      <button class="btn btn-sm">Small 30</button>
+      <button class="btn btn-sm btn-icon" aria-label="More">[[more]]</button>
+    </div>
+    <div class="row" style="margin-top:12px;gap:16px;color:var(--ink-3);font-size:12px"><span>Control 36px</span><span>Small 30px</span><span>Tray segment 30px inside a 36px tray (2px inset)</span><span>Icons 16px</span></div>
+  </div></div>
+
+  <div class="label-t">States: default, hover, focus-visible, disabled, loading, invalid</div>
+  <div class="panel"><div class="panel-b"><div class="toolbar">
+    <button class="btn btn-primary">Default</button><button class="btn is-hover">Hover</button><button class="btn is-focus">Focus-visible</button><button class="btn" disabled aria-disabled="true">Disabled</button><button class="btn btn-primary" aria-busy="true"><span class="spin"></span>Saving</button>
+    <div style="width:220px"><input class="input is-focus" value="Focused input" aria-label="focus"></div>
+    <div style="width:220px"><input class="input" aria-invalid="true" value="not an email" aria-label="invalid"></div>
+  </div><div class="field-error" style="margin-top:8px">[[alert]]Enter a valid email address.</div></div></div>
+
+  <div class="label-t">Table rows: 44px, right-aligned numeric headers, error row not tinted (FR-S4, FR-S5) <span class="tag-t">AC-2</span><span class="tag-t">AC-3</span></div>
+  <div class="panel"><div class="panel-b flush"><table class="tbl">
+    <thead><tr><th>Trace</th><th>User</th><th class="r">Latency</th><th class="r">Cost</th><th>Status</th><th class="c">Scores</th></tr></thead>
+    <tbody>
+      <tr><td><b>support-agent.run</b></td><td><span class="user"><span class="avatar av1">U4</span>u_4821</span></td><td class="num r">2.41 s</td><td class="num r">$0.0421</td><td><span class="pill ok">[[check]]OK</span></td><td class="c muted">—</td></tr>
+      <tr class="err"><td><b>checkout.summarize</b></td><td><span class="user"><span class="avatar av2">U9</span>u_9034</span></td><td class="num r">12.08 s</td><td class="num r">$0.1190</td><td><span class="pill err">[[alert]]Error</span></td><td class="c muted">—</td></tr>
+      <tr class="sel"><td><b>rag.answer</b> <span class="muted">(selected)</span></td><td><span class="user"><span class="avatar av3">U1</span>u_1175</span></td><td class="num r">1.09 s</td><td class="num r">$0.0087</td><td><span class="pill warn">[[alert]]Warning</span></td><td class="c"><span class="pill">helpfulness: 0.82</span></td></tr>
+    </tbody></table></div></div>
+  <p class="hint" style="margin-top:8px">Row 2 is an errored row: same <code>--surface</code> background as row 1, latency in <code>--ink</code>, the 3px <code>--err-bar</code> marker on the left edge and the Error pill. Row 3 shows the selected state (unchanged).</p>
+
+  <div class="label-t">Empty state: one centred 520px column (FR-S6) <span class="tag-t">AC-9</span></div>
+  <div class="panel"><div class="empty">
+    <span class="tile">[[traces]]</span><h2>No traces match these filters</h2><p>Nothing in the last 24 hours matches “status: error” in production. Widen the range or clear the filters.</p>
+    <div class="acts"><button class="btn btn-primary">Clear filters</button><button class="btn">Show last 7 days</button></div>
+  </div></div>
+
+  <div class="label-t">Context bars (FR-S7, FR-S1) and page header (FR-S8) <span class="tag-t">T-3</span></div>
+  <div class="frame" style="grid-template-columns:1fr"><div class="card">
+    <div class="ctxbar"><div class="env-sel"><span class="env-dot"></span><select class="select" aria-label="Environment"><option>production</option></select></div><div class="seg"><button aria-pressed="false">1h</button><button aria-pressed="true">24h</button><button aria-pressed="false">7d</button><button aria-pressed="false">30d</button></div><span class="grow"></span><button class="btn btn-icon" aria-label="Keyboard shortcuts">[[kbd]]</button><button class="btn btn-icon" aria-label="Switch theme">[[sun]]</button></div>
+    <div class="ctxbar"><nav class="crumbs" aria-label="Breadcrumb"><a href="#">Traces</a>[[chev-r]]<span aria-current="page">checkout.summarize</span></nav><button class="btn btn-icon" aria-label="Keyboard shortcuts">[[kbd]]</button><button class="btn btn-icon" aria-label="Switch theme">[[sun]]</button></div>
+    <div class="main"><div class="page-h"><div class="ttl"><h1>Page title</h1><p class="sub">One muted line that explains the page on a single row where it fits.</p></div><div class="acts"><button class="btn">Secondary</button><button class="btn btn-primary">Primary</button></div></div></div>
+  </div></div>
+
+  <div class="label-t">Chart axis (FR-D3, T-4): Inter 11px, tabular figures, <code>--ink-3</code></div>
+  <div class="panel"><div class="panel-h"><h2>Traces over time <span class="u">per hour</span></h2></div><div class="panel-b"><div class="chart" data-chart="a"></div></div></div>
+</section>
+
+<!-- ============ 2 TRACES LIST (T-5) ============ -->
+<section class="sec" id="traces">
+  <h2>2 Traces list <span class="tag-t">T-5</span></h2>
+  <p class="lead">One toolbar row (tray, search of at least 280px, Filter), 44px rows, right-aligned Latency and Cost, centred Scores with a dash. The mobile version is in section 10.</p>
+  <div class="frame" id="f-traces">
+    <div data-side="traces"></div>
+    <div class="card">
+      <div class="ctxbar"><div class="env-sel"><span class="env-dot"></span><select class="select" aria-label="Environment"><option>production</option></select></div><div class="seg"><button aria-pressed="false">1h</button><button aria-pressed="true">24h</button><button aria-pressed="false">7d</button><button aria-pressed="false">30d</button></div><span class="grow"></span><button class="btn btn-icon" aria-label="Keyboard shortcuts">[[kbd]]</button><button class="btn btn-icon" aria-label="Switch theme">[[sun]]</button></div>
+      <main class="main">
+        <div class="page-h"><div class="ttl"><h1>Traces</h1><p class="sub">Every run your apps and agents sent in the last 24 hours.</p></div><div class="acts"><button class="btn btn-primary">Save view</button><button class="btn btn-icon" aria-label="More actions: saved views, columns, delete matching">[[more]]</button></div></div>
+        <div class="stats">
+          <div class="stat"><span class="l">Traces</span><span class="chipi">[[traces]]</span><span class="v">1,284</span><span class="cp">in the last 24 hours</span></div>
+          <div class="stat"><span class="l">Cost</span><span class="chipi ok">[[cost]]</span><span class="v">$41.27</span><span class="cp">$0.032 per trace</span></div>
+          <div class="stat"><span class="l">Tokens</span><span class="chipi">[[tokens]]</span><span class="v">3.48M</span><span class="cp">2.71M in · 0.77M out</span></div>
+          <div class="stat"><span class="l">Error rate</span><span class="chipi err">[[alert]]</span><span class="v">2.9%</span><span class="cp">37 errored traces</span></div>
+        </div>
+        <div class="toolbar">
+          <div class="seg scroll" role="group" aria-label="Filter"><button aria-pressed="true">All <span class="c">1,284</span></button><button aria-pressed="false">Errors <span class="c">37</span></button><button aria-pressed="false">Warnings <span class="c">12</span></button></div>
+          <div class="input-wrap grow" style="min-width:280px">[[search]]<input class="input" placeholder="Search by name, id, user or tag" aria-label="Search traces"></div>
+          <button class="btn">[[filter]]Filter</button>
+        </div>
+        <div class="panel"><div class="panel-b flush"><table class="tbl stackm" id="tracesTbl">
+          <thead><tr><th>Time</th><th>Trace</th><th>User</th><th>Tags</th><th class="r">Latency</th><th class="r">Cost</th><th>Status</th><th class="c">Scores</th></tr></thead>
+          <tbody data-rows="traces"></tbody></table></div></div>
+      </main>
+    </div>
+  </div>
+
+  <div class="pair">
+    <div style="flex:1 1 520px"><div class="label-t">Loading (skeleton rows)</div>
+      <div class="panel"><div class="panel-b flush"><table class="tbl"><thead><tr><th>Time</th><th>Trace</th><th>User</th><th class="r">Latency</th><th class="r">Cost</th></tr></thead><tbody>
+        <tr><td><span class="sk" style="width:64px"></span></td><td><span class="sk" style="width:160px"></span></td><td><span class="sk" style="width:80px"></span></td><td class="r"><span class="sk" style="width:48px;margin-left:auto"></span></td><td class="r"><span class="sk" style="width:56px;margin-left:auto"></span></td></tr>
+        <tr><td><span class="sk" style="width:64px"></span></td><td><span class="sk" style="width:130px"></span></td><td><span class="sk" style="width:80px"></span></td><td class="r"><span class="sk" style="width:48px;margin-left:auto"></span></td><td class="r"><span class="sk" style="width:56px;margin-left:auto"></span></td></tr>
+      </tbody></table></div></div></div>
+    <div style="flex:1 1 520px"><div class="label-t">Empty: project has no traces</div>
+      <div class="panel"><div class="empty"><span class="tile">[[traces]]</span><h2>No traces yet</h2><p>Send your first trace with the Python SDK. It appears here within a few seconds.</p>
+        <div class="code"><span class="k">from</span> traceloom_sdk <span class="k">import</span> observe<br>@observe()<br><span class="k">def</span> answer(q): ...</div>
+        <div class="acts"><button class="btn btn-primary">Create an API key</button><a class="btn" href="#">Read the quickstart</a></div></div></div></div>
+  </div>
+</section>
+
+<!-- ============ 3 TRACE DETAIL (T-6, T-7, T-8) ============ -->
+<section class="sec" id="detail">
+  <h2>3 Trace workspace <span class="tag-t">T-6</span><span class="tag-t">T-7</span><span class="tag-t">T-8</span></h2>
+  <p class="lead">Trace detail is one full-height workspace, not a long page. A compact header (under 112px) carries the title, one inline metrics row and the tags. Below it two panes fill the viewport and scroll on their own: the tree at 40% and the span detail with tabs Preview, Metadata, Scores and Comments. Click the tabs and the Tree/Timeline/Graph tray to try them. At 1440x900 the page does not scroll; below 1100px the panes stack (section 10).</p>
+  <div class="frame ws" id="f-detail">
+    <div data-side="traces"></div>
+    <div class="card">
+      <div class="ctxbar"><nav class="crumbs" aria-label="Breadcrumb"><a href="#">Traces</a>[[chev-r]]<span aria-current="page">checkout.summarize</span></nav><button class="btn btn-icon" aria-label="Keyboard shortcuts">[[kbd]]</button><button class="btn btn-icon" aria-label="Switch theme">[[sun]]</button></div>
+      <main class="main">
+        <div class="wsh">
+          <div class="page-h"><div class="ttl row" style="gap:12px"><h1>checkout.summarize</h1><span class="pill err">[[alert]]Error</span></div><div class="acts"><button class="btn">[[bookmark]]Bookmark</button><button class="btn btn-icon" aria-label="More actions" aria-haspopup="true">[[more]]</button></div></div>
+          <p class="mline"><span class="num">12.08 s</span><span class="num">$0.1190</span><span class="num">9,412 tokens</span><a href="#">u_9034</a><a href="#" class="mono">ses_77b1</a><span>production</span><span class="tags"><span class="chip">checkout<button aria-label="Remove tag checkout">[[x]]</button></span><span class="chip">beta<button aria-label="Remove tag beta">[[x]]</button></span><span class="chip add" role="button" tabindex="0">[[plus]]Add tag</span></span></p>
+        </div>
+        <div class="split">
+          <section class="panel" aria-label="Trace tree">
+            <div class="panel-h tree-pane-h"><div class="seg" role="tablist" aria-label="View"><button aria-pressed="true" title="Tree (t)">Tree</button><button aria-pressed="false" title="Timeline (l)">Timeline</button><button aria-pressed="false" title="Graph (g)">Graph</button></div><button class="btn btn-sm right" title="Jump to first error (e)">[[alert]]Jump to first error</button></div>
+            <div class="tree" data-tree></div>
+          </section>
+          <section class="panel dpane" aria-label="Span detail">
+            <div class="panel-h"><div class="ty ty-gen">[[gen]]</div><h2>llm.summarize</h2><span class="pill err" style="margin-left:4px">[[alert]]Error</span><span class="right muted" style="font-size:12px">generation</span></div>
+            <p class="mline dm"><span class="num">9.87 s</span><span class="num">$0.0904</span><span class="num">7,120 tokens</span><span class="mono">gpt-4o-mini</span></p>
+            <div class="tabs" role="tablist" aria-label="Detail" data-tabs="w">
+              <button class="tab" role="tab" aria-selected="true" data-p="w-prev">Preview</button><button class="tab" role="tab" aria-selected="false" data-p="w-meta">Metadata</button><button class="tab" role="tab" aria-selected="false" data-p="w-scores">Scores<span class="c2">2</span></button><button class="tab" role="tab" aria-selected="false" data-p="w-cmt">Comments<span class="c2">2</span></button></div>
+            <div class="dbody">
+              <div id="w-prev" class="tp"><div class="io-top"><div class="seg sm" role="group" aria-label="Format"><button aria-pressed="true">Formatted</button><button aria-pressed="false">JSON</button><button aria-pressed="false">Markdown</button></div></div>
+                <div class="io"><div class="io-h">Input<button class="copy" aria-label="Copy input">[[copy]]</button></div><div class="io-b">[{"role":"user","content":"Summarize the cart and shipping options for order #4821."}]</div></div>
+                <div class="io"><div class="io-h">Output<button class="copy" aria-label="Copy output">[[copy]]</button></div><div class="io-b">Error: upstream timeout after 9.8s (model gpt-4o-mini, attempt 2 of 2)</div></div></div>
+              <div id="w-meta" class="tp" hidden><dl style="margin:0">
+                <div class="mrow"><dt>Trace ID</dt><dd><span class="mono">tr_8f3a29c1d0</span><button class="copy" aria-label="Copy trace id">[[copy]]</button></dd></div>
+                <div class="mrow"><dt>Release</dt><dd class="mono">2026.11.3</dd></div>
+                <div class="mrow"><dt>Version</dt><dd class="mono">v14</dd></div>
+                <div class="mrow"><dt>Environment</dt><dd>production</dd></div></dl>
+                <div class="io" style="margin-top:16px"><div class="io-h">Metadata<button class="copy" aria-label="Copy metadata">[[copy]]</button></div><div class="io-b">{"retries": 2, "region": "eu-west-1"}</div></div></div>
+              <div id="w-scores" class="tp" hidden>
+                <div class="row" style="margin-bottom:16px"><span class="pill">helpfulness: 0.82</span><span class="pill">format: pass</span></div>
+                <form class="stackf" onsubmit="return false">
+                  <div class="row-fields" style="grid-template-columns:minmax(80px,1fr) 120px 80px auto;gap:8px;align-items:end">
+                    <div class="field"><label for="sn">Name</label><input id="sn" class="input" value="accuracy"></div>
+                    <div class="field"><label for="st">Type</label><select id="st" class="select"><option>Number</option></select></div>
+                    <div class="field"><label for="sv">Value</label><input id="sv" class="input" aria-invalid="true" value="abc" aria-describedby="sv-e"></div>
+                    <button class="btn btn-primary">Add score</button>
+                  </div>
+                  <div class="field-error" id="sv-e">[[alert]]Value must be a number between 0 and 1.</div>
+                </form></div>
+              <div id="w-cmt" class="tp" hidden>
+                <div class="cm"><span class="avatar av1">AK</span><div><b>Asha K.</b> <small>2h ago</small><p>Timeout on the second attempt; the retry budget is too tight for long carts.</p></div></div>
+                <div class="cm"><span class="avatar av4">MR</span><div><b>Mateo R.</b> <small>1h ago</small><p>Bumping the timeout to 20s in the next release.</p></div></div>
+                <div class="field" style="margin-top:12px"><label for="cmt">Add a comment</label><div class="row"><input id="cmt" class="input" placeholder="Write a comment"><button class="btn btn-primary">Post</button></div></div></div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="pair">
+    <div style="flex:1 1 300px"><div class="label-t">Tags: Member, add field open (same form post without JavaScript)</div>
+      <div class="panel"><div class="panel-b"><div class="row" style="flex-wrap:wrap;gap:6px"><span class="chip">checkout<button aria-label="Remove tag checkout">[[x]]</button></span><span class="chip">beta<button aria-label="Remove tag beta">[[x]]</button></span><form class="chip add-open" onsubmit="return false"><input aria-label="New tag" value="refund-flow"><button class="btn btn-sm btn-primary" style="height:24px;padding:0 8px">Add</button></form></div></div></div>
+      <div class="label-t">Tags: Viewer (chips only, no x, no add control)</div>
+      <div class="panel"><div class="panel-b"><div class="row" style="flex-wrap:wrap;gap:6px"><span class="chip">checkout</span><span class="chip">beta</span></div></div></div></div>
+    <div style="flex:1 1 260px"><div class="label-t">"..." menu (Admin); Viewers get no menu</div><div class="pop" role="menu" style="width:240px"><a class="item" role="menuitem">Public share</a><a class="item" role="menuitem">Copy trace id</a><a class="item" role="menuitem">Copy release</a><a class="item" role="menuitem">Copy version</a><a class="item" role="menuitem">Copy user id</a><div class="sep"></div><a class="item danger" role="menuitem">Delete trace…</a></div></div>
+    <div style="flex:1 1 300px"><div class="label-t">Loading: detail pane while the fragment loads</div><div class="panel"><div class="panel-b stackf"><span class="sk" style="width:40%"></span><span class="sk" style="width:100%;height:64px"></span><span class="sk" style="width:80%"></span></div></div></div>
+  </div>
+</section>
+          <section class="panel" aria-label="Span detail">
+            <div class="panel-h"><div class="ty ty-gen">[[gen]]</div><h2>llm.summarize</h2><span class="pill err" style="margin-left:4px">[[alert]]Error</span><span class="right muted" style="font-size:12px">generation</span></div>
+            <div class="panel-b">
+              <dl class="kv" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:24px">
+                <div><dt>Latency</dt><dd class="num" style="font-size:14px">9.87 s</dd></div><div><dt>Cost</dt><dd class="num" style="font-size:14px">$0.0904</dd></div><div><dt>Tokens</dt><dd class="num" style="font-size:14px">7,120</dd></div><div><dt>Observations</dt><dd class="num" style="font-size:14px">3</dd></div>
+              </dl>
+              <div class="io"><div class="io-h">Input<button class="copy" aria-label="Copy input">[[copy]]</button></div><div class="io-b">[{"role":"user","content":"Summarize the cart and shipping options for order #4821."}]</div></div>
+              <div class="io"><div class="io-h">Output<button class="copy" aria-label="Copy output">[[copy]]</button></div><div class="io-b">Error: upstream timeout after 9.8s (model gpt-4o-mini, attempt 2 of 2)</div></div>
+              <div class="io" style="margin-bottom:0"><div class="io-h">Metadata<button class="copy" aria-label="Copy metadata">[[copy]]</button></div><div class="io-b">{"retries": 2, "region": "eu-west-1"}</div></div>
+            </div>
+          </section>
+        </div>
+        <div class="pair2">
+          <section class="panel" aria-label="Comments"><div class="panel-h"><h2>Comments</h2><span class="muted" style="font-size:12px">2</span></div><div class="panel-b">
+            <div class="cm"><span class="avatar av1">AK</span><div><b>Asha K.</b> <small>2h ago</small><p>Timeout on the second attempt; the retry budget is too tight for long carts.</p></div></div>
+            <div class="cm"><span class="avatar av4">MR</span><div><b>Mateo R.</b> <small>1h ago</small><p>Bumping the timeout to 20s in the next release.</p></div></div>
+            <div class="field" style="margin-top:12px"><label for="cmt">Add a comment</label><div class="row"><input id="cmt" class="input" placeholder="Write a comment"><button class="btn btn-primary">Post</button></div></div>
+          </div></section>
+          <section class="panel" aria-label="Scores"><div class="panel-h"><h2>Scores</h2></div><div class="panel-b">
+            <div class="row" style="margin-bottom:16px"><span class="pill">helpfulness: 0.82</span><span class="pill">format: pass</span></div>
+            <form class="stackf" onsubmit="return false">
+              <div class="row-fields" style="grid-template-columns:minmax(80px,1fr) 96px 64px;gap:8px">
+                <div class="field"><label for="sn">Name</label><input id="sn" class="input" value="accuracy"></div>
+                <div class="field"><label for="st">Type</label><select id="st" class="select"><option>Number</option></select></div>
+                <div class="field"><label for="sv">Value</label><input id="sv" class="input" aria-invalid="true" value="abc" aria-describedby="sv-e"></div>
+              </div>
+              <div class="field-error" id="sv-e">[[alert]]Value must be a number between 0 and 1.</div>
+              <button class="btn btn-primary" style="align-self:flex-start">Add score</button>
+            </form>
+          </div></section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="pair">
+    <div style="flex:1 1 420px"><div class="label-t">Tags: Member (add field open, no JavaScript fallback is the same form post)</div>
+      <div class="panel"><div class="panel-b"><div class="row" style="flex-wrap:wrap;gap:6px"><span class="chip">checkout<button aria-label="Remove tag checkout">[[x]]</button></span><span class="chip">beta<button aria-label="Remove tag beta">[[x]]</button></span><form class="chip add-open" onsubmit="return false"><input aria-label="New tag" value="refund-flow"><button class="btn btn-sm btn-primary" style="height:24px;padding:0 8px">Add</button></form></div></div></div></div>
+    <div style="flex:1 1 420px"><div class="label-t">Tags: Viewer (chips only, no × and no add control) and no tags</div>
+      <div class="panel"><div class="panel-b"><div class="row" style="flex-wrap:wrap;gap:6px"><span class="chip">checkout</span><span class="chip">beta</span></div><p class="muted" style="margin-top:12px;font-size:13px">No tags yet.</p></div></div></div>
+  </div>
+  <div class="pair"><div style="flex:1 1 300px"><div class="label-t">"..." menu (Admin): Viewers get no menu</div><div class="pop" role="menu" style="width:220px"><a class="item" role="menuitem">Public share</a><a class="item" role="menuitem">Copy trace id</a><a class="item" role="menuitem">Copy user id</a><div class="sep"></div><a class="item danger" role="menuitem">Delete trace…</a></div></div>
+  <div style="flex:2 1 400px"><div class="label-t">Loading: span detail while the fragment loads</div><div class="panel"><div class="panel-b stackf"><span class="sk" style="width:40%"></span><span class="sk" style="width:100%;height:64px"></span><span class="sk" style="width:80%"></span></div></div></div></div>
+</section>
+
+<!-- ============ 4 DASHBOARD (T-10) ============ -->
+<section class="sec" id="dash">
+  <h2>4 Dashboard <span class="tag-t">T-10</span></h2>
+  <p class="lead">Four identical 112px stat cards with icon chips; an 8+4 grid whose panels stretch to equal height; breakdown bars that start at one x; a top-users table without the large indent.</p>
+  <div class="frame">
+    <div data-side="dash"></div>
+    <div class="card">
+      <div class="ctxbar"><div class="env-sel"><span class="env-dot"></span><select class="select" aria-label="Environment"><option>production</option></select></div><div class="seg"><button aria-pressed="false">1h</button><button aria-pressed="true">24h</button><button aria-pressed="false">7d</button><button aria-pressed="false">30d</button></div><span class="grow"></span><button class="btn btn-icon" aria-label="Keyboard shortcuts">[[kbd]]</button><button class="btn btn-icon" aria-label="Switch theme">[[sun]]</button></div>
+      <main class="main">
+        <div class="page-h"><div class="ttl"><h1>Dashboard</h1><p class="sub">Volume, cost and quality for production over the last 24 hours.</p></div></div>
+        <div class="stats">
+          <div class="stat"><span class="l">Traces</span><span class="chipi">[[traces]]</span><span class="v">1,284</span><span class="cp">in the last 24 hours</span></div>
+          <div class="stat"><span class="l">Cost</span><span class="chipi ok">[[cost]]</span><span class="v">$41.27</span><span class="cp">$0.032 per trace</span></div>
+          <div class="stat"><span class="l">Tokens</span><span class="chipi">[[tokens]]</span><span class="v">3.48M</span><span class="cp">2.71M in · 0.77M out</span></div>
+          <div class="stat"><span class="l">Error rate</span><span class="chipi err">[[alert]]</span><span class="v">2.9%</span><span class="cp">37 errored traces</span></div>
+        </div>
+        <div class="grid-12">
+          <section class="panel c8"><div class="panel-h"><h2>Traces over time <span class="u">per hour</span></h2></div><div class="panel-b"><div class="chart" data-chart="b"></div></div></section>
+          <section class="panel c4 errpanel"><div class="panel-h"><h2>Error rate by level <span class="u">observations</span></h2></div><div class="body">
+            <div class="stackbar" role="img" aria-label="94.3% default, 3.4% warning, 2.3% error"><i style="width:94.3%;background:var(--s2)"></i><i style="width:3.4%;background:var(--warn-bar)"></i><i style="width:2.3%;background:var(--err-bar)"></i></div>
+            <div>
+              <div class="leg"><span class="dot" style="background:var(--s2)"></span><span>Default</span><span class="p">94.3%</span><span class="n">11,402</span></div>
+              <div class="leg"><span class="dot" style="background:var(--warn-bar)"></span><span>Warning</span><span class="p">3.4%</span><span class="n">411</span></div>
+              <div class="leg"><span class="dot" style="background:var(--err-bar)"></span><span>Error</span><span class="p">2.3%</span><span class="n">278</span></div>
+            </div>
+            <p class="muted" style="font-size:12px;margin-top:auto">12,091 observations in total</p>
+          </div></section>
+          <section class="panel c8"><div class="tabs" role="tablist" aria-label="Breakdown"><button class="tab" role="tab" aria-selected="true">Cost</button><button class="tab" role="tab" aria-selected="false">Tokens</button><button class="tab" role="tab" aria-selected="false">Latency by model</button><button class="tab" role="tab" aria-selected="false">Latency by trace</button></div>
+            <div class="panel-b flush" style="padding:8px 0">
+              <div class="brk"><span class="mono trunc">gpt-4o</span><span class="bar"><i style="width:100%"></i></span><span class="v">$22.10</span></div>
+              <div class="brk"><span class="mono trunc">claude-sonnet-5-5</span><span class="bar"><i style="width:64%"></i></span><span class="v">$14.18</span></div>
+              <div class="brk"><span class="mono trunc">gpt-4o-mini</span><span class="bar"><i style="width:21%"></i></span><span class="v">$4.64</span></div>
+              <div class="brk"><span class="mono trunc">text-embedding-3-small</span><span class="bar"><i style="width:2%"></i></span><span class="v">$0.35</span></div>
+            </div></section>
+          <section class="panel c4"><div class="panel-h"><h2>Top users <span class="u">by cost</span></h2></div><div class="panel-b flush"><table class="tbl">
+            <thead><tr><th style="width:32px">#</th><th>User</th><th class="r">Traces</th><th class="r">Cost</th></tr></thead><tbody>
+            <tr><td class="rank">1</td><td><span class="user"><span class="avatar av1">U4</span>u_4821</span></td><td class="num r">312</td><td class="num r">$9.84</td></tr>
+            <tr><td class="rank">2</td><td><span class="user"><span class="avatar av2">U9</span>u_9034</span></td><td class="num r">204</td><td class="num r">$7.31</td></tr>
+            <tr><td class="rank">3</td><td><span class="user"><span class="avatar av3">U1</span>u_1175</span></td><td class="num r">187</td><td class="num r">$5.02</td></tr>
+          </tbody></table></div></section>
+        </div>
+      </main>
+    </div>
+  </div>
+  <div class="label-t">Empty: no data in this range</div>
+  <div class="panel"><div class="empty"><span class="tile">[[dash]]</span><h2>No data for this range</h2><p>No traces arrived in the last 24 hours in production. Pick a longer range or send a trace.</p><div class="acts"><button class="btn btn-primary">Show last 7 days</button></div></div></div>
+</section>
+
+<!-- ============ 5 SESSIONS / USERS (T-11) ============ -->
+<section class="sec" id="lists">
+  <h2>5 Sessions and users <span class="tag-t">T-11</span></h2>
+  <p class="lead">Numeric columns are right-aligned Inter tabular with right-aligned headers; the empty state is the shared one.</p>
+  <div class="pair">
+    <div class="frame" style="grid-template-columns:1fr">
+      <div class="card"><div class="ctxbar"><div class="env-sel"><span class="env-dot"></span><select class="select" aria-label="Environment"><option>production</option></select></div><div class="seg"><button aria-pressed="false">1h</button><button aria-pressed="true">24h</button><button aria-pressed="false">7d</button></div><span class="grow"></span><button class="btn btn-icon" aria-label="Keyboard shortcuts">[[kbd]]</button></div>
+      <main class="main"><div class="page-h"><div class="ttl"><h1>Sessions</h1><p class="sub">Conversations grouped by session id.</p></div></div>
+        <div class="panel"><div class="panel-b flush"><table class="tbl"><thead><tr><th>Session</th><th>Users</th><th class="r">Traces</th><th class="r">Tokens</th><th class="r">Cost</th><th class="r">Duration</th></tr></thead><tbody>
+          <tr><td class="mono">ses_77b1</td><td><span class="user"><span class="avatar av2">U9</span>u_9034</span></td><td class="num r">14</td><td class="num r">38,204</td><td class="num r">$0.4120</td><td class="num r">6m 12s</td></tr>
+          <tr><td class="mono">ses_31ce</td><td><span class="user"><span class="avatar av1">U4</span>u_4821</span></td><td class="num r">3</td><td class="num r">4,911</td><td class="num r">$0.0390</td><td class="num r">48s</td></tr>
+          <tr><td class="mono">ses_09aa</td><td><span class="user"><span class="avatar av3">U1</span>u_1175</span></td><td class="num r">27</td><td class="num r">91,330</td><td class="num r">$1.0270</td><td class="num r">21m 03s</td></tr>
+        </tbody></table></div></div></main></div>
+    </div>
+    <div class="frame" style="grid-template-columns:1fr">
+      <div class="card"><main class="main"><div class="page-h"><div class="ttl"><h1>Users</h1><p class="sub">People using your app, from the user id you send.</p></div></div>
+        <div class="panel"><div class="empty"><span class="tile">[[users]]</span><h2>No users yet</h2><p>Pass a user_id when you create a trace and your users show up here with their cost and activity.</p><div class="acts"><button class="btn btn-primary">Read the SDK guide</button></div></div></div></main></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6 PROMPTS (T-13) ============ -->
+<section class="sec" id="prompts">
+  <h2>6 Prompts <span class="tag-t">T-13</span></h2>
+  <p class="lead">The empty state is centred in its panel at 520px with the SDK snippet inside it. On the new-prompt form, labels sit 6px above fields, Type and Tags share a baseline, and every panel header is 52px.</p>
+  <div class="pair">
+    <div class="frame" style="grid-template-columns:1fr"><div class="card">
+      <div class="ctxbar"><nav class="crumbs" aria-label="Breadcrumb"><span aria-current="page">Prompts</span></nav><button class="btn btn-icon" aria-label="Keyboard shortcuts">[[kbd]]</button><button class="btn btn-icon" aria-label="Switch theme">[[sun]]</button></div>
+      <main class="main"><div class="page-h"><div class="ttl"><h1>Prompts</h1><p class="sub">Version, label and fetch prompts from your code.</p></div><div class="acts"><button class="btn btn-primary">[[plus]]New prompt</button></div></div>
+        <div class="panel"><div class="empty"><span class="tile">[[prompts]]</span><h2>No prompts yet</h2><p>Create a prompt to version it, label a release as production and fetch it from the SDK.</p>
+          <div class="code"><span class="k">prompt</span> = client.get_prompt(<span class="s">"support-agent"</span>, label=<span class="s">"production"</span>)</div>
+          <div class="acts"><button class="btn btn-primary">New prompt</button><a class="btn" href="#">SDK guide</a></div></div></div></main>
+    </div></div>
+    <div class="frame" style="grid-template-columns:1fr"><div class="card">
+      <div class="ctxbar"><nav class="crumbs" aria-label="Breadcrumb"><a href="#">Prompts</a>[[chev-r]]<span aria-current="page">New prompt</span></nav><button class="btn btn-icon" aria-label="Keyboard shortcuts">[[kbd]]</button></div>
+      <main class="main"><div class="page-h"><div class="ttl"><h1>New prompt</h1></div></div>
+        <div class="form2">
+          <section class="panel"><div class="panel-h"><h2>Prompt</h2></div><div class="panel-b stackf">
+            <div class="field"><label for="pn">Name</label><input id="pn" class="input" value="support agent" aria-invalid="true" aria-describedby="pn-e"><div class="field-error" id="pn-e">[[alert]]Use letters, numbers, dashes and underscores only.</div></div>
+            <div class="row-fields" style="grid-template-columns:auto 1fr;gap:16px">
+              <div class="field"><label id="ty-l">Type</label><div class="seg" role="group" aria-labelledby="ty-l"><button aria-pressed="false">Text</button><button aria-pressed="true">Chat</button></div></div>
+              <div class="field"><label for="tg">Tags</label><input id="tg" class="input" placeholder="support, v2"></div>
+            </div>
+            <div class="field"><label>Messages</label><div class="msg msg-user"><b style="font-size:12px">User</b><br>Answer the customer using only <span class="var">{{policy}}</span>. Question: <span class="var">{{question}}</span></div></div>
+          </div></section>
+          <aside class="stackf">
+            <section class="panel"><div class="panel-h"><h2>Save</h2></div><div class="panel-b stackf"><div class="field"><label for="cm">Commit message</label><input id="cm" class="input" placeholder="What changed?"></div><button class="btn btn-primary">Create prompt</button></div></section>
+            <section class="panel"><div class="panel-h"><h2>Variables</h2></div><div class="panel-b"><span class="chip mono">policy</span> <span class="chip mono">question</span></div></section>
+          </aside>
+        </div></main>
+    </div></div>
+  </div>
+</section>
+
+<!-- ============ 7 PLAYGROUND (T-14) ============ -->
+<section class="sec" id="play">
+  <h2>7 Playground <span class="tag-t">T-14</span></h2>
+  <p class="lead">Without a connection: the shared empty state. With one: the Run-with row at 36px and two equal panels whose tops align.</p>
+  <div class="pair">
+    <div class="frame" style="grid-template-columns:1fr"><div class="card">
+      <div class="ctxbar"><nav class="crumbs" aria-label="Breadcrumb"><span aria-current="page">Playground</span></nav><button class="btn btn-icon" aria-label="Keyboard shortcuts">[[kbd]]</button></div>
+      <main class="main"><div class="page-h"><div class="ttl"><h1>Playground</h1><p class="sub">Try a prompt against a model before you ship it.</p></div></div>
+        <div class="panel"><div class="empty"><span class="tile">[[key]]</span><h2>Connect a model provider</h2><p>Add an LLM connection to run prompts here. Keys are stored encrypted and never shown again.</p><div class="acts"><button class="btn btn-primary">Add LLM connection</button></div></div></div></main>
+    </div></div>
+    <div class="frame" style="grid-template-columns:1fr"><div class="card">
+      <div class="ctxbar"><nav class="crumbs" aria-label="Breadcrumb"><span aria-current="page">Playground</span></nav><button class="btn btn-icon" aria-label="Keyboard shortcuts">[[kbd]]</button></div>
+      <main class="main"><div class="page-h"><div class="ttl"><h1>Playground</h1></div><div class="acts"><button class="btn btn-icon" aria-label="More">[[more]]</button><button class="btn">Settings</button><button class="btn btn-primary">[[play]]Run</button></div></div>
+        <div class="toolbar"><span class="lbl" style="margin-right:4px">Run with</span><div style="width:200px"><select class="select" aria-label="Connection"><option>OpenAI · prod key</option></select></div><div style="width:200px"><select class="select" aria-label="Model"><option>gpt-4o-mini</option></select></div></div>
+        <div class="grid-12" style="gap:24px">
+          <section class="panel c6"><div class="panel-h"><h2>Prompt</h2></div><div class="panel-b stackf"><div class="msg msg-user"><b style="font-size:12px">User</b><br>Summarize this ticket in one sentence: <span class="var">{{ticket}}</span></div><div class="editor" style="min-height:80px">Ticket: Customer reports a double charge on order #4821.</div></div></section>
+          <section class="panel c6"><div class="panel-h"><h2>Response</h2><span class="pill ok right">[[check]]Done</span></div><div class="panel-b"><p>The customer was charged twice for order #4821 and wants one charge refunded.<span class="cursor"></span></p><div class="row" style="margin-top:16px;color:var(--ink-3);font-size:12px"><span class="num">212 in</span><span class="num">31 out</span><span class="num">1.4 s</span><span class="num">$0.0004</span></div></div></section>
+        </div></main>
+    </div></div>
+  </div>
+</section>
+
+<!-- ============ 8 SETTINGS (T-16) ============ -->
+<section class="sec" id="settings">
+  <h2>8 Settings <span class="tag-t">T-16</span></h2>
+  <p class="lead">Tabs are 40px high and start at the page's left edge. Row menus sit in a 48px right-aligned column. Empty lists use the shared empty state.</p>
+  <div class="pair">
+    <div class="frame" style="grid-template-columns:1fr"><div class="card">
+      <div class="ctxbar"><nav class="crumbs" aria-label="Breadcrumb"><span aria-current="page">Settings</span></nav><button class="btn btn-icon" aria-label="Keyboard shortcuts">[[kbd]]</button></div>
+      <main class="main"><div class="page-h"><div class="ttl"><h1>Settings</h1><p class="sub">Keys, models, members and connections for Acme / support-bot.</p></div></div>
+        <nav class="stabs" aria-label="Settings"><a href="#" aria-current="page">API keys</a><a href="#">Models</a><a href="#">Members</a><a href="#">LLM connections</a><a href="#">Webhooks</a></nav>
+        <div class="panel"><div class="panel-h"><h2>API keys</h2><div class="right"><button class="btn btn-primary btn-sm">[[plus]]Create key</button></div></div><div class="panel-b flush"><table class="tbl">
+          <thead><tr><th>Name</th><th>Public key</th><th class="r">Last used</th><th class="menu"><span class="sr">Actions</span></th></tr></thead><tbody>
+          <tr><td><b>ci-pipeline</b></td><td class="mono">pk-tl-…a91f</td><td class="num r">2 min ago</td><td class="menu"><div class="rel"><button class="btn btn-ghost btn-icon btn-sm" aria-label="Actions for ci-pipeline" aria-expanded="true">[[more]]</button><div class="pop abs" role="menu"><a class="item" role="menuitem">Copy public key</a><div class="sep"></div><a class="item danger" role="menuitem">Revoke…</a></div></div></td></tr>
+          <tr><td><b>staging-app</b></td><td class="mono">pk-tl-…77c2</td><td class="num r">3 days ago</td><td class="menu"><button class="btn btn-ghost btn-icon btn-sm" aria-label="Actions for staging-app">[[more]]</button></td></tr>
+          <tr><td><b>local-dev</b></td><td class="mono">pk-tl-…0d3e</td><td class="num r">Never</td><td class="menu"><button class="btn btn-ghost btn-icon btn-sm" aria-label="Actions for local-dev">[[more]]</button></td></tr>
+        </tbody></table></div></div>
+      </main></div></div>
+    <div class="frame" style="grid-template-columns:1fr"><div class="card"><main class="main">
+        <nav class="stabs" aria-label="Settings"><a href="#">API keys</a><a href="#">Models</a><a href="#">Members</a><a href="#" aria-current="page">Webhooks</a></nav>
+        <div class="panel"><div class="panel-h"><h2>Webhooks</h2></div><div class="empty"><span class="tile">[[settings]]</span><h2>No webhooks yet</h2><p>Send an HTTP request to your own service when a prompt changes. Deliveries are signed so you can verify them.</p><div class="acts"><button class="btn btn-primary">Add webhook</button></div></div></div>
+      </main></div></div>
+  </div>
+</section>
+
+<!-- ============ 9 AUTH (T-17) ============ -->
+<section class="sec" id="auth">
+  <h2>9 Auth pages <span class="tag-t">T-17</span></h2>
+  <p class="lead">A 380px form column, vertically centred; inputs 40px; “Forgot password?” sits on the Password label's baseline; the brand headline is centred with the tagline pinned to the bottom.</p>
+  <div class="auth">
+    <div class="brandp"><div class="brand"><span class="tile">[[logo]]</span>Traceloom</div><div class="hl"><h1>See every step your agents take.</h1><p>Traces, cost, prompts and evals for your LLM apps. Self-hosted, so your data stays yours.</p></div><small class="muted">Open, self-hosted LLM engineering.</small></div>
+    <div class="formp"><form class="formc" onsubmit="return false">
+      <div><h1>Log in</h1><p class="muted" style="margin-top:4px">Welcome back. Enter your details.</p></div>
+      <div class="banner err" role="alert">[[alert]]Email or password is incorrect.</div>
+      <div class="field"><label for="em">Email</label><input id="em" class="input" value="asha@acme.dev" type="email"></div>
+      <div class="field"><label for="pw"><span>Password</span><a href="#" style="font-weight:500">Forgot password?</a></label><input id="pw" class="input" type="password" value="••••••••" aria-invalid="true"></div>
+      <button class="btn btn-primary btn-block">Log in</button>
+      <p class="muted" style="text-align:center;font-size:13px">New here? <a href="#">Create an account</a></p>
+    </form></div>
+  </div>
+</section>
+
+<!-- ============ 10 MOBILE 390 (T-3, T-18) ============ -->
+<section class="sec" id="mobile">
+  <h2>10 Mobile at 390px <span class="tag-t">T-3</span><span class="tag-t">T-18</span></h2>
+  <p class="lead">The env select and range tray share one row (same top offset). The breadcrumb is not shown on mobile and has no duplicate for screen readers. The traces tray scrolls inside itself. Trace detail stacks the panes, tree first at max 50vh, and the page scrolls. Controls are 44px.</p>
+  <div class="phone-col">
+    <div><div class="lbl2">Traces</div><div class="frame m" id="m-traces"><div data-mtop></div><div class="card"><main class="main">
+      <div class="ctx-m"><div class="env-sel"><span class="env-dot"></span><select class="select" aria-label="Environment"><option>production</option></select></div><div class="seg"><button aria-pressed="false">1h</button><button aria-pressed="true">24h</button><button aria-pressed="false">7d</button></div></div>
+      <div class="page-h"><div class="ttl"><h1>Traces</h1><p class="sub">Runs from the last 24 hours.</p></div><div class="acts"><button class="btn btn-primary">Save view</button><button class="btn btn-icon" aria-label="More actions">[[more]]</button></div></div>
+      <div class="stats"><div class="stat"><span class="l">Traces</span><span class="chipi">[[traces]]</span><span class="v">1,284</span><span class="cp">last 24 hours</span></div><div class="stat"><span class="l">Cost</span><span class="chipi ok">[[cost]]</span><span class="v">$41.27</span><span class="cp">$0.032 per trace</span></div></div>
+      <div class="seg scroll" role="group" aria-label="Filter" style="align-self:stretch"><button aria-pressed="true">All <span class="c">1,284</span></button><button aria-pressed="false">Errors <span class="c">37</span></button><button aria-pressed="false">Warnings <span class="c">12</span></button></div>
+      <div class="input-wrap">[[search]]<input class="input" placeholder="Search traces" aria-label="Search"></div>
+      <div class="panel"><div class="panel-b flush"><table class="tbl stackm"><tbody data-rows="traces-m"></tbody></table></div></div>
+    </main></div><div data-bnav="traces"></div></div></div>
+
+    <div><div class="lbl2">Trace detail (panes stack, tree first at max 50vh)</div><div class="frame m ws" id="m-detail"><div data-mtop></div><div class="card"><main class="main">
+      <div class="wsh" style="padding-top:0">
+        <div class="page-h"><div class="ttl"><h1>checkout.summarize</h1><span class="pill err" style="margin-top:6px">[[alert]]Error</span></div><div class="acts"><button class="btn">[[bookmark]]Bookmark</button><button class="btn btn-icon" aria-label="More actions">[[more]]</button></div></div>
+        <p class="mline"><span class="num">12.08 s</span><span class="num">$0.1190</span><span class="num">9,412 tokens</span><a href="#">u_9034</a><a href="#" class="mono">ses_77b1</a><span>production</span><span class="tags"><span class="chip">checkout<button aria-label="Remove tag checkout">[[x]]</button></span><span class="chip">beta<button aria-label="Remove tag beta">[[x]]</button></span><span class="chip add">[[plus]]Add tag</span></span></p></div>
+      <div class="split"><section class="panel"><div class="panel-h tree-pane-h"><div class="seg"><button aria-pressed="true">Tree</button><button aria-pressed="false">Timeline</button><button aria-pressed="false">Graph</button></div></div><div class="tree" data-tree></div></section>
+      <section class="panel dpane"><div class="panel-h"><div class="ty ty-gen">[[gen]]</div><h2>llm.summarize</h2><span class="pill err">Error</span></div><p class="mline dm"><span class="num">9.87 s</span><span class="num">$0.0904</span><span class="num">7,120 tokens</span><span class="mono">gpt-4o-mini</span></p>
+        <div class="tabs" role="tablist" aria-label="Detail" style="overflow-x:auto"><button class="tab" role="tab" aria-selected="true">Preview</button><button class="tab" role="tab" aria-selected="false">Metadata</button><button class="tab" role="tab" aria-selected="false">Scores<span class="c2">2</span></button><button class="tab" role="tab" aria-selected="false">Comments<span class="c2">2</span></button></div>
+        <div class="dbody"><div class="io" style="margin:0"><div class="io-h">Input<button class="copy" aria-label="Copy input">[[copy]]</button></div><div class="io-b">[{"role":"user","content":"Summarize the cart…"}]</div></div></div></section></div>
+    </main></div><div data-bnav="traces"></div></div></div>
+
+    <div><div class="lbl2">Dashboard</div><div class="frame m" id="m-dash"><div data-mtop></div><div class="card"><main class="main">
+      <div class="ctx-m"><div class="env-sel"><span class="env-dot"></span><select class="select" aria-label="Environment"><option>production</option></select></div><div class="seg"><button aria-pressed="false">1h</button><button aria-pressed="true">24h</button><button aria-pressed="false">7d</button></div></div>
+      <div class="page-h"><div class="ttl"><h1>Dashboard</h1></div></div>
+      <div class="stats"><div class="stat"><span class="l">Traces</span><span class="chipi">[[traces]]</span><span class="v">1,284</span><span class="cp">last 24 hours</span></div><div class="stat"><span class="l">Cost</span><span class="chipi ok">[[cost]]</span><span class="v">$41.27</span><span class="cp">$0.032 per trace</span></div><div class="stat"><span class="l">Tokens</span><span class="chipi">[[tokens]]</span><span class="v">3.48M</span><span class="cp">2.71M in</span></div><div class="stat"><span class="l">Error rate</span><span class="chipi err">[[alert]]</span><span class="v">2.9%</span><span class="cp">37 errored</span></div></div>
+      <section class="panel"><div class="panel-h"><h2>Traces over time <span class="u">per hour</span></h2></div><div class="panel-b"><div class="chart" data-chart="c"></div></div></section>
+      <section class="panel"><div class="panel-h"><h2>Cost by model</h2></div><div class="panel-b flush" style="padding:8px 0"><div class="brk"><span class="mono trunc">gpt-4o</span><span class="bar"><i style="width:100%"></i></span><span class="v">$22.10</span></div><div class="brk"><span class="mono trunc">claude-sonnet-5-5</span><span class="bar"><i style="width:64%"></i></span><span class="v">$14.18</span></div></div></section>
+    </main></div><div data-bnav="dash"></div></div></div>
+
+    <div><div class="lbl2">Prompts (empty)</div><div class="frame m" id="m-prompts"><div data-mtop></div><div class="card"><main class="main">
+      <div class="page-h"><div class="ttl"><h1>Prompts</h1><p class="sub">Version and fetch prompts.</p></div><div class="acts"><button class="btn btn-primary">[[plus]]New prompt</button></div></div>
+      <div class="panel"><div class="empty"><span class="tile">[[prompts]]</span><h2>No prompts yet</h2><p>Create a prompt to version it and fetch it from the SDK.</p><div class="acts"><button class="btn btn-primary">New prompt</button></div></div></div>
+    </main></div><div data-bnav="prompts"></div></div></div>
+
+    <div><div class="lbl2">Settings</div><div class="frame m" id="m-settings"><div data-mtop></div><div class="card"><main class="main">
+      <div class="page-h"><div class="ttl"><h1>Settings</h1></div></div>
+      <nav class="stabs" aria-label="Settings"><a href="#" aria-current="page">API keys</a><a href="#">Models</a><a href="#">Members</a><a href="#">LLM connections</a><a href="#">Webhooks</a></nav>
+      <div class="panel"><div class="panel-h"><h2>API keys</h2><div class="right"><button class="btn btn-primary btn-sm">[[plus]]Create</button></div></div><div class="panel-b flush"><table class="tbl stackm"><tbody>
+        <tr><td><b>ci-pipeline</b></td><td class="menu"><button class="btn btn-ghost btn-icon btn-sm" aria-label="Actions for ci-pipeline">[[more]]</button></td><td class="mono muted" style="grid-column:1/3;font-size:12px">pk-tl-…a91f · used 2 min ago</td></tr>
+        <tr><td><b>staging-app</b></td><td class="menu"><button class="btn btn-ghost btn-icon btn-sm" aria-label="Actions for staging-app">[[more]]</button></td><td class="mono muted" style="grid-column:1/3;font-size:12px">pk-tl-…77c2 · used 3 days ago</td></tr>
+      </tbody></table></div></div>
+    </main></div><div data-bnav="settings"></div></div></div>
+
+    <div><div class="lbl2">Log in</div><div class="frame m" style="padding:8px"><div class="auth"><div class="brandp"></div><div class="formp"><form class="formc" onsubmit="return false"><div class="brand"><span class="tile">[[logo]]</span>Traceloom</div><div><h1>Log in</h1><p class="muted" style="margin-top:4px">Welcome back.</p></div><div class="field"><label for="em2">Email</label><input id="em2" class="input" value="asha@acme.dev"></div><div class="field"><label for="pw2"><span>Password</span><a href="#" style="font-weight:500">Forgot password?</a></label><input id="pw2" class="input" type="password" value="••••••••"></div><button class="btn btn-primary btn-block">Log in</button></form></div></div></div></div>
+  </div>
+</section>
+
+<!-- ============ 11 DARK ============ -->
+<section class="sec" id="dark" style="padding-bottom:64px">
+  <h2>11 Dark theme <span class="tag-t">T-2</span><span class="tag-t">AC-11</span></h2>
+  <p class="lead">Every rule above uses tokens only, so dark needs no extra rules. Same table, tray and empty state under <code>data-theme="dark"</code>.</p>
+  <div data-theme="dark" class="frame" style="grid-template-columns:1fr"><div class="card"><main class="main">
+    <div class="toolbar"><div class="seg"><button aria-pressed="true">All <span class="c">1,284</span></button><button aria-pressed="false">Errors <span class="c">37</span></button></div><div class="input-wrap grow" style="min-width:280px">[[search]]<input class="input" placeholder="Search traces" aria-label="Search dark"></div><button class="btn">[[filter]]Filter</button></div>
+    <div class="panel"><div class="panel-b flush"><table class="tbl"><thead><tr><th>Trace</th><th class="r">Latency</th><th class="r">Cost</th><th>Status</th><th class="c">Scores</th></tr></thead><tbody>
+      <tr><td><b>support-agent.run</b></td><td class="num r">2.41 s</td><td class="num r">$0.0421</td><td><span class="pill ok">[[check]]OK</span></td><td class="c muted">—</td></tr>
+      <tr class="err"><td><b>checkout.summarize</b></td><td class="num r">12.08 s</td><td class="num r">$0.1190</td><td><span class="pill err">[[alert]]Error</span></td><td class="c muted">—</td></tr>
+    </tbody></table></div></div>
+    <div class="panel"><div class="empty"><span class="tile">[[traces]]</span><h2>No traces match these filters</h2><p>Widen the range or clear the filters.</p><div class="acts"><button class="btn btn-primary">Clear filters</button></div></div></div>
+  </main></div></div>
+</section>
+
+<script>
+(function(){
+  var ico=function(n,c){return '<svg class="ico'+(c?' '+c:'')+'" aria-hidden="true"><use href="#i-'+n+'"/></svg>'};
+  var nav=[['Observe',[['dash','Dashboard','dash'],['traces','Traces','traces'],['sessions','Sessions','sessions'],['users','Users','users']]],['Build',[['prompts','Prompts','prompts'],['play','Playground','play']]],['Project',[['settings','Settings','settings']]]];
+  function side(cur){
+    var h='<aside class="side"><a class="brand" href="#"><span class="tile">'+ico('logo')+'</span>Traceloom</a><div class="picker"><span class="grow trunc">Acme <small>/ support-bot</small></span>'+ico('chev')+'</div><nav class="sidenav" aria-label="Main">';
+    nav.forEach(function(g){h+='<div class="cap">'+g[0]+'</div>';g[1].forEach(function(i){h+='<a href="#"'+(i[0]===cur?' aria-current="page"':'')+'>'+ico(i[2])+i[1]+'</a>'})});
+    h+='<a href="#" role="button">'+ico('kbd')+'Shortcuts<kbd class="kb">?</kbd></a>';
+    return h+'</nav><div class="usercard"><span class="avatar av1">AK</span><div class="grow"><b>Asha K.</b><small>Member</small></div>'+ico('more')+'</div></aside>';
+  }
+  function mtop(){return '<div class="mtop"><a class="brand" href="#"><span class="tile">'+ico('logo')+'</span></a><div class="picker"><span class="grow trunc">Acme <small>/ support-bot</small></span>'+ico('chev')+'</div><button class="btn btn-icon btn-ghost" aria-label="Switch theme">'+ico('sun')+'</button></div>'}
+  function bnav(cur){var it=[['traces','Traces','traces'],['prompts','Prompts','prompts'],['play','Playground','play'],['dash','Dashboard','dash'],['more','More','more']];
+    return '<nav class="bnav" aria-label="Main">'+it.map(function(i){return '<a href="#"'+(i[0]===cur||(cur==='settings'&&i[0]==='more')?' aria-current="page"':'')+'>'+ico(i[2])+'<span>'+i[1]+'</span></a>'}).join('')+'</nav>'}
+  var T=[['Nov 6','14:02:11','support-agent.run','tr_a1f3c2',9,'u_4821',1,['prod'],'2.41 s','$0.0421','ok',['helpfulness: 0.82']],
+    ['Nov 6','13:58:40','checkout.summarize','tr_8f3a29',7,'u_9034',2,['checkout','beta'],'12.08 s','$0.1190','err',[]],
+    ['Nov 6','13:41:07','rag.answer','tr_5cd091',12,'u_1175',3,[],'1.09 s','$0.0087','warn',['format: pass']],
+    ['Nov 6','13:12:55','support-agent.run','tr_77b1e0',8,'u_2210',4,['prod'],'3.02 s','$0.0502','ok',[]],
+    ['Nov 6','12:47:19','invoice.extract','tr_0aa4f9',5,'u_3307',5,[],'0.84 s','$0.0063','ok',[]],
+    ['Nov 6','12:20:03','rag.answer','tr_2e90bb',11,'u_4821',1,['eval'],'1.37 s','$0.0112','ok',['helpfulness: 0.91']]];
+  function rows(kind){return T.map(function(t){
+    var st={ok:['ok','check','OK'],err:['err','alert','Error'],warn:['warn','alert','Warning']}[t[10]];
+    var pill='<span class="pill '+st[0]+'">'+ico(st[1])+st[2]+'</span>';
+    var user='<span class="user"><span class="avatar av'+t[6]+'">U'+t[6]+'</span>'+t[5]+'</span>';
+    var cls=t[10]==='err'?' class="err"':(t[10]==='warn'?' class="warn"':'');
+    if(kind==='traces-m')return '<tr'+cls+'><td><div class="two"><b>'+t[2]+'</b><small class="mono">'+t[3]+' · '+t[4]+' obs</small></div></td><td class="r">'+pill+'</td><td><small class="muted">'+t[0]+' '+t[1].slice(0,5)+' · '+t[5]+'</small></td><td class="num r muted">'+t[8]+' · '+t[9]+'</td></tr>';
+    return '<tr'+cls+'><td><div class="two"><b>'+t[0]+'</b><small>'+t[1]+'</small></div></td><td><div class="two"><b>'+t[2]+'</b><small class="mono">'+t[3]+' · '+t[4]+' obs</small></div></td><td>'+user+'</td><td>'+(t[7].map(function(g){return '<span class="chip">'+g+'</span>'}).join(' ')||'<span class="muted">—</span>')+'</td><td class="num r">'+t[8]+'</td><td class="num r">'+t[9]+'</td><td>'+pill+'</td><td class="c">'+(t[11].length?t[11].map(function(s){return '<span class="pill">'+s+'</span>'}).join(''):'<span class="muted">—</span>')+'</td></tr>'}).join('')}
+  var TR=[[0,'agent','agent','checkout.summarize','','$0.1190','12.08 s'],[1,'span','span','cart.load','','','0.21 s'],[1,'tool','tool','inventory.lookup','','','0.64 s'],[1,'gen','gen','llm.summarize','err','$0.0904','9.87 s'],[2,'ret','ret','docs.retrieve','','$0.0011','0.52 s'],[2,'gen','gen','llm.rewrite','','$0.0275','1.30 s'],[1,'span','span','format.response','','','0.05 s']];
+  function tree(short){return (short?TR.slice(0,4):TR).map(function(r,i){
+    return '<div class="trow lv'+(i===3?' sel':'')+(r[4]?' node ERROR':'')+'" role="treeitem"><span class="nm"><span class="ind" style="width:'+(r[0]*16)+'px"></span><span class="ty ty-'+r[1]+' ty-'+r[2]+'">'+ico(r[1]==='gen'?'gen':r[1]==='ret'?'db':r[1])+'</span><span class="t">'+r[3]+'</span>'+(r[4]?'<span class="pill err lvp">Error</span>':'')+'</span><span class="d">'+r[6]+'</span><span class="cst">'+r[5]+'</span></div>'}).join('')}
+  function chart(){var ys=['120','90','60','30','0'],xs=['00:00','06:00','12:00','18:00','24:00'];
+    return '<div class="ya">'+ys.map(function(y){return '<span>'+y+'</span>'}).join('')+'</div><svg viewBox="0 0 600 180" preserveAspectRatio="none" role="img" aria-label="Traces per hour, peaking at 118 around 14:00"><g stroke="var(--line)" stroke-width="1" vector-effect="non-scaling-stroke">'+[0,45,90,135,180].map(function(y){return '<line x1="0" x2="600" y1="'+y+'" y2="'+y+'" vector-effect="non-scaling-stroke"/>'}).join('')+'</g><path d="M0 150 C40 140 60 120 100 118 S160 90 200 80 S260 100 300 60 S380 20 420 28 S500 70 540 55 S580 40 600 44 L600 180 L0 180Z" fill="var(--s1)" opacity=".12"/><path d="M0 150 C40 140 60 120 100 118 S160 90 200 80 S260 100 300 60 S380 20 420 28 S500 70 540 55 S580 40 600 44" fill="none" stroke="var(--s1)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><div class="xa">'+xs.map(function(x){return '<span>'+x+'</span>'}).join('')+'</div>'}
+  var h=document.body.innerHTML.replace(/\[\[([\w-]+)\]\]/g,function(_,n){return ico(n)});
+  document.body.innerHTML=h;
+  document.querySelectorAll('[data-side]').forEach(function(e){e.outerHTML=side(e.dataset.side)});
+  document.querySelectorAll('[data-mtop]').forEach(function(e){e.outerHTML=mtop()});
+  document.querySelectorAll('[data-bnav]').forEach(function(e){e.outerHTML=bnav(e.dataset.bnav)});
+  document.querySelectorAll('[data-rows]').forEach(function(e){e.innerHTML=rows(e.dataset.rows)});
+  document.querySelectorAll('[data-tree]').forEach(function(e){e.innerHTML=tree(e.dataset.tree==='short')});
+  document.querySelectorAll('[data-chart]').forEach(function(e){e.innerHTML=chart()});
+  document.querySelectorAll('.seg button,.tabs .tab').forEach(function(b){b.addEventListener('click',function(){var g=b.parentElement,a=b.hasAttribute('aria-selected')?'aria-selected':'aria-pressed';g.querySelectorAll('button').forEach(function(x){x.setAttribute(a,'false')});b.setAttribute(a,'true')})});
+  document.querySelectorAll('[data-tabs]').forEach(function(t){t.querySelectorAll('.tab').forEach(function(b){b.addEventListener('click',function(){t.querySelectorAll('.tab').forEach(function(x){var p=document.getElementById(x.dataset.p);if(p)p.hidden=x!==b})})})});
+  document.querySelectorAll('[data-tabs]').forEach(function(t){var tabs=[].slice.call(t.querySelectorAll('.tab'));tabs.forEach(function(b,i){b.tabIndex=b.getAttribute('aria-selected')==='true'?0:-1;b.addEventListener('click',function(){tabs.forEach(function(x){x.tabIndex=x===b?0:-1})});b.addEventListener('keydown',function(e){var n=e.key==='ArrowRight'?(i+1)%tabs.length:e.key==='ArrowLeft'?(i-1+tabs.length)%tabs.length:e.key==='Home'?0:e.key==='End'?tabs.length-1:-1;if(n<0)return;e.preventDefault();tabs[n].focus();tabs[n].click()})})});
+  document.querySelectorAll('.trow').forEach(function(r){r.addEventListener('click',function(){r.parentElement.querySelectorAll('.trow').forEach(function(x){x.classList.remove('sel')});r.classList.add('sel')})});
+  function setTheme(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('tl-mock-theme',t)}catch(e){}}
+  var saved=null;try{saved=localStorage.getItem('tl-mock-theme')}catch(e){}
+  if(saved)setTheme(saved);else if(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)setTheme('dark');
+  document.getElementById('themeBtn').addEventListener('click',function(){setTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark')});
+})();
+</script>
+</body>
+</html>
