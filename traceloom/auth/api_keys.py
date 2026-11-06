@@ -20,7 +20,7 @@ def generate_key_pair() -> tuple[str, str]:
 
 
 def hash_secret(secret: str, server_key: str) -> str:
-    """HMAC-SHA256(secret, TRACELOOM_SECRET_KEY): lookup-safe and useless without the server key."""
+    """HMAC-SHA256(secret, TRACELOOM_SERVER_SECRET): useless without the server secret."""
     return hmac.new(server_key.encode(), secret.encode(), hashlib.sha256).hexdigest()
 
 

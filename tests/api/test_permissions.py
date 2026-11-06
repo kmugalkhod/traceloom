@@ -266,7 +266,7 @@ def test_revoked_key_fails_immediately_despite_cache(client, container, world, m
 def test_auth_rate_limit_hook_returns_429(app, settings):
     settings_limited = Settings(
         TRACELOOM_ENV="test",
-        TRACELOOM_SECRET_KEY="k" * 20,
+        TRACELOOM_SERVER_SECRET="k" * 20,
         TRACELOOM_RATE_AUTH="2/minute",
         DATABASE_URL=settings.database_url,
     )

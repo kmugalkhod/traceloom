@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     env: Literal["dev", "test", "production"] = Field("dev", validation_alias="TRACELOOM_ENV")
     mode: Literal["lite", "full"] = Field("lite", validation_alias="TRACELOOM_MODE")
     database_url: str = Field("sqlite:///./data/traceloom.db", validation_alias="DATABASE_URL")
-    secret_key: str = Field("", validation_alias="TRACELOOM_SECRET_KEY")
+    secret_key: str = Field("", validation_alias="TRACELOOM_SERVER_SECRET")
     base_url: str = Field("http://localhost:8000", validation_alias="TRACELOOM_BASE_URL")
     blob_dir: str = Field("./data/blobs", validation_alias="TRACELOOM_BLOB_DIR")
     cookie_secure: bool | None = Field(None, validation_alias="TRACELOOM_COOKIE_SECURE")
@@ -65,7 +65,9 @@ class Settings(BaseSettings):
     def _require_secret_outside_dev(self) -> Settings:
         if not self.secret_key:
             if self.env != "dev":
-                raise ValueError("TRACELOOM_SECRET_KEY must be set when TRACELOOM_ENV is not dev")
+                raise ValueError(
+                    "TRACELOOM_SERVER_SECRET must be set when TRACELOOM_ENV is not dev"
+                )
             # Dev only: an ephemeral key, so sessions do not survive a restart.
             self.secret_key = secrets.token_urlsafe(32)
         return self

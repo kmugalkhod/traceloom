@@ -7,7 +7,7 @@ from traceloom.config import Settings
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)  # no stray .env
-    for name in ("TRACELOOM_ENV", "TRACELOOM_SECRET_KEY", "TRACELOOM_MODE", "DATABASE_URL"):
+    for name in ("TRACELOOM_ENV", "TRACELOOM_SERVER_SECRET", "TRACELOOM_MODE", "DATABASE_URL"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -32,7 +32,7 @@ def test_env_overrides(monkeypatch):
 
 def test_missing_secret_fails_outside_dev(monkeypatch):
     monkeypatch.setenv("TRACELOOM_ENV", "production")
-    with pytest.raises(ValidationError, match="TRACELOOM_SECRET_KEY"):
+    with pytest.raises(ValidationError, match="TRACELOOM_SERVER_SECRET"):
         Settings()
-    monkeypatch.setenv("TRACELOOM_SECRET_KEY", "x" * 32)
+    monkeypatch.setenv("TRACELOOM_SERVER_SECRET", "x" * 32)
     assert Settings().secure_cookies is True
