@@ -12,8 +12,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.datastructures import FormData
 
-from traceloom.auth.deps import Access, form_data, require
+from traceloom.auth.deps import Access, form_data, get_container, require
 from traceloom.auth.permissions import Perm
+from traceloom.container import Container
 from traceloom.db.models import PRODUCTION_LABEL, AuditLog, PromptVersion, User
 from traceloom.db.session import get_db
 from traceloom.prompts import service
@@ -22,8 +23,10 @@ from traceloom.prompts.diff import diff_versions
 from traceloom.prompts.service import Actor, NotAllowed, PromptError, PromptNotFound
 from traceloom.prompts.variables import VARIABLE_RE
 from traceloom.web import prompt_views
-from traceloom.web.context import page_context
+from traceloom.web.context import env_context, page_context
+from traceloom.web.envpref import resolve_env, saved_env
 from traceloom.web.prompt_paths import prompt_url
+from traceloom.web.ranges import range_urls, resolve_range
 from traceloom.web.templating import render
 
 router = APIRouter(tags=["prompts"])
@@ -80,6 +83,7 @@ def prompt_page(
     now: str = "",
     err: str = "",
     access: Access = Depends(require(Perm.PROMPTS_READ)),
+    container: Container = Depends(get_container),
     db: Session = Depends(get_db),
 ):
     project, actor = access.project, _actor(access)
@@ -182,9 +186,14 @@ def prompt_page(
     elif tab == "preview":
         context.update(_preview_context(db, access, name, head.type, selected, request))
     elif tab == "metrics":
-        context["metrics_url"] = prompt_url(
-            pid, name, f"/metrics?{urlencode({'version': selected.version})}"
-        )
+        params = request.query_params
+        range_key, _, _ = resolve_range(params)
+        env = resolve_env(params, saved_env(db, access.user.id, pid))
+        query = {"version": selected.version, "range": range_key, **({"env": env} if env else {})}
+        context["metrics_url"] = prompt_url(pid, name, f"/metrics?{urlencode(query)}")
+        context["range_key"] = range_key
+        context["range_urls"] = range_urls(request.url.path, params)
+        context.update(env_context(db, container.trace_store, access.user, pid, env))
     full = page_context(db, access, active="prompts", **context)
     template = "prompts/_panel.html" if request.headers.get("hx-request") else "prompts/detail.html"
     return render(request, template, full)

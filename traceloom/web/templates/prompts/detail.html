@@ -2,6 +2,7 @@
 {% import "_macros.html" as m with context %}
 {% block title %}{{ name }}{% endblock %}
 {% block ctx_m %}{% endblock %}
+{% block daterange %}{% if tab == "metrics" %}{% include "_range_picker.html" %}{% endif %}{% endblock %}
 {% block scripts %}<script src="/static/prompt_detail.js" defer></script>{% endblock %}
 {% block content %}
 <div class="stack">
