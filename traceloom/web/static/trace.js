@@ -62,4 +62,36 @@
     var m = /[?&]obs=([^&]+)/.exec(e.detail.path || '');
     select(m ? decodeURIComponent(m[1]) : '');
   });
+
+  // --- detail pane tabs (Preview / Metadata / Scores / Comments) -----------------------------------
+  // app.js owns click and arrow keys. Here: keep the chosen tab when HTMX swaps the pane or the
+  // Scores / Comments fragment, and make the inline "+ Add tag" field behave.
+  function selectedTabId() {
+    var t = document.querySelector('#io-pane [data-tabs] [aria-selected=true]');
+    return t ? t.id : '';
+  }
+  function showTab(id) {
+    var list = document.querySelector('#io-pane [data-tabs]');
+    if (!list) { return; }
+    var all = Array.prototype.slice.call(list.querySelectorAll('[role=tab]'));
+    var pick = all.filter(function (t) { return t.id === id; })[0] || all[0];
+    all.forEach(function (t) {
+      var on = t === pick;
+      t.setAttribute('aria-selected', String(on));
+      t.tabIndex = on ? 0 : -1;
+      var panel = document.getElementById(t.getAttribute('aria-controls'));
+      if (panel) { panel.hidden = !on; }
+    });
+  }
+  var keptTab = '';
+  document.body.addEventListener('htmx:beforeSwap', function (e) {
+    if (e.detail.target && e.detail.target.id === 'io-pane') { keptTab = selectedTabId(); }
+  });
+  document.body.addEventListener('htmx:afterSwap', function (e) {
+    var id = e.detail.target && e.detail.target.id;
+    if (id === 'io-pane') { showTab(keptTab); } else if (id === 'trace-discussion') { showTab(selectedTabId()); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && e.target.matches && e.target.matches('.tag-add input')) { e.target.value = ''; e.target.blur(); }
+  });
 })();

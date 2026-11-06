@@ -1,2 +1,2 @@
-{# Lazy slot included by traces/detail.html: loads the fragment from its route. #}
-<div id="trace-discussion" hx-get="/project/{{ project.id }}/traces/{{ trace.id }}/discussion" hx-trigger="load" hx-swap="innerHTML"></div>
+{# Lazy slot included by traces/_io.html: loads the Scores and Comments tab panels from their route. #}
+<div id="trace-discussion" class="disc" hx-get="/project/{{ project.id }}/traces/{{ trace.id }}/discussion" hx-trigger="load" hx-swap="innerHTML"></div>

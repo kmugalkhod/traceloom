@@ -134,3 +134,9 @@ Existing class-name assertions (spec "Components and changes") are kept by const
 - `sdlc:verifier` passes on the team branch.
 
 ## Deviations
+- **2026-11-07, D-1 review (owner):** trace detail becomes a full-height workspace. It has a compact header, two panes that scroll independently, and right-pane tabs (Preview, Metadata, Scores, Comments) in place of the stacked panels below (spec FR-TD1..TD6, AC-4, AC-6 revised).
+  - T-6 (header + tags) builds the compact header.
+  - T-7 (panes + tree) builds the full-height panes.
+  - T-8 (IO + comments/scores) builds the detail-pane tabs and moves the existing Scores/Comments fragments into them. Their routes, forms and permissions are unchanged.
+  - The tabs reuse `[data-tabs]` from app.js, so no new JS framework is involved.
+- **2026-11-07, team breakdown:** the planner split the screen CSS more finely than planned: `ui/trace-detail.css`, `ui/trace-tree.css`, `ui/trace-io.css`, `ui/prompts.css` and `ui/playground.css` in addition to the files listed. T-7 depends on T-6 and T-8 on T-7, so the trace detail work is serialized.
