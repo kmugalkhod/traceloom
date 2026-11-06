@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m %}
+{% block content %}
+{{ m.page_header("Settings", "Manage " ~ org.name ~ " / " ~ project.name ~ ": members, keys, model prices.") }}
+{% include "settings/_tabs.html" %}
+{% block settings_body %}{% endblock %}
+{% endblock %}

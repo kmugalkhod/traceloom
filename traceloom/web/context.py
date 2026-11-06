@@ -142,3 +142,34 @@ def build_shell(
         role=current_org["role"] if current_org else None,
         active=active,
     )
+
+
+def page_context(
+    db: Session, access: Any, *, active: str | None = "settings", **extra: Any
+) -> dict[str, Any]:
+    """Shell context for a page resolved through auth.deps.require() (an `Access`)."""
+    shell = build_shell(
+        db,
+        access.user,
+        org_id=access.org.id,
+        project_id=access.project.id if access.project else None,
+        active=active,
+    )
+    return {**shell.context(), **extra}
+
+
+def settings_tabs(project_id: str, current: str, role: Role | None) -> list[dict[str, Any]]:
+    """The Settings tab bar. Tabs a role cannot use are not rendered."""
+    base = f"/project/{project_id}/settings"
+    tabs = [("general", "General", base), ("members", "Members & invites", f"{base}/members")]
+    if can(role, Perm.API_KEYS):
+        tabs.append(("keys", "API keys", f"{base}/keys"))
+    tabs.append(("models", "Models", f"{base}/models"))
+    return [
+        {"key": k, "label": label, "href": href, "current": k == current} for k, label, href in tabs
+    ]
+
+
+def landing(project_id: str) -> str:
+    """Where a signed-in user starts inside a project."""
+    return f"/project/{project_id}/traces"

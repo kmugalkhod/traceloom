@@ -623,3 +623,6 @@ dialog.dlg .dialog{width:100%}
 .auth-pitch{font-size:var(--fs-xl);max-width:20ch}
 .auth-lede{max-width:44ch}
 .stack-xs{display:flex;flex-direction:column;gap:var(--sp-3)}
+.kv{margin:0}
+.kv>div{display:flex;flex-direction:column;gap:2px}
+.kv dd{margin:0}

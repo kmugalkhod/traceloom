@@ -1,0 +1,25 @@
+{% extends "base_auth.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Accept invite{% endblock %}
+{% block content %}
+{% if state == "ready" %}
+<div class="stack-s"><h1>Join {{ org.name }}</h1><p class="dim">You were invited as <span class="chip accent">{{ role_label }}</span></p></div>
+<form class="stack" method="post" action="/invite/{{ token }}/accept">
+  {{ m.csrf() }}
+  {{ m.field("email", "Email", type="email", value=invite.email, readonly=True) }}
+  <button class="btn btn-primary btn-block" type="submit">Join {{ org.name }}</button>
+</form>
+{% elif state == "wrong_account" %}
+<div class="stack-s"><h1>Wrong account</h1></div>
+<div class="stack">
+  {{ m.banner("err", "This invite was sent to " ~ invite.email ~ ", but you are signed in as " ~ user.email ~ ". Log out and open the link again with the invited address.") }}
+  <form method="post" action="/logout">{{ m.csrf() }}<button class="btn btn-block" type="submit">Log out</button></form>
+</div>
+{% else %}
+<div class="stack-s"><h1>Invite expired</h1></div>
+<div class="stack">
+  {{ m.banner("err", "This invite is no longer valid. It expired or was already used. Ask an Admin to send a new one.") }}
+  <a class="btn btn-block" href="/login">Go to log in</a>
+</div>
+{% endif %}
+{% endblock %}

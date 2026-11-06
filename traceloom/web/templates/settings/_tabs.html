@@ -1,0 +1,5 @@
+<div class="tabs" role="tablist" aria-label="Settings">
+  {% for tab in settings_tabs %}
+    <a role="tab" href="{{ tab.href }}" aria-selected="{{ 'true' if tab.current else 'false' }}"{% if tab.current %} aria-current="page"{% endif %}>{{ tab.label }}</a>
+  {% endfor %}
+</div>

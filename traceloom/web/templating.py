@@ -39,6 +39,7 @@ def _ago(value: datetime | None, now: datetime | None = None) -> str:
 templates.env.filters["date"] = _date
 templates.env.filters["ago"] = _ago
 templates.env.filters["ord"] = ord
+templates.env.globals["now_utc"] = lambda: datetime.now(UTC)
 templates.env.globals["Perm"] = Perm
 templates.env.globals["Role_ADMIN"] = Role.ADMIN
 

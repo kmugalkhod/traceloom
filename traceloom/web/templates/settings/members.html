@@ -1,0 +1,117 @@
+{% extends "settings/base.html" %}
+{% import "_macros.html" as m %}
+{% block title %}Members{% endblock %}
+{% block settings_body %}
+<div class="stack">
+  {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
+  {% if error %}{{ m.banner("err", error) }}{% endif %}
+  {% if members | selectattr("last_owner") | list %}
+    {{ m.banner("info", "The last Owner cannot be demoted or leave. Promote another member to Owner first.") }}
+  {% endif %}
+
+  <div class="panel">
+    <div class="panel-h"><h2>Members</h2><span class="chip">{{ members | length }}</span></div>
+    <div class="rack">
+      <table class="tbl tbl-flat keepcols">
+        <thead><tr><th>Member</th><th>Role</th><th class="r"><span class="sr">Actions</span></th></tr></thead>
+        <tbody>
+        {% for row in members %}
+          <tr>
+            <td class="c-name"><div class="row">{{ m.avatar(row.user.name[:2]|upper if row.user.name else row.user.email[:2]|upper, row.user.email) }}
+              <div><div class="name">{{ row.user.name or row.user.email }}{% if row.is_self %} <span class="chip">You</span>{% endif %}</div><div class="hint">{{ row.user.email }}</div></div></div></td>
+            <td>
+              {% if row.can_change_role %}
+              <form class="inline-form" method="post" action="/orgs/{{ org.id }}/members/{{ row.user.id }}/role">
+                {{ m.csrf() }}<input type="hidden" name="back" value="{{ back }}">
+                <select class="select w-112" name="role" aria-label="Role for {{ row.user.name or row.user.email }}" data-autosubmit>
+                  {% for r in assignable_roles %}<option value="{{ r.label }}"{% if r == row.role %} selected{% endif %}>{{ r.label | title }}</option>{% endfor %}
+                </select>
+                <noscript><button class="btn btn-sm" type="submit">Save</button></noscript>
+              </form>
+              {% else %}
+                <span class="chip">{{ row.role.label | title }}</span>
+              {% endif %}
+            </td>
+            <td class="r">
+              {% if row.last_owner %}<span class="hint row jc-end gap-4">{{ m.icon("i-lock", "ico-sm") }}Last Owner</span>
+              {% elif row.can_remove or row.can_leave %}
+              <form class="inline-form" method="post" action="/orgs/{{ org.id }}/members/{{ row.user.id }}/remove"
+                    data-confirm="{{ 'Leave ' ~ org.name ~ '?' if row.is_self else 'Remove ' ~ (row.user.name or row.user.email) ~ ' from ' ~ org.name ~ '?' }}">
+                {{ m.csrf() }}<input type="hidden" name="back" value="{{ back }}">
+                <button class="btn btn-sm btn-ghost" type="submit">{{ 'Leave' if row.is_self else 'Remove' }}</button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% if can(Perm.INVITES) %}
+  <div class="panel">
+    <div class="panel-h"><h2>Invite someone</h2></div>
+    <form class="panel-b row-wrap items-end" method="post" action="/orgs/{{ org.id }}/invites">
+      {{ m.csrf() }}<input type="hidden" name="back" value="{{ back }}">
+      <div class="field grow min-200"><label for="invite-email">Email</label><input class="input" id="invite-email" name="email" type="email" placeholder="teammate@company.com" required></div>
+      <div class="field"><label for="invite-role">Role</label>
+        <select class="select w-112" id="invite-role" name="role">
+          {% for r in assignable_roles %}<option value="{{ r.label }}"{% if r.label == 'member' %} selected{% endif %}>{{ r.label | title }}</option>{% endfor %}
+        </select></div>
+      <button class="btn btn-primary" type="submit">{{ m.icon("i-mail") }}Send invite</button>
+    </form>
+    {% if invites %}
+    <div class="rack top-line">
+      <table class="tbl tbl-flat keepcols">
+        <thead><tr><th>Pending invite</th><th>Role</th><th>Expires</th><th class="r"><span class="sr">Actions</span></th></tr></thead>
+        <tbody>
+        {% for inv in invites %}
+          <tr>
+            <td>{{ inv.email }}</td>
+            <td><span class="chip">{{ inv.role | title }}</span></td>
+            <td class="muted">{% set left = inv.expires_at | ago %}{% if inv.expires_at > now_utc() %}{{ left }}{% else %}<span class="lv ERROR">Expired</span>{% endif %}</td>
+            <td class="r">
+              <form class="inline-form" method="post" action="/orgs/{{ org.id }}/invites/{{ inv.id }}/revoke">
+                {{ m.csrf() }}<input type="hidden" name="back" value="{{ back }}">
+                <button class="btn btn-sm btn-ghost" type="submit">Revoke</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if can(Perm.ORG_DELETE) %}
+  <div class="panel">
+    <div class="panel-h"><h2>Danger zone</h2></div>
+    <div class="panel-b row-wrap">
+      <div class="grow"><b>Delete organization</b><div class="hint">Removes all projects, keys and traces. Only an Owner can do this.</div></div>
+      <button type="button" class="btn btn-danger" data-dialog-open="delete-org">{{ m.icon("i-trash") }}Delete organization</button>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block dialogs %}
+{% if can(Perm.ORG_DELETE) %}
+<dialog class="dlg" id="delete-org" aria-label="Delete organization">
+  <div class="dialog">
+    {{ m.dialog_head("Delete " ~ org.name ~ "?", "i-trash") }}
+    <form method="post" action="/orgs/{{ org.id }}/delete">
+      {{ m.csrf() }}<input type="hidden" name="back" value="{{ back }}">
+      <div class="body">
+        <p>This permanently deletes every project, API key, member and trace in <b>{{ org.name }}</b>. It cannot be undone.</p>
+        <div class="field"><label for="confirm-name">Type the organization name to confirm</label><input class="input" id="confirm-name" name="confirm_name" autocomplete="off" required></div>
+      </div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-danger">Delete organization</button></footer>
+    </form>
+  </div>
+</dialog>
+{% endif %}
+{% endblock %}
