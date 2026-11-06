@@ -42,7 +42,7 @@ def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class FakeProvider:
-    """Scripted provider: each `script(...)` call queues the Deltas (or an exception) for one call."""
+    """Scripted provider: each `script(...)` call queues one call's Deltas or exception."""
 
     name = "fake"
 
