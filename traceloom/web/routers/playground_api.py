@@ -11,10 +11,12 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator
 from typing import Any, Literal
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
@@ -23,6 +25,7 @@ from traceloom.api.errors import error_body
 from traceloom.auth.deps import Access, get_container, require
 from traceloom.auth.permissions import Perm
 from traceloom.container import Container
+from traceloom.db.models import Prompt
 from traceloom.db.session import get_db
 from traceloom.llm import connections, prefill
 from traceloom.llm.connections import ConnectionInvalid, ConnectionNotFound, ConnectionPolicy
@@ -61,6 +64,9 @@ class SaveBody(BaseModel):
     name: str
     messages: list[Message] = Field(max_length=MAX_MESSAGES)
     commit_message: str
+    mode: Literal["auto", "new", "version"] = (
+        "auto"  # new: the name must be free; version: it must exist
+    )
     model: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
     tools: list[dict[str, Any]] = Field(default_factory=list, max_length=64)
@@ -167,6 +173,20 @@ def save(
     }
     if body.tools:
         config["tools"] = body.tools
+    exists = (
+        db.scalar(
+            select(Prompt.id).where(
+                Prompt.project_id == access.project.id, Prompt.name == body.name
+            )
+        )
+        is not None
+    )
+    if body.mode == "new" and exists:
+        raise HTTPException(
+            400, f"A prompt named {body.name} already exists. Save it as a new version instead."
+        )
+    if body.mode == "version" and not exists:
+        raise HTTPException(400, f"There is no prompt named {body.name} to add a version to.")
     try:
         row = prompts.create_version(
             db,
@@ -186,7 +206,8 @@ def save(
     except PromptError as exc:
         db.rollback()
         raise HTTPException(400, str(exc)) from None
-    return JSONResponse({"name": body.name, "version": row.version}, status_code=201)
+    url = f"/project/{access.project.id}/prompts/{quote(body.name, safe='/')}?version={row.version}"
+    return JSONResponse({"name": body.name, "version": row.version, "url": url}, status_code=201)
 
 
 @router.get("/project/{project_id}/playground/from-observation/{obs_id}")

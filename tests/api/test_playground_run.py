@@ -387,7 +387,12 @@ def test_save_creates_a_new_prompt_version(member_client, world, db):
         json={"name": "pg/support", "messages": msgs, "commit_message": "from playground",
               "model": "gpt-4o", "params": {"temperature": 0.1}},
     )  # fmt: skip
-    assert r.status_code == 201 and r.json() == {"name": "pg/support", "version": 1}
+    assert r.status_code == 201
+    assert r.json() == {
+        "name": "pg/support",
+        "version": 1,
+        "url": f"/project/{world.project.id}/prompts/pg/support?version=1",
+    }
     r = member_client.post(
         url(world, "save"),
         json={"name": "pg/support", "messages": msgs[:1], "commit_message": "v2"},
