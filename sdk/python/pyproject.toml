@@ -16,3 +16,10 @@ langchain = ["langchain-core>=0.2"]
 
 [tool.setuptools.packages.find]
 include = ["traceloom_sdk*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"  # the SDK supports Python 3.9+
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B"]
