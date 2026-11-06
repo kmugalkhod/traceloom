@@ -9,12 +9,12 @@ sweeper can replay it if retries run out.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from typing import Any
 
-log = logging.getLogger("traceloom.queue")
+from traceloom.queue_registry import INGEST, Handler, HandlerRegistry
 
-Handler = Callable[[Mapping[str, Any]], None]
+log = logging.getLogger("traceloom.queue")
 
 
 class RedisQueue:
@@ -36,7 +36,8 @@ class RedisQueue:
         self.broker = broker
         self.queue_name = queue_name
         self._threads = worker_threads
-        self._handler: Handler | None = None
+        self._registry = HandlerRegistry()
+        self._running = False
         self._worker: Any = None
         self.process_batch = dramatiq.actor(
             self._dispatch,
@@ -49,19 +50,25 @@ class RedisQueue:
         )
 
     def _dispatch(self, message: dict[str, Any]) -> None:
-        if self._handler is None:
+        if not self._running:
             raise RuntimeError("queue consumer has no handler")
-        self._handler(message)
+        self._registry.dispatch(message)
 
     def enqueue(self, message: Mapping[str, Any]) -> None:
         self.process_batch.send(dict(message))
 
+    def register(self, message_type: str, handler: Handler) -> None:
+        """Route messages of `message_type` to `handler` (start() registers the ingest one)."""
+        self._registry.register(message_type, handler)
+
     def start(self, handler: Handler) -> None:
+        """`handler` takes messages without a type (ingest batches)."""
         if self._worker is not None:
             return
         import dramatiq
 
-        self._handler = handler
+        self._registry.register(INGEST, handler)
+        self._running = True
         self._worker = dramatiq.Worker(
             self.broker, queues={self.queue_name}, worker_threads=self._threads
         )
@@ -71,7 +78,7 @@ class RedisQueue:
         worker, self._worker = self._worker, None
         if worker is not None:
             worker.stop()
-        self._handler = None
+        self._running = False
 
     def ping(self) -> bool:
         client = getattr(self.broker, "client", None)
