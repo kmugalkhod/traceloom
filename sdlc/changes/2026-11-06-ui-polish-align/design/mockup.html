@@ -81,6 +81,7 @@ p{margin:0}
 .sidenav a{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:12px;color:var(--ink-2);font-weight:500}
 .sidenav a[aria-current=page]{background:var(--surface-2);color:var(--ink);font-weight:600;box-shadow:inset 0 0 0 1px var(--line)}
 .sidenav a[aria-current=page] .ico{color:var(--accent)}
+.kb{margin-left:auto;font-family:var(--font-mono);font-size:11px;min-width:18px;height:18px;display:inline-grid;place-items:center;border:1px solid var(--line-strong);border-radius:5px;color:var(--ink-3)}
 .usercard{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--line);border-radius:12px}
 .usercard b{display:block;font-size:13px;line-height:1.2}.usercard small{color:var(--ink-3);font-size:12px}
 .avatar{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:11px;flex:none}
@@ -364,6 +365,41 @@ p{margin:0}
 .m .tree-bar{flex-wrap:wrap}
 .m .stabs a{height:44px}
 
+
+/* ===== trace workspace (FR-TD1..TD6 revised) ===== */
+.mline{display:flex;flex-wrap:wrap;align-items:center;row-gap:4px;font-size:14px;line-height:24px;color:var(--ink-2);margin:0}
+.mline>*+*::before{content:"·";margin:0 8px;color:var(--ink-3);font-weight:400}
+.mline .chip{margin-right:6px}.mline .chip+.chip::before,.mline .chip.add::before,.mline .add-open::before{content:none;margin:0}
+.mline .sepdot::before{content:"·";margin:0 8px;color:var(--ink-3)}
+.mline .tags{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px}
+.mline .tags::before{content:"·";margin:0 2px 0 8px;color:var(--ink-3)}
+.mline .tags>*::before{content:none!important;margin:0!important}
+.wsh{padding-top:16px;display:flex;flex-direction:column;gap:6px}
+.ws{height:900px}
+.ws .card{min-height:0}
+.ws .main{padding:0 24px 24px;gap:16px;flex:1;min-height:0}
+.ws .split{flex:1;min-height:0;grid-template-rows:minmax(0,1fr);align-items:stretch}
+.ws .split>.panel{position:static;max-height:none;min-height:0;overflow:hidden}
+.ws .tree{flex:1;min-height:0;overflow:auto}
+.dpane .dm{padding:12px 16px 0}
+.dpane .tabs{padding:0 16px;margin-top:4px}
+.dpane .dbody{flex:1;min-height:0;overflow:auto;padding:16px}
+.tab .c2{margin-left:6px;font-variant-numeric:tabular-nums;color:var(--ink-3);font-weight:500}
+.seg.sm{height:var(--ctl-h-sm)}.seg.sm button{height:24px;padding:0 10px}
+.mrow{display:grid;grid-template-columns:140px minmax(0,1fr);align-items:center;min-height:var(--row-h);border-bottom:1px solid var(--line);font-size:14px;gap:12px}
+.mrow:last-child{border-bottom:0}.mrow dt{color:var(--ink-3);font-size:12px;font-weight:500;margin:0}.mrow dd{margin:0;display:flex;align-items:center;gap:6px;min-width:0}
+.io-top{display:flex;align-items:center;margin-bottom:12px}
+.tree-pane-h .seg button{padding:0 10px}
+.m.ws{height:auto}
+.m.ws .main{padding:0 14px 16px;flex:none}
+.m.ws .split{grid-template-rows:none}
+.m.ws .split>.panel:first-child{max-height:50vh}
+.m.ws .split>.panel{overflow:visible}
+.m.ws .split>.panel:first-child{overflow:hidden}
+.m.ws .tree{max-height:none}
+.m .mline{font-size:13px}
+.m .dpane .dbody{overflow:visible}
+
 /* Dark scope: a frame can be forced dark independent of the page */
 </style>
 </head>
@@ -474,13 +510,13 @@ p{margin:0}
       <main class="main">
         <div class="page-h"><div class="ttl"><h1>Traces</h1><p class="sub">Every run your apps and agents sent in the last 24 hours.</p></div><div class="acts"><button class="btn btn-primary">Save view</button><button class="btn btn-icon" aria-label="More actions: saved views, columns, delete matching">[[more]]</button></div></div>
         <div class="stats">
-          <div class="stat"><span class="l">Traces</span><span class="chipi">[[traces]]</span><span class="v">1,284</span><span class="cp">+8.2% vs previous 24h</span></div>
+          <div class="stat"><span class="l">Traces</span><span class="chipi">[[traces]]</span><span class="v">1,284</span><span class="cp">in the last 24 hours</span></div>
           <div class="stat"><span class="l">Cost</span><span class="chipi ok">[[cost]]</span><span class="v">$41.27</span><span class="cp">$0.032 per trace</span></div>
           <div class="stat"><span class="l">Tokens</span><span class="chipi">[[tokens]]</span><span class="v">3.48M</span><span class="cp">2.71M in · 0.77M out</span></div>
           <div class="stat"><span class="l">Error rate</span><span class="chipi err">[[alert]]</span><span class="v">2.9%</span><span class="cp">37 errored traces</span></div>
         </div>
         <div class="toolbar">
-          <div class="seg scroll" role="group" aria-label="Filter"><button aria-pressed="true">All <span class="c">1,284</span></button><button aria-pressed="false">Errors <span class="c">37</span></button><button aria-pressed="false">Warnings <span class="c">12</span></button><button aria-pressed="false">Slow <span class="c">58</span></button></div>
+          <div class="seg scroll" role="group" aria-label="Filter"><button aria-pressed="true">All <span class="c">1,284</span></button><button aria-pressed="false">Errors <span class="c">37</span></button><button aria-pressed="false">Warnings <span class="c">12</span></button></div>
           <div class="input-wrap grow" style="min-width:280px">[[search]]<input class="input" placeholder="Search by name, id, user or tag" aria-label="Search traces"></div>
           <button class="btn">[[filter]]Filter</button>
         </div>
@@ -506,34 +542,68 @@ p{margin:0}
 
 <!-- ============ 3 TRACE DETAIL (T-6, T-7, T-8) ============ -->
 <section class="sec" id="detail">
-  <h2>3 Trace detail <span class="tag-t">T-6</span><span class="tag-t">T-7</span><span class="tag-t">T-8</span></h2>
-  <p class="lead">The breadcrumb lives in the context bar, so the title starts 24px under it. One 6-column key/value grid, tags once with inline add and remove, a 40/60 split with tops aligned, and IO blocks with a hairline border.</p>
-  <div class="frame" id="f-detail">
+  <h2>3 Trace workspace <span class="tag-t">T-6</span><span class="tag-t">T-7</span><span class="tag-t">T-8</span></h2>
+  <p class="lead">Trace detail is one full-height workspace, not a long page. A compact header (under 112px) carries the title, one inline metrics row and the tags. Below it two panes fill the viewport and scroll on their own: the tree at 40% and the span detail with tabs Preview, Metadata, Scores and Comments. Click the tabs and the Tree/Timeline/Graph tray to try them. At 1440x900 the page does not scroll; below 1100px the panes stack (section 10).</p>
+  <div class="frame ws" id="f-detail">
     <div data-side="traces"></div>
     <div class="card">
       <div class="ctxbar"><nav class="crumbs" aria-label="Breadcrumb"><a href="#">Traces</a>[[chev-r]]<span aria-current="page">checkout.summarize</span></nav><button class="btn btn-icon" aria-label="Keyboard shortcuts">[[kbd]]</button><button class="btn btn-icon" aria-label="Switch theme">[[sun]]</button></div>
       <main class="main">
-        <div>
+        <div class="wsh">
           <div class="page-h"><div class="ttl row" style="gap:12px"><h1>checkout.summarize</h1><span class="pill err">[[alert]]Error</span></div><div class="acts"><button class="btn">[[bookmark]]Bookmark</button><button class="btn btn-icon" aria-label="More actions" aria-haspopup="true">[[more]]</button></div></div>
-          <dl class="kv" style="margin-top:16px">
-            <div><dt>Trace ID</dt><dd><span class="mono trunc">tr_8f3a29c1d0</span><button class="copy" aria-label="Copy trace id">[[copy]]</button></dd></div>
-            <div><dt>User</dt><dd><span class="user"><span class="avatar av2">U9</span>u_9034</span></dd></div>
-            <div><dt>Session</dt><dd><a href="#" class="mono">ses_77b1</a></dd></div>
-            <div><dt>Latency</dt><dd class="num" style="font-size:14px">12.08 s</dd></div>
-            <div><dt>Cost</dt><dd class="num" style="font-size:14px">$0.1190</dd></div>
-            <div><dt>Tokens</dt><dd class="num" style="font-size:14px">9,412</dd></div>
-            <div><dt>Environment</dt><dd>production</dd></div>
-            <div><dt>Release</dt><dd class="mono">2026.11.3</dd></div>
-            <div><dt>Version</dt><dd class="mono">v14</dd></div>
-            <div class="tags-cell"><dt>Tags</dt><dd class="val" id="tagsMember"><span class="chip">checkout<button aria-label="Remove tag checkout">[[x]]</button></span><span class="chip">beta<button aria-label="Remove tag beta">[[x]]</button></span><span class="chip add" role="button" tabindex="0">[[plus]]Add tag</span></dd></div>
-          </dl>
+          <p class="mline"><span class="num">12.08 s</span><span class="num">$0.1190</span><span class="num">9,412 tokens</span><a href="#">u_9034</a><a href="#" class="mono">ses_77b1</a><span>production</span><span class="tags"><span class="chip">checkout<button aria-label="Remove tag checkout">[[x]]</button></span><span class="chip">beta<button aria-label="Remove tag beta">[[x]]</button></span><span class="chip add" role="button" tabindex="0">[[plus]]Add tag</span></span></p>
         </div>
         <div class="split">
           <section class="panel" aria-label="Trace tree">
-            <div class="panel-h"><h2>Trace</h2><span class="muted" style="font-size:12px">7 observations</span></div>
-            <div class="tree-bar"><div class="seg" role="tablist" aria-label="View"><button aria-pressed="true" title="Tree (t)">Tree</button><button aria-pressed="false" title="Timeline (l)">Timeline</button><button aria-pressed="false" title="Graph (g)">Graph</button></div><button class="btn btn-sm right" title="Jump to first error (e)">[[alert]]Jump to first error</button></div>
+            <div class="panel-h tree-pane-h"><div class="seg" role="tablist" aria-label="View"><button aria-pressed="true" title="Tree (t)">Tree</button><button aria-pressed="false" title="Timeline (l)">Timeline</button><button aria-pressed="false" title="Graph (g)">Graph</button></div><button class="btn btn-sm right" title="Jump to first error (e)">[[alert]]Jump to first error</button></div>
             <div class="tree" data-tree></div>
           </section>
+          <section class="panel dpane" aria-label="Span detail">
+            <div class="panel-h"><div class="ty ty-gen">[[gen]]</div><h2>llm.summarize</h2><span class="pill err" style="margin-left:4px">[[alert]]Error</span><span class="right muted" style="font-size:12px">generation</span></div>
+            <p class="mline dm"><span class="num">9.87 s</span><span class="num">$0.0904</span><span class="num">7,120 tokens</span><span class="mono">gpt-4o-mini</span></p>
+            <div class="tabs" role="tablist" aria-label="Detail" data-tabs="w">
+              <button class="tab" role="tab" aria-selected="true" data-p="w-prev">Preview</button><button class="tab" role="tab" aria-selected="false" data-p="w-meta">Metadata</button><button class="tab" role="tab" aria-selected="false" data-p="w-scores">Scores<span class="c2">2</span></button><button class="tab" role="tab" aria-selected="false" data-p="w-cmt">Comments<span class="c2">2</span></button></div>
+            <div class="dbody">
+              <div id="w-prev" class="tp"><div class="io-top"><div class="seg sm" role="group" aria-label="Format"><button aria-pressed="true">Formatted</button><button aria-pressed="false">JSON</button><button aria-pressed="false">Markdown</button></div></div>
+                <div class="io"><div class="io-h">Input<button class="copy" aria-label="Copy input">[[copy]]</button></div><div class="io-b">[{"role":"user","content":"Summarize the cart and shipping options for order #4821."}]</div></div>
+                <div class="io"><div class="io-h">Output<button class="copy" aria-label="Copy output">[[copy]]</button></div><div class="io-b">Error: upstream timeout after 9.8s (model gpt-4o-mini, attempt 2 of 2)</div></div></div>
+              <div id="w-meta" class="tp" hidden><dl style="margin:0">
+                <div class="mrow"><dt>Trace ID</dt><dd><span class="mono">tr_8f3a29c1d0</span><button class="copy" aria-label="Copy trace id">[[copy]]</button></dd></div>
+                <div class="mrow"><dt>Release</dt><dd class="mono">2026.11.3</dd></div>
+                <div class="mrow"><dt>Version</dt><dd class="mono">v14</dd></div>
+                <div class="mrow"><dt>Environment</dt><dd>production</dd></div></dl>
+                <div class="io" style="margin-top:16px"><div class="io-h">Metadata<button class="copy" aria-label="Copy metadata">[[copy]]</button></div><div class="io-b">{"retries": 2, "region": "eu-west-1"}</div></div></div>
+              <div id="w-scores" class="tp" hidden>
+                <div class="row" style="margin-bottom:16px"><span class="pill">helpfulness: 0.82</span><span class="pill">format: pass</span></div>
+                <form class="stackf" onsubmit="return false">
+                  <div class="row-fields" style="grid-template-columns:minmax(80px,1fr) 120px 80px auto;gap:8px;align-items:end">
+                    <div class="field"><label for="sn">Name</label><input id="sn" class="input" value="accuracy"></div>
+                    <div class="field"><label for="st">Type</label><select id="st" class="select"><option>Number</option></select></div>
+                    <div class="field"><label for="sv">Value</label><input id="sv" class="input" aria-invalid="true" value="abc" aria-describedby="sv-e"></div>
+                    <button class="btn btn-primary">Add score</button>
+                  </div>
+                  <div class="field-error" id="sv-e">[[alert]]Value must be a number between 0 and 1.</div>
+                </form></div>
+              <div id="w-cmt" class="tp" hidden>
+                <div class="cm"><span class="avatar av1">AK</span><div><b>Asha K.</b> <small>2h ago</small><p>Timeout on the second attempt; the retry budget is too tight for long carts.</p></div></div>
+                <div class="cm"><span class="avatar av4">MR</span><div><b>Mateo R.</b> <small>1h ago</small><p>Bumping the timeout to 20s in the next release.</p></div></div>
+                <div class="field" style="margin-top:12px"><label for="cmt">Add a comment</label><div class="row"><input id="cmt" class="input" placeholder="Write a comment"><button class="btn btn-primary">Post</button></div></div></div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="pair">
+    <div style="flex:1 1 300px"><div class="label-t">Tags: Member, add field open (same form post without JavaScript)</div>
+      <div class="panel"><div class="panel-b"><div class="row" style="flex-wrap:wrap;gap:6px"><span class="chip">checkout<button aria-label="Remove tag checkout">[[x]]</button></span><span class="chip">beta<button aria-label="Remove tag beta">[[x]]</button></span><form class="chip add-open" onsubmit="return false"><input aria-label="New tag" value="refund-flow"><button class="btn btn-sm btn-primary" style="height:24px;padding:0 8px">Add</button></form></div></div></div>
+      <div class="label-t">Tags: Viewer (chips only, no x, no add control)</div>
+      <div class="panel"><div class="panel-b"><div class="row" style="flex-wrap:wrap;gap:6px"><span class="chip">checkout</span><span class="chip">beta</span></div></div></div></div>
+    <div style="flex:1 1 260px"><div class="label-t">"..." menu (Admin); Viewers get no menu</div><div class="pop" role="menu" style="width:240px"><a class="item" role="menuitem">Public share</a><a class="item" role="menuitem">Copy trace id</a><a class="item" role="menuitem">Copy release</a><a class="item" role="menuitem">Copy version</a><a class="item" role="menuitem">Copy user id</a><div class="sep"></div><a class="item danger" role="menuitem">Delete trace…</a></div></div>
+    <div style="flex:1 1 300px"><div class="label-t">Loading: detail pane while the fragment loads</div><div class="panel"><div class="panel-b stackf"><span class="sk" style="width:40%"></span><span class="sk" style="width:100%;height:64px"></span><span class="sk" style="width:80%"></span></div></div></div>
+  </div>
+</section>
           <section class="panel" aria-label="Span detail">
             <div class="panel-h"><div class="ty ty-gen">[[gen]]</div><h2>llm.summarize</h2><span class="pill err" style="margin-left:4px">[[alert]]Error</span><span class="right muted" style="font-size:12px">generation</span></div>
             <div class="panel-b">
@@ -590,7 +660,7 @@ p{margin:0}
       <main class="main">
         <div class="page-h"><div class="ttl"><h1>Dashboard</h1><p class="sub">Volume, cost and quality for production over the last 24 hours.</p></div></div>
         <div class="stats">
-          <div class="stat"><span class="l">Traces</span><span class="chipi">[[traces]]</span><span class="v">1,284</span><span class="cp">+8.2% vs previous 24h</span></div>
+          <div class="stat"><span class="l">Traces</span><span class="chipi">[[traces]]</span><span class="v">1,284</span><span class="cp">in the last 24 hours</span></div>
           <div class="stat"><span class="l">Cost</span><span class="chipi ok">[[cost]]</span><span class="v">$41.27</span><span class="cp">$0.032 per trace</span></div>
           <div class="stat"><span class="l">Tokens</span><span class="chipi">[[tokens]]</span><span class="v">3.48M</span><span class="cp">2.71M in · 0.77M out</span></div>
           <div class="stat"><span class="l">Error rate</span><span class="chipi err">[[alert]]</span><span class="v">2.9%</span><span class="cp">37 errored traces</span></div>
@@ -746,29 +816,31 @@ p{margin:0}
 <!-- ============ 10 MOBILE 390 (T-3, T-18) ============ -->
 <section class="sec" id="mobile">
   <h2>10 Mobile at 390px <span class="tag-t">T-3</span><span class="tag-t">T-18</span></h2>
-  <p class="lead">The env select and range tray share one row (same top offset). The breadcrumb is not shown on mobile and has no duplicate for screen readers. The traces tray scrolls inside itself. Trace detail uses a 3-column key/value grid and stacks the tree first. Controls are 44px.</p>
+  <p class="lead">The env select and range tray share one row (same top offset). The breadcrumb is not shown on mobile and has no duplicate for screen readers. The traces tray scrolls inside itself. Trace detail stacks the panes, tree first at max 50vh, and the page scrolls. Controls are 44px.</p>
   <div class="phone-col">
     <div><div class="lbl2">Traces</div><div class="frame m" id="m-traces"><div data-mtop></div><div class="card"><main class="main">
       <div class="ctx-m"><div class="env-sel"><span class="env-dot"></span><select class="select" aria-label="Environment"><option>production</option></select></div><div class="seg"><button aria-pressed="false">1h</button><button aria-pressed="true">24h</button><button aria-pressed="false">7d</button></div></div>
       <div class="page-h"><div class="ttl"><h1>Traces</h1><p class="sub">Runs from the last 24 hours.</p></div><div class="acts"><button class="btn btn-primary">Save view</button><button class="btn btn-icon" aria-label="More actions">[[more]]</button></div></div>
-      <div class="stats"><div class="stat"><span class="l">Traces</span><span class="chipi">[[traces]]</span><span class="v">1,284</span><span class="cp">+8.2% vs prev</span></div><div class="stat"><span class="l">Cost</span><span class="chipi ok">[[cost]]</span><span class="v">$41.27</span><span class="cp">$0.032 per trace</span></div></div>
-      <div class="seg scroll" role="group" aria-label="Filter" style="align-self:stretch"><button aria-pressed="true">All <span class="c">1,284</span></button><button aria-pressed="false">Errors <span class="c">37</span></button><button aria-pressed="false">Warnings <span class="c">12</span></button><button aria-pressed="false">Slow <span class="c">58</span></button></div>
+      <div class="stats"><div class="stat"><span class="l">Traces</span><span class="chipi">[[traces]]</span><span class="v">1,284</span><span class="cp">last 24 hours</span></div><div class="stat"><span class="l">Cost</span><span class="chipi ok">[[cost]]</span><span class="v">$41.27</span><span class="cp">$0.032 per trace</span></div></div>
+      <div class="seg scroll" role="group" aria-label="Filter" style="align-self:stretch"><button aria-pressed="true">All <span class="c">1,284</span></button><button aria-pressed="false">Errors <span class="c">37</span></button><button aria-pressed="false">Warnings <span class="c">12</span></button></div>
       <div class="input-wrap">[[search]]<input class="input" placeholder="Search traces" aria-label="Search"></div>
       <div class="panel"><div class="panel-b flush"><table class="tbl stackm"><tbody data-rows="traces-m"></tbody></table></div></div>
     </main></div><div data-bnav="traces"></div></div></div>
 
-    <div><div class="lbl2">Trace detail (no context row)</div><div class="frame m" id="m-detail"><div data-mtop></div><div class="card"><main class="main">
-      <div class="page-h"><div class="ttl"><h1>checkout.summarize</h1><span class="pill err" style="margin-top:6px">[[alert]]Error</span></div><div class="acts"><button class="btn">[[bookmark]]Bookmark</button><button class="btn btn-icon" aria-label="More actions">[[more]]</button></div></div>
-      <dl class="kv"><div><dt>Trace ID</dt><dd><span class="mono trunc">tr_8f3a…</span><button class="copy" aria-label="Copy trace id">[[copy]]</button></dd></div><div><dt>User</dt><dd>u_9034</dd></div><div><dt>Session</dt><dd class="mono">ses_77b1</dd></div><div><dt>Latency</dt><dd class="num">12.08 s</dd></div><div><dt>Cost</dt><dd class="num">$0.1190</dd></div><div><dt>Tokens</dt><dd class="num">9,412</dd></div>
-        <div class="tags-cell"><dt>Tags</dt><dd class="val"><span class="chip">checkout<button aria-label="Remove tag checkout">[[x]]</button></span><span class="chip">beta<button aria-label="Remove tag beta">[[x]]</button></span><span class="chip add">[[plus]]Add tag</span></dd></div></dl>
-      <div class="split"><section class="panel"><div class="panel-h"><h2>Trace</h2></div><div class="tree-bar"><div class="seg"><button aria-pressed="true">Tree</button><button aria-pressed="false">Timeline</button><button aria-pressed="false">Graph</button></div><button class="btn btn-sm">[[alert]]First error</button></div><div class="tree" data-tree="short"></div></section>
-      <section class="panel"><div class="panel-h"><h2>llm.summarize</h2></div><div class="panel-b"><div class="io" style="margin:0"><div class="io-h">Input<button class="copy" aria-label="Copy input">[[copy]]</button></div><div class="io-b">[{"role":"user","content":"Summarize the cart…"}]</div></div></div></section></div>
+    <div><div class="lbl2">Trace detail (panes stack, tree first at max 50vh)</div><div class="frame m ws" id="m-detail"><div data-mtop></div><div class="card"><main class="main">
+      <div class="wsh" style="padding-top:0">
+        <div class="page-h"><div class="ttl"><h1>checkout.summarize</h1><span class="pill err" style="margin-top:6px">[[alert]]Error</span></div><div class="acts"><button class="btn">[[bookmark]]Bookmark</button><button class="btn btn-icon" aria-label="More actions">[[more]]</button></div></div>
+        <p class="mline"><span class="num">12.08 s</span><span class="num">$0.1190</span><span class="num">9,412 tokens</span><a href="#">u_9034</a><a href="#" class="mono">ses_77b1</a><span>production</span><span class="tags"><span class="chip">checkout<button aria-label="Remove tag checkout">[[x]]</button></span><span class="chip">beta<button aria-label="Remove tag beta">[[x]]</button></span><span class="chip add">[[plus]]Add tag</span></span></p></div>
+      <div class="split"><section class="panel"><div class="panel-h tree-pane-h"><div class="seg"><button aria-pressed="true">Tree</button><button aria-pressed="false">Timeline</button><button aria-pressed="false">Graph</button></div></div><div class="tree" data-tree></div></section>
+      <section class="panel dpane"><div class="panel-h"><div class="ty ty-gen">[[gen]]</div><h2>llm.summarize</h2><span class="pill err">Error</span></div><p class="mline dm"><span class="num">9.87 s</span><span class="num">$0.0904</span><span class="num">7,120 tokens</span><span class="mono">gpt-4o-mini</span></p>
+        <div class="tabs" role="tablist" aria-label="Detail" style="overflow-x:auto"><button class="tab" role="tab" aria-selected="true">Preview</button><button class="tab" role="tab" aria-selected="false">Metadata</button><button class="tab" role="tab" aria-selected="false">Scores<span class="c2">2</span></button><button class="tab" role="tab" aria-selected="false">Comments<span class="c2">2</span></button></div>
+        <div class="dbody"><div class="io" style="margin:0"><div class="io-h">Input<button class="copy" aria-label="Copy input">[[copy]]</button></div><div class="io-b">[{"role":"user","content":"Summarize the cart…"}]</div></div></div></section></div>
     </main></div><div data-bnav="traces"></div></div></div>
 
     <div><div class="lbl2">Dashboard</div><div class="frame m" id="m-dash"><div data-mtop></div><div class="card"><main class="main">
       <div class="ctx-m"><div class="env-sel"><span class="env-dot"></span><select class="select" aria-label="Environment"><option>production</option></select></div><div class="seg"><button aria-pressed="false">1h</button><button aria-pressed="true">24h</button><button aria-pressed="false">7d</button></div></div>
       <div class="page-h"><div class="ttl"><h1>Dashboard</h1></div></div>
-      <div class="stats"><div class="stat"><span class="l">Traces</span><span class="chipi">[[traces]]</span><span class="v">1,284</span><span class="cp">+8.2%</span></div><div class="stat"><span class="l">Cost</span><span class="chipi ok">[[cost]]</span><span class="v">$41.27</span><span class="cp">$0.032 per trace</span></div><div class="stat"><span class="l">Tokens</span><span class="chipi">[[tokens]]</span><span class="v">3.48M</span><span class="cp">2.71M in</span></div><div class="stat"><span class="l">Error rate</span><span class="chipi err">[[alert]]</span><span class="v">2.9%</span><span class="cp">37 errored</span></div></div>
+      <div class="stats"><div class="stat"><span class="l">Traces</span><span class="chipi">[[traces]]</span><span class="v">1,284</span><span class="cp">last 24 hours</span></div><div class="stat"><span class="l">Cost</span><span class="chipi ok">[[cost]]</span><span class="v">$41.27</span><span class="cp">$0.032 per trace</span></div><div class="stat"><span class="l">Tokens</span><span class="chipi">[[tokens]]</span><span class="v">3.48M</span><span class="cp">2.71M in</span></div><div class="stat"><span class="l">Error rate</span><span class="chipi err">[[alert]]</span><span class="v">2.9%</span><span class="cp">37 errored</span></div></div>
       <section class="panel"><div class="panel-h"><h2>Traces over time <span class="u">per hour</span></h2></div><div class="panel-b"><div class="chart" data-chart="c"></div></div></section>
       <section class="panel"><div class="panel-h"><h2>Cost by model</h2></div><div class="panel-b flush" style="padding:8px 0"><div class="brk"><span class="mono trunc">gpt-4o</span><span class="bar"><i style="width:100%"></i></span><span class="v">$22.10</span></div><div class="brk"><span class="mono trunc">claude-sonnet-5-5</span><span class="bar"><i style="width:64%"></i></span><span class="v">$14.18</span></div></div></section>
     </main></div><div data-bnav="dash"></div></div></div>
@@ -808,10 +880,11 @@ p{margin:0}
 <script>
 (function(){
   var ico=function(n,c){return '<svg class="ico'+(c?' '+c:'')+'" aria-hidden="true"><use href="#i-'+n+'"/></svg>'};
-  var nav=[['Observe',[['traces','Traces','traces'],['sessions','Sessions','sessions'],['users','Users','users'],['dash','Dashboard','dash']]],['Build',[['prompts','Prompts','prompts'],['play','Playground','play']]],['Project',[['settings','Settings','settings']]]];
+  var nav=[['Observe',[['dash','Dashboard','dash'],['traces','Traces','traces'],['sessions','Sessions','sessions'],['users','Users','users']]],['Build',[['prompts','Prompts','prompts'],['play','Playground','play']]],['Project',[['settings','Settings','settings']]]];
   function side(cur){
     var h='<aside class="side"><a class="brand" href="#"><span class="tile">'+ico('logo')+'</span>Traceloom</a><div class="picker"><span class="grow trunc">Acme <small>/ support-bot</small></span>'+ico('chev')+'</div><nav class="sidenav" aria-label="Main">';
     nav.forEach(function(g){h+='<div class="cap">'+g[0]+'</div>';g[1].forEach(function(i){h+='<a href="#"'+(i[0]===cur?' aria-current="page"':'')+'>'+ico(i[2])+i[1]+'</a>'})});
+    h+='<a href="#" role="button">'+ico('kbd')+'Shortcuts<kbd class="kb">?</kbd></a>';
     return h+'</nav><div class="usercard"><span class="avatar av1">AK</span><div class="grow"><b>Asha K.</b><small>Member</small></div>'+ico('more')+'</div></aside>';
   }
   function mtop(){return '<div class="mtop"><a class="brand" href="#"><span class="tile">'+ico('logo')+'</span></a><div class="picker"><span class="grow trunc">Acme <small>/ support-bot</small></span>'+ico('chev')+'</div><button class="btn btn-icon btn-ghost" aria-label="Switch theme">'+ico('sun')+'</button></div>'}
@@ -844,6 +917,7 @@ p{margin:0}
   document.querySelectorAll('[data-tree]').forEach(function(e){e.innerHTML=tree(e.dataset.tree==='short')});
   document.querySelectorAll('[data-chart]').forEach(function(e){e.innerHTML=chart()});
   document.querySelectorAll('.seg button,.tabs .tab').forEach(function(b){b.addEventListener('click',function(){var g=b.parentElement,a=b.hasAttribute('aria-selected')?'aria-selected':'aria-pressed';g.querySelectorAll('button').forEach(function(x){x.setAttribute(a,'false')});b.setAttribute(a,'true')})});
+  document.querySelectorAll('[data-tabs]').forEach(function(t){t.querySelectorAll('.tab').forEach(function(b){b.addEventListener('click',function(){t.querySelectorAll('.tab').forEach(function(x){var p=document.getElementById(x.dataset.p);if(p)p.hidden=x!==b})})})});
   function setTheme(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('tl-mock-theme',t)}catch(e){}}
   var saved=null;try{saved=localStorage.getItem('tl-mock-theme')}catch(e){}
   if(saved)setTheme(saved);else if(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)setTheme('dark');
