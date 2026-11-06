@@ -120,6 +120,15 @@ class DashboardQuery:
 
 
 @dataclass
+class PromptMetricsQuery:
+    """Optional date range (on the generation's start time) and environment."""
+
+    from_time: datetime | None = None
+    to_time: datetime | None = None
+    environment: str | None = None
+
+
+@dataclass
 class Page[T]:
     items: list[T]
     next_cursor: str | None = None
@@ -211,6 +220,30 @@ class TraceStats:
     error_count: int = 0  # traces whose worst observation level is ERROR
     latency_p50_ms: float | None = None
     latency_p95_ms: float | None = None
+
+
+@dataclass
+class PromptMetrics:
+    """Figures over the generations linked to a prompt (version) that match a PromptMetricsQuery."""
+
+    count: int = 0
+    median_latency_ms: float | None = None  # generations without an end time are ignored
+    total_tokens: int = 0
+    total_cost: float = 0.0
+    scores: dict[str, float] = field(default_factory=dict)  # numeric score name -> average
+
+
+@dataclass
+class PromptGeneration:
+    observation_id: str
+    trace_id: str
+    version: int
+    start_time: datetime
+    model: str | None = None
+    latency_ms: float | None = None
+    tokens: int = 0
+    cost: float = 0.0
+    level: str = "DEFAULT"
 
 
 @dataclass
@@ -329,6 +362,30 @@ class TraceStore(Protocol):
     def get_user_summary(self, project_id: str, user_id: str) -> UserSummary | None: ...
 
     def dashboard(self, project_id: str, query: DashboardQuery) -> DashboardData: ...
+
+    def prompt_metrics(
+        self,
+        project_id: str,
+        name: str,
+        version: int | None,
+        query: PromptMetricsQuery | None = None,
+    ) -> PromptMetrics:
+        """Metrics over generations whose prompt_name and prompt_version match (None: any version).
+
+        Scores are averaged per numeric score name over the linked generations' traces.
+        """
+        ...
+
+    def list_prompt_generations(
+        self,
+        project_id: str,
+        name: str,
+        version: int | None,
+        limit: int = 50,
+        query: PromptMetricsQuery | None = None,
+    ) -> list[PromptGeneration]:
+        """The linked generations, most recent first (at most `limit`, capped at 200)."""
+        ...
 
 
 class BlobStoreError(Exception):
