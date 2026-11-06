@@ -51,3 +51,26 @@ def test_mobile_context_row_on_every_list_page(live_server, browser_page, scheme
         with page.expect_navigation():
             page.locator(".ctx-m select[name=env]").select_option("all")
     assert [p for p in page.problems if p.startswith(("pageerror", "dialog"))] == []
+
+
+def test_mobile_status_tabs_and_env_switcher_fit_390px(live_server, browser_page):  # noqa: F811
+    world = make_world(live_server)
+    seed_trace(live_server.container, world["project_id"], "t-1", environment="prod",
+               timestamp=datetime.now(UTC))  # fmt: skip
+    page = browser_page
+    sign_in(page, live_server, world["viewer"], DEFAULT_PASSWORD)
+    page.set_viewport_size({"width": 390, "height": 800})
+    page.goto(f"{live_server.url}/project/{world['project_id']}/traces")
+    tabs = page.locator(".tbar .seg[role=tablist]")
+    tabs.wait_for(state="visible")
+    # Every quick-filter tab, Bookmarked included, is fully inside the tray: nothing clipped.
+    tray = tabs.bounding_box()
+    for i in range(tabs.locator("a[role=tab]").count()):
+        box = tabs.locator("a[role=tab]").nth(i).bounding_box()
+        assert tray["x"] <= box["x"] and box["x"] + box["width"] <= tray["x"] + tray["width"] + 0.5
+    assert tabs.evaluate("e => e.scrollWidth <= e.clientWidth")
+    assert tabs.locator("a[role=tab]", has_text="Bookmarked").is_visible()
+    # The environment switcher is drawn like the other controls, not as a bare native select.
+    select = page.locator(".ctx-m select[name=env]")
+    assert select.evaluate("e => getComputedStyle(e).appearance") == "none"
+    assert page.locator(".ctx-m .select-wrap .ico").is_visible()

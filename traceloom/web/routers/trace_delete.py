@@ -5,9 +5,9 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
-from starlette.datastructures import QueryParams
+from starlette.datastructures import FormData, QueryParams
 
-from traceloom.auth.deps import Access, get_container, require
+from traceloom.auth.deps import Access, form_data, get_container, require
 from traceloom.auth.permissions import Perm
 from traceloom.container import Container
 from traceloom.db.models import UserPref
@@ -99,13 +99,13 @@ def delete_matching_dialog(
 
 
 @router.post("/project/{project_id}/traces-delete-matching", response_class=HTMLResponse)
-async def delete_matching(
+def delete_matching(
     request: Request,
     access: Access = Depends(require(Perm.TRACES_DELETE)),
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
+    form: FormData = Depends(form_data),
 ):
-    form = await request.form()
     query, ids, raw = _matching(db, container, access, str(form.get("filter", "")))
     if not ids:
         return _dialog_page(

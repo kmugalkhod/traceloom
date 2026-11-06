@@ -92,22 +92,14 @@ def signup(
     if invite_row is not None and email.strip().lower() != invite_row.email:
         email = invite_row.email  # an invite link is only good for the address it was sent to
     try:
-        address = accounts.normalize_email(email)
-        # Invite-only first step: the email alone is enough to find out whether we can continue.
-        if not password and context["invite_only"]:
-            if not accounts.has_pending_invite(db, address):
-                raise accounts.SignupClosed(
-                    "No invite was found for this address. Ask an Owner or Admin to invite you.",
-                    "email",
-                )
-            context.update(
-                invite_only=False, values={"name": name, "email": address}, step_two=True
-            )
-            return render(request, "auth/signup.html", context)
+        # Only a verified invite token opens an invite-only server, and only that token grants a
+        # membership. The same answer for every address: it never says whether one is invited.
+        if context["invite_only"]:
+            raise accounts.SignupClosed(accounts.INVITE_ONLY, "email")
         user = accounts.register(
             db,
             container.settings,
-            email=address,
+            email=email,
             name=name,
             password=password,
             invited=invite_row is not None,
@@ -118,28 +110,8 @@ def signup(
 
     if invite_row is not None:
         invites.accept(db, invite_row, user)
-    else:  # signed-up with an open door but an invite for this address is waiting: honour it
-        _accept_waiting_invites(db, user)
     db.commit()
     return _signed_in(RedirectResponse("/", status_code=303), container, user)
-
-
-def _accept_waiting_invites(db: Session, user: User) -> None:
-    from datetime import UTC, datetime
-
-    from sqlalchemy import select
-
-    from traceloom.db.models import Invite
-
-    waiting = db.scalars(
-        select(Invite).where(
-            Invite.email == user.email,
-            Invite.accepted_at.is_(None),
-            Invite.expires_at > datetime.now(UTC),
-        )
-    )
-    for invite in waiting:
-        invites.accept(db, invite, user)
 
 
 # --- log in / out ------------------------------------------------------------------------------

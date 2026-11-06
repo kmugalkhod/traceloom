@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api/public/otel/v1", tags=["otlp"])
 
 @router.post("/traces")
 async def export_traces(request: Request, key: ResolvedKey = Depends(project_key)) -> Response:
-    enforce_ingest_rate_limit(request, key)
+    await run_in_threadpool(enforce_ingest_rate_limit, request, key)  # Redis in full mode
     container = request.app.state.container
     limits = IngestLimits(container.settings.ingest_max_events, container.settings.ingest_max_bytes)
     content_type = request.headers.get("content-type", "").split(";")[0].strip().lower()

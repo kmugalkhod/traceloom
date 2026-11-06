@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     reset_token_minutes: int = Field(60, validation_alias="TRACELOOM_RESET_TOKEN_MINUTES")
     invite_ttl_hours: int = Field(168, validation_alias="TRACELOOM_INVITE_TTL_HOURS")
 
+    # `traceloom seed-demo` login (example.com: reserved domains like .local fail validation)
+    demo_email: str = Field("demo@example.com", validation_alias="TRACELOOM_DEMO_EMAIL")
+    demo_password: str = Field("demo-password-123", validation_alias="TRACELOOM_DEMO_PASSWORD")
+
     # Ingestion
     ingest_max_events: int = Field(1000, validation_alias="TRACELOOM_INGEST_MAX_EVENTS")
     ingest_max_bytes: int = Field(5_000_000, validation_alias="TRACELOOM_INGEST_MAX_BYTES")

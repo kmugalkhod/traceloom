@@ -1,0 +1,701 @@
+{
+  "epic": {
+    "title": "Phase 2: prompt management and LLM playground",
+    "description": "Add versioned prompts (labels with a protected `production`, diff, composition, per-version metrics), a public v2 prompt API, SDK `get_prompt` with stale-while-revalidate caching and generation linking, signed queued webhooks, encrypted LLM connections to six providers, and a streaming playground (open-from-trace, save-as-version, 4-way compare). Built on the Phase 1 stack in lite mode, with an offline test suite."
+  },
+  "ui": true,
+  "stories": [
+    {
+      "id": "S1",
+      "title": "Versioned prompts, labels and public API",
+      "description": "Data model, permissions, prompt logic (variables, composition, diff), the prompt service with audit and webhook events, and the public v2 prompt API.",
+      "acceptance": [
+        "A prompt can be created and gets immutable, incrementing versions",
+        "Labels move with protected-label rules and an audit row",
+        "Composition resolves with a depth limit and cycle errors",
+        "GET /api/public/v2/prompts/{name} returns production by default"
+      ],
+      "tasks": [
+        {
+          "id": "T1",
+          "title": "Skeleton: Phase 2 settings and runtime dependencies",
+          "description": "Add encryption_key (comma-separated for rotation, required outside dev, ephemeral with a warning in dev), webhook_allow_private, llm_allow_private (default true), playground_rate and provider_timeout_seconds to Settings. Declare cryptography, anthropic, openai and google-genai as runtime dependencies with version constraints. Startup fails without a key outside dev.",
+          "files": [
+            "traceloom/config.py",
+            "pyproject.toml",
+            "tests/api/test_config_phase2.py"
+          ],
+          "acceptance": [
+            "Settings exposes the new fields with the specified defaults",
+            "Startup fails outside dev when TRACELOOM_ENCRYPTION_KEY is unset",
+            "Dev generates an ephemeral key and logs a warning",
+            "Setup step installs the new dependencies"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": []
+        },
+        {
+          "id": "T2",
+          "title": "Skeleton: Phase 2 tables, migration and permissions",
+          "description": "Add the prompts, prompt_versions, prompt_labels, protected_labels, llm_connections, webhooks and webhook_deliveries models, api_keys.may_move_protected_labels and the observations (project_id, prompt_name, prompt_version) index in migration 0002. Seed the production protected label for existing and new projects. Add the new Perms to the permission matrix.",
+          "files": [
+            "traceloom/db/models.py",
+            "traceloom/db/migrations/versions/0002_prompts_playground.py",
+            "traceloom/auth/permissions.py",
+            "traceloom/services/orgs.py",
+            "tests/api/test_phase2_migration.py"
+          ],
+          "acceptance": [
+            "Migration upgrades and downgrades on SQLite",
+            "Existing projects get a protected production label",
+            "A new project gets production protected",
+            "Perms match the spec matrix (Viewer read, Member write/run, Admin protected/connections/webhooks)",
+            "Phase 1 tests still pass"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": []
+        },
+        {
+          "id": "T3",
+          "title": "Prompt logic: variables, composition and diff",
+          "description": "Pure modules for {{var}} find/compile (missing variables reported, unknown left as-is), @@@prompt:\u2026@@@ parsing and recursive resolution (depth 5, cycle detection, dependency versions recorded, resolver injected), and escaped line/message/JSON-key diffs.",
+          "files": [
+            "traceloom/prompts/__init__.py",
+            "traceloom/prompts/variables.py",
+            "traceloom/prompts/composition.py",
+            "traceloom/prompts/diff.py",
+            "tests/api/test_prompt_composition.py",
+            "tests/api/test_prompt_diff.py"
+          ],
+          "acceptance": [
+            "compile substitutes known variables and reports missing ones without raising",
+            "A cycle raises an error naming the reference",
+            "Depth above 5 errors",
+            "Dependencies list the versions used",
+            "Chat prompt diff goes message by message",
+            "Config diff is key-level",
+            "Diff output carries no raw HTML"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": []
+        },
+        {
+          "id": "T4",
+          "title": "Prompt service with audit and webhook events",
+          "description": "create_version, move_label, get (label/version/latest/production-fallback), list (folders, search, tag/label filters, sort), delete and set_protected. Every write is project-scoped, permission-checked and audited. webhooks/events.py writes pending delivery rows for enabled webhooks; delivery itself comes later. Label moves never fail because of webhooks.",
+          "files": [
+            "traceloom/prompts/service.py",
+            "traceloom/webhooks/__init__.py",
+            "traceloom/webhooks/events.py",
+            "tests/api/test_prompts_service.py",
+            "tests/api/test_prompt_labels.py"
+          ],
+          "acceptance": [
+            "Versions are immutable and increment from 1",
+            "latest cannot be set by hand",
+            "A Member moving production gets a permission error with no audit row or event",
+            "A Member moving staging succeeds and is audited",
+            "Prompt name validation matches FR-P1",
+            "Event rows are created for enabled webhooks only"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T2",
+            "T3"
+          ]
+        },
+        {
+          "id": "T5",
+          "title": "Public v2 prompt API",
+          "description": "GET prompt (label/version/resolve, defaulting to production then latest), list, POST create version with labels, and PATCH versions/{n} newLabels, with Basic key auth and the Phase 1 error envelope. Keys may move protected labels only with the new flag, which is Admin-settable on key creation.",
+          "files": [
+            "traceloom/api/prompts_v2.py",
+            "traceloom/main.py",
+            "traceloom/auth/api_keys.py",
+            "tests/api/test_prompts_api_v2.py"
+          ],
+          "acceptance": [
+            "GET without label or version returns production, else latest",
+            "A response has name, type, version, prompt, config, labels, tags, commit message and dependencies",
+            "A cyclic include returns 400 naming the cycle",
+            "A key without the flag cannot move production (403)",
+            "Names with / work URL-encoded"
+          ],
+          "qa": "With a project API key, curl POST /api/public/v2/prompts to create `support`, PATCH production onto v1, then GET /api/public/v2/prompts/support and check the JSON. Try the cycle case and a protected-label move with a plain key.",
+          "ui": false,
+          "depends_on": [
+            "T4"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Prompts UI and per-version metrics",
+      "description": "Prompts list, editors, detail page (versions, diff, labels), metrics store queries and the metrics tab, plus the cross-cutting acceptance tests.",
+      "acceptance": [
+        "Members can create prompts and versions in the browser",
+        "The list shows folders, search and filters, and labels with lock icons",
+        "The detail page has Prompt, Diff, Metrics and Labels tabs",
+        "Metrics show linked generation counts, latency, tokens, cost and scores",
+        "Prompt content renders escaped"
+      ],
+      "tasks": [
+        {
+          "id": "T6",
+          "title": "Prompts list, new prompt and version editor pages",
+          "description": "Nav items for Prompts and Playground. Prompts list with folder tree, search, tag/label filters, sort and an empty state with an SDK snippet. New prompt and new version editor (text or chat message list, config JSON validation, commit message, set labels), and variable highlighting in prompts.js.",
+          "files": [
+            "traceloom/web/routers/prompts.py",
+            "traceloom/web/context.py",
+            "traceloom/web/templates/prompts/list.html",
+            "traceloom/web/templates/prompts/new.html",
+            "traceloom/web/static/prompts.js",
+            "traceloom/web/static/app.css"
+          ],
+          "acceptance": [
+            "A Member creates a text and a chat prompt",
+            "The list filters by tag and label and searches name, tag and content",
+            "Variables are highlighted and listed in the editor",
+            "A Viewer sees no create button and gets 403 on POST",
+            "A <script> in content renders as text"
+          ],
+          "qa": "In the browser as Member, create folder/greeting with a {{name}} variable, save a second version with a commit message, then search and filter in the list. Confirm a Viewer cannot create.",
+          "ui": true,
+          "depends_on": [
+            "T4"
+          ]
+        },
+        {
+          "id": "T7",
+          "title": "Prompt detail page: versions, diff and labels",
+          "description": "Detail page with version list and Prompt (resolved preview, config), Diff and Labels tabs. Includes the label move select and confirm dialog, protected labels locked for Members, Open in playground and Copy SDK snippet actions, and a Metrics tab container that loads its content from the metrics partial URL.",
+          "files": [
+            "traceloom/web/routers/prompt_detail.py",
+            "traceloom/web/templates/prompts/detail.html",
+            "traceloom/web/templates/prompts/_versions.html",
+            "traceloom/web/templates/prompts/_diff.html",
+            "traceloom/web/static/prompt_detail.js",
+            "traceloom/web/static/app.css"
+          ],
+          "acceptance": [
+            "Any two versions diff, with escaped output",
+            "An Admin moves production in one click and the audit row appears",
+            "A Member sees the production move disabled and the server returns 403",
+            "The resolved preview shows included prompts",
+            "Metrics tab loads GET /project/{id}/prompts/{name}/metrics"
+          ],
+          "qa": "As Admin, open a prompt with 3 versions, diff v1 and v3, move production to v3. Log in as Member and verify the production control is locked and staging moves work. Content with <script>alert(1)</script> must show as literal text.",
+          "ui": true,
+          "depends_on": [
+            "T4"
+          ]
+        },
+        {
+          "id": "T8",
+          "title": "TraceStore prompt metrics queries",
+          "description": "Add prompt_metrics and list_prompt_generations to the TraceStore port, the lite SQL implementation and the ClickHouse implementation, with a contract test (lite always, ClickHouse under TRACELOOM_IT=1). Count, median latency, tokens, cost, average numeric scores and the 50 most recent generations, filtered by date range and environment.",
+          "files": [
+            "traceloom/ports.py",
+            "traceloom/adapters/lite/sql_analytics.py",
+            "traceloom/adapters/full/clickhouse_trace_store.py",
+            "tests/contract/test_prompt_metrics_contract.py",
+            "tests/api/test_prompt_metrics.py"
+          ],
+          "acceptance": [
+            "Metrics count only generations whose prompt_name and prompt_version match",
+            "Queries are project-scoped",
+            "Scores average per numeric score name",
+            "The contract test passes on lite"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": []
+        },
+        {
+          "id": "T9",
+          "title": "Metrics tab partial",
+          "description": "Router and template for the per-version metrics tab: tiles for count, median latency, tokens, cost and average scores, plus a table of the latest 50 linked generations, each linking to its trace. Uses the date range and environment filters.",
+          "files": [
+            "traceloom/web/routers/prompt_metrics.py",
+            "traceloom/web/templates/prompts/_metrics.html"
+          ],
+          "acceptance": [
+            "Tiles reflect linked generations for the selected version, range and environment",
+            "Rows link to trace detail",
+            "A prompt with no linked generations shows an empty state",
+            "Another project's prompt is a 404"
+          ],
+          "qa": "Ingest a generation with prompt_name=support, prompt_version=2 through the API. Open the support prompt, select v2 and the Metrics tab, and check that count 1, tokens and cost match. Click the row to reach the trace.",
+          "ui": true,
+          "depends_on": [
+            "T4",
+            "T8"
+          ]
+        },
+        {
+          "id": "T10",
+          "title": "Prompt acceptance tests: journey, permissions, XSS and perf",
+          "description": "End-to-end journey for AC-1..3, the Phase 2 permission sweep (Viewer 403 on every new write, Member 403 on Admin routes), XSS checks across prompts views (AC-9 for prompts), and the NFR-1 volume test.",
+          "files": [
+            "tests/e2e/test_journey_prompt_label_switch.py",
+            "tests/e2e/test_journey_prompt_xss.py",
+            "tests/api/test_phase2_permissions.py",
+            "tests/api/test_phase2_escape.py",
+            "tests/perf/test_prompt_volume.py"
+          ],
+          "acceptance": [
+            "The journey runs examples/prompt_app.py and sees v2, then v3 within the TTL after the label move",
+            "The metrics tab shows 1 linked generation",
+            "A dialog handler fails the test if the XSS payload fires",
+            "The perf test meets NFR-1 on lite"
+          ],
+          "qa": "Run the new e2e tests. Then repeat the journey by hand: start the server, create support v1..v3, label production v2, run examples/prompt_app.py, move production to v3 in the browser and re-run.",
+          "ui": false,
+          "depends_on": [
+            "T5",
+            "T7",
+            "T9",
+            "T12"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "SDK prompt fetching, caching and linking",
+      "description": "Python SDK get_prompt with in-process cache and stale-while-revalidate, compile, fallback, async variants, generation linking and provider wrapper kwargs, plus seed models and docs.",
+      "acceptance": [
+        "get_prompt returns Text/ChatPrompt and compile substitutes variables",
+        "After the TTL the stale value is returned and refreshed in the background",
+        "Generations link to the prompt, and fallback prompts are not linked",
+        "The Claude 5-family models are priced in the seed"
+      ],
+      "tasks": [
+        {
+          "id": "T11",
+          "title": "SDK prompts: classes, cache and get_prompt",
+          "description": "TextPrompt, ChatPrompt, PromptCache (TTL from TRACELOOM_PROMPT_CACHE_TTL, stale-while-revalidate with one bounded daemon refresher per key), PromptNotFound, get_prompt/aget_prompt with retries, timeout and fallback. Uses the standard library and the existing HTTP client only.",
+          "files": [
+            "sdk/python/traceloom_sdk/prompts.py",
+            "sdk/python/traceloom_sdk/client.py",
+            "sdk/python/traceloom_sdk/__init__.py",
+            "sdk/python/tests/test_prompts.py"
+          ],
+          "acceptance": [
+            "get_prompt then compile(name='Ann') substitutes variables for text and chat",
+            "With a 1 s TTL, the first call after expiry returns the old version immediately and the next returns the new one",
+            "A cold fetch failure uses the fallback with is_fallback=True, else raises PromptNotFound",
+            "Warm cache hits make no network call",
+            "A cold miss never blocks longer than timeout \u00d7 (retries+1)"
+          ],
+          "qa": "Against a running server, call get_prompt('support') from a Python shell, check the compiled output, move the label in the UI, wait out the TTL, and check the new version arrives without a restart.",
+          "ui": false,
+          "depends_on": []
+        },
+        {
+          "id": "T12",
+          "title": "SDK linking and example app",
+          "description": "Add prompt= to start_generation, update_current_observation and observe(as_type='generation'), and traceloom_prompt= to the OpenAI and Anthropic wrappers (stripped before the provider call). Fallback prompts are not linked, and linking never raises. Add examples/prompt_app.py, which fetches support from production, compiles it, and runs it through the fake LLM with linking.",
+          "files": [
+            "sdk/python/traceloom_sdk/objects.py",
+            "sdk/python/traceloom_sdk/observe.py",
+            "sdk/python/traceloom_sdk/openai.py",
+            "sdk/python/traceloom_sdk/anthropic.py",
+            "sdk/python/tests/test_prompt_linking.py",
+            "examples/prompt_app.py"
+          ],
+          "acceptance": [
+            "The stored generation has prompt_name and prompt_version set",
+            "A fallback prompt sets neither",
+            "traceloom_prompt is never passed to the provider SDK",
+            "Linking errors never propagate"
+          ],
+          "qa": "Run examples/prompt_app.py against the server, open the resulting trace, and check the generation shows prompt: support v2. Run again with the server prompt unreachable and check no link appears.",
+          "ui": false,
+          "depends_on": [
+            "T11"
+          ]
+        },
+        {
+          "id": "T13",
+          "title": "Seed Claude 5-family models, ADRs and README",
+          "description": "Add the FR-X3 model entries (with the cache-write assumption noted in a comment) to seed/models.yaml. Write ADRs 0010, 0011 and 0012. Add a prompts and playground quickstart and the get_prompt snippet to the README. Propose the exact .env.example lines for the human in the change notes, since agents cannot edit that file.",
+          "files": [
+            "traceloom/seed/models.yaml",
+            "docs/adr/0010-prompt-storage-and-resolution.md",
+            "docs/adr/0011-llm-connections-and-providers.md",
+            "docs/adr/0012-webhook-delivery.md",
+            "README.md"
+          ],
+          "acceptance": [
+            "claude-sonnet-5-5 resolves to $2/$10 per million tokens via the cost engine",
+            "All FR-X3 models are present",
+            "The three ADRs exist and describe the decisions in the plan",
+            "The seed loads in the existing seed test"
+          ],
+          "qa": "Open Settings \u2192 Models in the browser and check the new Claude models and prices. Ingest a claude-sonnet-5-5 generation with usage and confirm a calculated cost.",
+          "ui": false,
+          "depends_on": []
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "title": "Signed, queued webhooks",
+      "description": "Queue message dispatch by type, shared crypto and SSRF guards, webhook configuration and delivery with retries and a delivery log, and the settings page.",
+      "acceptance": [
+        "A label move delivers a signed webhook with retries",
+        "Private or loopback URLs are refused at save and at send",
+        "Secrets are encrypted at rest and shown once",
+        "Deliveries survive a restart in lite mode"
+      ],
+      "tasks": [
+        {
+          "id": "T14",
+          "title": "Queue type dispatch registry",
+          "description": "Messages gain a type discriminator (ingest by default when absent, and webhook_delivery). Both lite and Redis queues dispatch through a small registry, and the lite sweeper replays due webhook deliveries from the DB. Ingestion behaviour stays unchanged.",
+          "files": [
+            "traceloom/ingest/process.py",
+            "traceloom/adapters/lite/inproc_queue.py",
+            "traceloom/adapters/full/redis_queue.py",
+            "traceloom/ingest/sweeper.py",
+            "tests/api/test_queue_dispatch.py"
+          ],
+          "acceptance": [
+            "Messages without a type are processed as ingest",
+            "A registered webhook_delivery handler is called for that type",
+            "The Phase 1 durability and ingestion tests stay green"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": []
+        },
+        {
+          "id": "T15",
+          "title": "Crypto and SSRF guards",
+          "description": "llm/crypto.py with MultiFernet encrypt/decrypt, rotation via comma-separated keys, and hint() giving \u2026last4. llm/ssrf.py resolves, classifies and pins the IP, always blocks link-local and metadata addresses, and blocks private ones when the caller's policy says so. Both are shared by webhooks and LLM connections.",
+          "files": [
+            "traceloom/llm/__init__.py",
+            "traceloom/llm/crypto.py",
+            "traceloom/llm/ssrf.py",
+            "tests/api/test_crypto.py",
+            "tests/api/test_ssrf.py"
+          ],
+          "acceptance": [
+            "Encrypt/decrypt round-trips and a rotated key still decrypts old data",
+            "Metadata and link-local addresses are always refused",
+            "Loopback and private addresses are refused unless allowed",
+            "A hostname resolving to a blocked IP is refused",
+            "The pinned IP is returned for use in the request"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": []
+        },
+        {
+          "id": "T16",
+          "title": "Webhook service, signing and delivery worker",
+          "description": "Configure, update and delete webhooks (encrypted secret, shown once), plus send-test. Deliver with JSON body and X-Traceloom-Signature t=\u2026,v1=HMAC-SHA256(secret, t.body), X-Traceloom-Delivery id, 10 s timeout, 5 attempts with exponential backoff and jitter on network, timeout and 5xx errors. Updates webhook_deliveries and runs the SSRF check at save and at every delivery. Audited.",
+          "files": [
+            "traceloom/webhooks/service.py",
+            "traceloom/webhooks/deliver.py",
+            "tests/api/test_webhooks.py"
+          ],
+          "acceptance": [
+            "A receiver returning 500, 500, 200 gets success on attempt 3 with a valid signature and 3 attempts logged",
+            "A URL resolving to 127.0.0.1 is refused at save",
+            "Failed deliveries never block a label move",
+            "Pending deliveries are redelivered after a restart",
+            "The secret is not in the DB in plaintext"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T1",
+            "T2",
+            "T14",
+            "T15"
+          ]
+        },
+        {
+          "id": "T17",
+          "title": "Settings \u2192 Webhooks page",
+          "description": "Admin-only settings tab with webhook list, add dialog (URL, events, secret shown once), enable/disable, deliveries table with status pills, attempts, response code and last error, and a Send test button.",
+          "files": [
+            "traceloom/web/routers/settings_webhooks.py",
+            "traceloom/web/templates/settings/webhooks.html",
+            "traceloom/web/context.py"
+          ],
+          "acceptance": [
+            "An Admin adds a webhook and sees the secret once",
+            "A Member gets 403 and no tab",
+            "Send test creates a delivery row visible in the table",
+            "A private URL shows an inline error"
+          ],
+          "qa": "As Admin, add a webhook pointing at a local receiver (with the private allowance enabled), click Send test, and watch the delivery succeed. Move a label and confirm a second delivery appears. Try http://127.0.0.1 with the allowance off and check the error.",
+          "ui": true,
+          "depends_on": [
+            "T16"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "title": "LLM connections and provider adapters",
+      "description": "A shared streaming adapter interface, six provider adapters tested on fake transports, and encrypted per-project connections with test-connection.",
+      "acceptance": [
+        "Each of the six providers has an adapter that maps requests, streams deltas, extracts usage and scrubs errors",
+        "Connection secrets are encrypted and never read back",
+        "Test connection reports success or a scrubbed provider error"
+      ],
+      "tasks": [
+        {
+          "id": "T18",
+          "title": "Provider interface, registry, model lists and fake provider",
+          "description": "providers/base.py with the Delta types (text, tool_call, usage, done, error), the Provider protocol and the registry. models.py with default model lists per provider. conftest fixtures for a fake provider registered in the registry and an encryption_key setting.",
+          "files": [
+            "traceloom/llm/providers/__init__.py",
+            "traceloom/llm/providers/base.py",
+            "traceloom/llm/models.py",
+            "tests/conftest.py",
+            "tests/unit/providers/test_base.py"
+          ],
+          "acceptance": [
+            "The registry returns an adapter by provider name",
+            "The fake provider yields scripted deltas",
+            "Default model lists exist for all six providers",
+            "The default suite stays offline"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": []
+        },
+        {
+          "id": "T19",
+          "title": "Anthropic adapter",
+          "description": "Stream via the official anthropic SDK (lazily imported) with adaptive thinking where needed, no budget_tokens on 5-family models, tools and structured output mapping, usage extraction, refusal surfaced as an inline message, and secret scrubbing.",
+          "files": [
+            "traceloom/llm/providers/anthropic.py",
+            "tests/unit/providers/test_anthropic.py"
+          ],
+          "acceptance": [
+            "The request sent on a fake transport has the exact messages, system, params and tools given",
+            "Text, tool call and usage deltas stream in order",
+            "stop_reason refusal yields an inline message",
+            "Errors contain no key"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T18"
+          ]
+        },
+        {
+          "id": "T20",
+          "title": "OpenAI, Azure OpenAI and OpenAI-compatible adapters",
+          "description": "One openai-SDK adapter with three client constructions: plain OpenAI, Azure (endpoint, deployment map, API version) and openai_compatible (required base URL checked by the SSRF guard, custom headers). Covers streaming, tools, response_format, usage and scrubbing.",
+          "files": [
+            "traceloom/llm/providers/openai.py",
+            "traceloom/llm/providers/azure_openai.py",
+            "traceloom/llm/providers/openai_compatible.py",
+            "tests/unit/providers/test_openai.py",
+            "tests/unit/providers/test_azure_openai.py",
+            "tests/unit/providers/test_openai_compatible.py"
+          ],
+          "acceptance": [
+            "Request mapping, streaming deltas, usage and scrubbed errors pass for all three on fake transports",
+            "Azure uses the deployment and API version",
+            "An openai_compatible base URL on a metadata address is refused"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T15",
+            "T18"
+          ]
+        },
+        {
+          "id": "T21",
+          "title": "Bedrock and Google adapters",
+          "description": "Bedrock via boto3 bedrock-runtime converse_stream (tested with botocore Stubber) and Google via google-genai, both lazily imported, mapping messages, params, tools and schema, extracting usage and scrubbing errors.",
+          "files": [
+            "traceloom/llm/providers/bedrock.py",
+            "traceloom/llm/providers/google.py",
+            "tests/unit/providers/test_bedrock.py",
+            "tests/unit/providers/test_google.py"
+          ],
+          "acceptance": [
+            "Request mapping, streaming, usage and error scrubbing pass for both on fakes",
+            "Access keys and secrets never appear in errors"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T18"
+          ]
+        },
+        {
+          "id": "T22",
+          "title": "LLM connections service",
+          "description": "CRUD for connections with Fernet-encrypted secrets, a \u2026last4 hint, replace-but-never-read, custom models and headers, per-provider credential shapes, and the SSRF check on base URLs. Test-connection makes one minimal call and returns success or a scrubbed error. Listing for use by Members returns names and models only. Audited.",
+          "files": [
+            "traceloom/llm/connections.py",
+            "tests/api/test_llm_connections.py"
+          ],
+          "acceptance": [
+            "The secret is not in the DB, any response or the logs during a failing test-connection",
+            "A key that cannot be decrypted shows 'key needs re-entry' rather than a 500",
+            "Members can list usable connections but not edit them",
+            "Create, update and delete write audit rows"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T1",
+            "T2",
+            "T15",
+            "T18"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S6",
+      "title": "Playground",
+      "description": "Run engine and streaming endpoint, connection settings UI, the playground editor, compare view, save-as-version and open-from-trace.",
+      "acceptance": [
+        "A Member runs a prompt against a connection and sees streamed text, tokens, cost and latency",
+        "Open in playground pre-fills the generation's messages, model, parameters and tools",
+        "Up to 4 variants run concurrently, each with its own usage",
+        "Save as prompt creates a new version"
+      ],
+      "tasks": [
+        {
+          "id": "T23",
+          "title": "Run engine and playground API",
+          "description": "run.py renders variables, calls the adapter, accumulates usage, costs it with the Phase 1 registry (cost_source=calculated), records time to first token, and optionally ingests a trace in the playground environment. playground_api.py has POST /run as an SSE stream (a plain def generator, CSRF, Member+, 429 over TRACELOOM_PLAYGROUND_RATE, closes the provider stream on disconnect), POST /save as a prompt version, and GET /from-observation/{obs_id} pre-fill data.",
+          "files": [
+            "traceloom/llm/run.py",
+            "traceloom/web/routers/playground_api.py",
+            "tests/api/test_playground_run.py",
+            "tests/api/test_playground_from_observation.py"
+          ],
+          "acceptance": [
+            "The Anthropic fake transport receives exactly the messages, model, temperature and tool of the source generation",
+            "delta, tool_call, usage and done events stream",
+            "Cost is greater than 0 and calculated",
+            "Concurrent runs keep independent usage",
+            "Over the rate limit returns 429 with a clear message",
+            "Provider errors are inline and scrubbed",
+            "Save creates a new prompt version"
+          ],
+          "qa": "With a fake provider connection, POST /project/{id}/playground/run via curl with a session cookie and CSRF token, and check the SSE events and usage. Request the from-observation pre-fill for a traced generation and compare it to the trace's input.",
+          "ui": false,
+          "depends_on": [
+            "T1",
+            "T4",
+            "T18",
+            "T22"
+          ]
+        },
+        {
+          "id": "T24",
+          "title": "Settings \u2192 LLM connections page",
+          "description": "Admin-only settings tab listing connections, add and edit dialogs with only the chosen provider's fields, secret shown as \u2022\u2022\u2022\u2022last4, Test connection with result, and a chip input for custom models.",
+          "files": [
+            "traceloom/web/routers/settings_connections.py",
+            "traceloom/web/templates/settings/connections.html",
+            "traceloom/web/context.py"
+          ],
+          "acceptance": [
+            "An Admin adds a connection per provider with the right fields",
+            "The secret never appears on any page after save",
+            "Test connection shows success or a scrubbed error",
+            "A Member gets 403 and no tab"
+          ],
+          "qa": "As Admin, add an openai_compatible connection and an anthropic one, and check the masked hint after saving. Use Test connection with a bad key and confirm the error shows no secret. Log in as Member and confirm the tab is missing.",
+          "ui": true,
+          "depends_on": [
+            "T22"
+          ]
+        },
+        {
+          "id": "T25",
+          "title": "Playground page: editor, streaming and single run",
+          "description": "Playground page with top bar (connection and model picker, parameters popover showing only supported params, Tools and Schema editors with validation), message list (add, remove, reorder), variables panel, response pane with live streaming and stats row, Run (cmd/ctrl+enter), Stop (esc, AbortController), and the no-connections, running, error and refusal states. Includes mount points for the compare and save dialogs. Its e2e test covers the from-trace and XSS paths.",
+          "files": [
+            "traceloom/web/routers/playground.py",
+            "traceloom/web/templates/playground/index.html",
+            "traceloom/web/templates/playground/_message.html",
+            "traceloom/web/static/playground.js",
+            "traceloom/web/static/app.css",
+            "tests/e2e/test_journey_playground_from_trace.py"
+          ],
+          "acceptance": [
+            "A Member runs against a fake provider and sees text stream in with tokens, cost, latency and time to first token",
+            "Stop cancels the stream",
+            "The no-connections state links Admins to settings and tells Members to ask an Admin",
+            "Provider output and messages render escaped",
+            "Layout works at 390 and 1280 in light and dark"
+          ],
+          "qa": "In the browser as Member, open Playground, pick the fake connection, edit a message with a {{var}}, fill the input, press cmd+enter and watch the stream. Press esc mid-stream. Paste <script>alert(1)</script> into a message and check no dialog appears.",
+          "ui": true,
+          "depends_on": [
+            "T23"
+          ]
+        },
+        {
+          "id": "T26",
+          "title": "Playground compare view",
+          "description": "Compare toggle adding up to 4 variant columns, each with its own model, parameters and messages or following the shared messages. Run all runs every variant concurrently and streams each column independently. Columns stack under 1100px. Includes the compare e2e test.",
+          "files": [
+            "traceloom/web/routers/playground_compare.py",
+            "traceloom/web/templates/playground/_variant.html",
+            "traceloom/web/static/playground_compare.js",
+            "tests/e2e/test_journey_playground_compare.py"
+          ],
+          "acceptance": [
+            "3 variants with different fake models all stream on their own",
+            "Each column shows its own usage and cost",
+            "A 5th variant cannot be added",
+            "Columns stack under 1100px"
+          ],
+          "qa": "Open Playground, turn Compare on, add 3 variants with different models, click Run all, and check each column streams with its own tokens and cost. Narrow the window below 1100px to check the stacking.",
+          "ui": true,
+          "depends_on": [
+            "T23"
+          ]
+        },
+        {
+          "id": "T27",
+          "title": "Save as prompt dialog and Open in playground from trace",
+          "description": "A Save as prompt dialog (existing chat prompt or new one, commit message) on the playground, and an Open in playground button on generation rows and in the IO pane header of trace detail (Member+), linking to the pre-filled playground.",
+          "files": [
+            "traceloom/web/routers/playground_save.py",
+            "traceloom/web/templates/playground/_save.html",
+            "traceloom/web/routers/trace_detail.py",
+            "traceloom/web/templates/traces/_io_header.html"
+          ],
+          "acceptance": [
+            "Saving creates version N+1 of an existing chat prompt with the commit message",
+            "Saving as a new prompt creates v1",
+            "A Viewer sees no Open in playground button",
+            "The button opens the playground with the generation's messages, model, parameters and tools",
+            "Labels follow the protected-label rules"
+          ],
+          "qa": "In trace detail as Member, click Open in playground on a generation and check the pre-filled messages, model and tools. Run, then Save as prompt with a commit message and confirm the new version in the Prompts page. Check a Viewer has no button.",
+          "ui": true,
+          "depends_on": [
+            "T23"
+          ]
+        }
+      ]
+    }
+  ]
+}

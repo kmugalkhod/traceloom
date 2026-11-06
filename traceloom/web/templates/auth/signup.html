@@ -13,7 +13,7 @@
   {% if errors.form %}{{ m.banner("err", errors.form) }}{% endif %}
 
   {% if invite_only %}
-    {{ m.banner("info", "Sign-up is invite-only on this server. Use the email address your invite was sent to, or ask an Owner for one.") }}
+    {{ m.banner("info", "Sign-up is invite-only on this server. Open the invite link from your email to create your account, or ask an Owner for an invite.") }}
     {{ m.field("email", "Email", type="email", value=values.email, error=errors.email, placeholder="you@company.com", required=True, autocomplete="email", autofocus=True) }}
     <button class="btn btn-primary btn-block" type="submit">{{ m.icon("i-mail") }}Continue with invite</button>
   {% else %}

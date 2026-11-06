@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -33,6 +34,34 @@ def compute_cost(definition: ModelDef, usage: Mapping[str, int]) -> dict[str, fl
     return cost
 
 
+def usage_total(usage: Mapping[str, Any]) -> int:
+    """The `total` derived for provided usage that has none."""
+    return usage.get("input", 0) + usage.get("output", 0)
+
+
+def cost_total(cost: Mapping[str, Any]) -> float:
+    """The `total` derived for a provided cost that has none."""
+    return sum(v for k, v in cost.items() if k != "total")
+
+
+DERIVED_TOTALS: dict[str, Callable[[Mapping[str, Any]], float]] = {
+    "usage_details": usage_total,
+    "cost_details": cost_total,
+}
+
+
+def has_derived_total(name: str, values: Mapping[str, Any]) -> bool:
+    """True when `values["total"]` is what apply_cost derives from the other keys.
+
+    A stored map does not record whether its total was sent or derived; a total equal to the
+    derived one is treated as derived, which only matters if the parts change later.
+    """
+    total = values.get("total")
+    if not isinstance(total, int | float):
+        return False
+    return math.isclose(total, DERIVED_TOTALS[name](values), rel_tol=1e-9, abs_tol=1e-12)
+
+
 def _text(value: Any) -> str:
     """Prompt/completion text for token counting; chat messages contribute their content."""
     if value is None:
@@ -57,13 +86,10 @@ def apply_cost(
     """
     if obs.usage_source == "provided" and obs.usage_details and "total" not in obs.usage_details:
         # Aggregates and both stores read the `total` key, so a producer that omitted it gets it.
-        obs.usage_details = {
-            **obs.usage_details,
-            "total": obs.usage_details.get("input", 0) + obs.usage_details.get("output", 0),
-        }
+        obs.usage_details = {**obs.usage_details, "total": usage_total(obs.usage_details)}
     if obs.cost_source == "provided":
         if obs.cost_details and "total" not in obs.cost_details:
-            obs.cost_details = {**obs.cost_details, "total": sum(obs.cost_details.values())}
+            obs.cost_details = {**obs.cost_details, "total": cost_total(obs.cost_details)}
         return
     definition = registry.find(project_id, obs.model, obs.start_time)
     if obs.usage_source != "provided":

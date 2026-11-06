@@ -18,7 +18,7 @@
 </div>
 
 <div class="panel">
-  <div class="panel-h"><h2>Usage per day</h2><span class="hint">last {{ daily | length }} day{{ "" if daily | length == 1 else "s" }} with activity</span></div>
+  <div class="panel-h"><h2>Usage per day</h2><span class="hint">last {{ daily | length | plural("day") }} with activity</span></div>
   <div class="panel-b">
     {% if charts_available and daily %}
       <div class="chart-box" data-chart='{{ chart | tojson }}' role="img" aria-label="Traces per day for {{ u.user_id }}"></div>
@@ -33,7 +33,7 @@
 </div>
 
 <div class="panel">
-  <div class="panel-h"><h2>Recent traces</h2><a class="right" href="{{ traces_href }}">All {{ u.trace_count | intcomma }} traces</a></div>
+  <div class="panel-h"><h2>Recent traces</h2><a class="right" href="{{ traces_href }}">All {{ u.trace_count | plural("trace") }}</a></div>
   <div class="rack">
     <table class="tbl tbl-flat" aria-label="Recent traces">
       <thead><tr><th class="lvl"></th><th>Time</th><th>Name</th><th class="r">Latency</th><th class="r">Cost</th></tr></thead>

@@ -28,7 +28,7 @@
     {{ m.dialog_head("Delete this trace?", "i-trash") }}
     <form method="post" action="/project/{{ project.id }}/traces-delete/{{ trace.id }}">
       {{ m.csrf() }}
-      <div class="body"><p>Deletes <span class="mono">{{ trace.id }}</span> with its {{ counts.observations }} observation{{ "" if counts.observations == 1 else "s" }}, {{ counts.scores }} score{{ "" if counts.scores == 1 else "s" }} and {{ counts.comments }} comment{{ "" if counts.comments == 1 else "s" }}. This cannot be undone.</p></div>
+      <div class="body"><p>Deletes <span class="mono">{{ trace.id }}</span> with its {{ counts.observations | plural("observation") }}, {{ counts.scores | plural("score") }} and {{ counts.comments | plural("comment") }}. This cannot be undone.</p></div>
       <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-danger">Delete trace</button></footer>
     </form>
   </div>

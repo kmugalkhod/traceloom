@@ -40,7 +40,7 @@
     </table>
   </div>
   <div class="pager">
-    <span>{{ sessions | length }} session{{ "" if sessions | length == 1 else "s" }} on this page</span>
+    <span>{{ sessions | length | plural("session") }} on this page</span>
     {% if not first_page %}<a class="btn btn-sm" href="{{ first_href }}">First page</a>{% endif %}
     {% if next_href %}<a class="btn btn-sm" href="{{ next_href }}">Load more</a>{% endif %}
   </div>

@@ -51,7 +51,7 @@ def test_lite_mode_never_imports_the_full_mode_clients(tmp_path):
         "bad = [m for m in full if m in sys.modules]\n"
         "assert not bad, bad\n"
     )
-    env = {**os.environ, "TRACELOOM_SERVER_SECRET": "k" * 32, "TRACELOOM_SECRET_KEY": "k" * 32}
+    env = {**os.environ, "TRACELOOM_SERVER_SECRET": "k" * 32}
     result = subprocess.run(
         [sys.executable, "-c", code], capture_output=True, text=True, cwd=ROOT, env=env
     )
@@ -98,7 +98,6 @@ def test_configure_wires_the_full_adapters(monkeypatch, tmp_path):
     module.Sweeper = FakeSweeper
     monkeypatch.setitem(sys.modules, "traceloom.ingest.sweeper", module)
     monkeypatch.setenv("TRACELOOM_SERVER_SECRET", "k" * 32)
-    monkeypatch.setenv("TRACELOOM_SECRET_KEY", "k" * 32)  # old name, until the rename lands
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "x")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "x")
     settings = Settings(

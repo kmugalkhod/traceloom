@@ -316,3 +316,27 @@ def test_delete_by_filter_removes_exactly_the_matching_traces(store, sessions):
         assert [c.body for c in s.query(models.Comment)] == ["kept"]
     assert len(store.get_existing("p2", {"trace": ["a1", "a2", "a3", "a4"]})["trace"]) == 4
     assert store.delete_traces("p1", query) == 0  # nothing left to match
+
+
+def test_delete_commits_each_chunk_and_counts_them_all(store, sessions, monkeypatch):
+    """A long delete does not hold the write lock throughout: every chunk is its own commit."""
+    from sqlalchemy import event
+
+    from traceloom.adapters.lite import sql_trace_store
+
+    monkeypatch.setattr(sql_trace_store, "CHUNK", 2)
+    ids = [f"t{i}" for i in range(5)]
+    store.upsert("p1", [trace(t) for t in ids], [obs(f"o-{t}", t) for t in ids], [])
+    commits = []
+
+    def count(conn):
+        commits.append(1)
+
+    engine = sessions.kw["bind"]
+    event.listen(engine, "commit", count)
+    try:
+        assert store.delete_traces("p1", ids + ["missing"]) == 5
+    finally:
+        event.remove(engine, "commit", count)
+    assert len(commits) == 3  # 6 ids in chunks of 2
+    assert store.count_traces("p1") == 0

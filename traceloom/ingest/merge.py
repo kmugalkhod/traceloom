@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from functools import cache
 from typing import Any
 
+from traceloom.cost.pricing import has_derived_total
 from traceloom.ingest.schemas import ObservationBody, ParsedEvent, ScoreBody, TraceBody
 from traceloom.ports import ObservationRow, ScoreRow, TraceRow
 
@@ -112,8 +113,9 @@ def _apply_provided_map(row: ObservationRow, name: str, source: str, value, newe
         return
     if getattr(row, source) == "provided":
         current = getattr(row, name)
-        if newer and "total" not in value:
-            # A derived total would go stale once the parts change; apply_cost derives it again.
+        if has_derived_total(name, current):
+            # A derived total goes stale once the parts change, whichever event arrives first;
+            # apply_cost derives it again. A provided total is kept like any other key.
             current = {k: v for k, v in current.items() if k != "total"}
         setattr(row, name, {**current, **value} if newer else {**value, **current})
     else:  # replaces calculated / tokenizer-derived data

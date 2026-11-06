@@ -153,11 +153,21 @@ def can_delete(role: Role | None, user_id: str, author_id: str) -> bool:
 
 
 def delete_comment(
-    db: Session, *, project_id: str, comment_id: str, user: User, role: Role | None
+    db: Session,
+    *,
+    project_id: str,
+    trace_id: str,
+    comment_id: str,
+    user: User,
+    role: Role | None,
 ) -> bool:
-    """Delete by the author or an Admin+. False when the comment does not exist here."""
+    """Delete by the author or an Admin+. False when the comment is not on this trace."""
     comment = db.scalar(
-        select(Comment).where(Comment.project_id == project_id, Comment.id == comment_id)
+        select(Comment).where(
+            Comment.project_id == project_id,
+            Comment.trace_id == trace_id,
+            Comment.id == comment_id,
+        )
     )
     if comment is None:
         return False

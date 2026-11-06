@@ -1,9 +1,9 @@
 {% import "_macros.html" as m with context %}
 {# The delete-by-filter confirmation: shows the match count and asks to type it. #}
 <div class="scrim">
-  <div class="dialog" role="dialog" aria-modal="true" aria-label="Delete {{ match_count }} trace{{ '' if match_count == 1 else 's' }}?">
+  <div class="dialog" role="dialog" aria-modal="true" aria-label="Delete {{ match_count | plural("trace") }}?">
     <header>
-      <h2>Delete {{ match_count }} trace{{ "" if match_count == 1 else "s" }}?</h2>
+      <h2>Delete {{ match_count | plural("trace") }}?</h2>
       <a class="btn btn-icon btn-ghost btn-sm right" aria-label="Close" href="{{ list_href }}">{{ m.icon("i-x") }}</a>
     </header>
     <form method="post" action="/project/{{ project.id }}/traces-delete-matching">
@@ -28,7 +28,7 @@
       </div>
       <footer>
         <a class="btn" href="{{ list_href }}">Cancel</a>
-        {% if match_count %}<button class="btn btn-danger" type="submit">Delete {{ match_count }} trace{{ "" if match_count == 1 else "s" }}</button>{% endif %}
+        {% if match_count %}<button class="btn btn-danger" type="submit">Delete {{ match_count | plural("trace") }}</button>{% endif %}
       </footer>
     </form>
   </div>

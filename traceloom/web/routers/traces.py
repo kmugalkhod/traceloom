@@ -8,8 +8,9 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
+from starlette.datastructures import FormData
 
-from traceloom.auth.deps import Access, current_project, get_container, require
+from traceloom.auth.deps import Access, current_project, form_data, get_container, require
 from traceloom.auth.permissions import Perm
 from traceloom.container import Container
 from traceloom.db.session import get_db
@@ -165,12 +166,12 @@ def set_environment(
 
 
 @router.post("/project/{project_id}/prefs/columns")
-async def set_columns(
+def set_columns(
     request: Request,
     access: Access = Depends(current_project),
     db: Session = Depends(get_db),
+    form: FormData = Depends(form_data),
 ):
-    form = await request.form()
     chosen = [c for c in form.getlist("col") if c in COLUMN_KEYS]
     project_id = access.project.id
     if chosen:

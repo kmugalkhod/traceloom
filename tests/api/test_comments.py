@@ -169,3 +169,19 @@ def test_comments_are_project_scoped(client, login, world, trace, make_project, 
     comment(client, world, "only here")
     r = client.get(f"/project/{other.id}/traces/t1/discussion")
     assert r.status_code == 200 and "only here" not in r.text
+
+
+def test_a_comment_cannot_be_deleted_through_another_traces_url(
+    client, login, world, trace, container
+):
+    seed_trace(container, world.project.id, "t2")
+    as_user(client, login, world, Role.MEMBER)
+    comment(client, world, "on t1")
+    html = discussion(client, world)
+    cid = _comment_id(html)
+    other = f"/project/{world.project.id}/traces/t2/comments/{cid}/delete"
+    r = client.post(
+        other, data={"csrf_token": form_token(html, base(world) + "/comments")}, headers=HX
+    )
+    assert r.status_code == 404
+    assert "on t1" in discussion(client, world)

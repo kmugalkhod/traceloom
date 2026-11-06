@@ -1,6 +1,7 @@
 """Demo data for `traceloom seed-demo`: a user, org, project and API key pair, idempotently.
 
-The key pair is derived from the server secret (TRACELOOM_SERVER_SECRET, read via Settings), so
+The login comes from Settings (TRACELOOM_DEMO_EMAIL / TRACELOOM_DEMO_PASSWORD). The key pair is
+derived from the server secret (TRACELOOM_SERVER_SECRET, read via Settings), so
 running the command again prints the same keys (a stored secret cannot be recovered from its
 hash) and they are unique to each install.
 """
@@ -9,7 +10,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import os
 from dataclasses import dataclass
 
 from sqlalchemy import select
@@ -21,8 +21,6 @@ from traceloom.auth.permissions import Role
 from traceloom.config import Settings
 from traceloom.db.models import ApiKey, Membership, Organization, Project, User
 
-DEMO_EMAIL = "demo@traceloom.local"
-DEMO_PASSWORD = "demo-password-123"
 DEMO_ORG = "Demo Org"
 DEMO_PROJECT = "Demo Project"
 DEMO_KEY_NOTE = "seed-demo"
@@ -46,8 +44,7 @@ def _derive(settings: Settings, label: str, length: int) -> str:
 
 def seed_demo(settings: Settings, session_factory: sessionmaker[Session]) -> DemoInfo:
     """Create the demo user, org, project and key if missing. Safe to run repeatedly."""
-    email = os.environ.get("TRACELOOM_DEMO_EMAIL", DEMO_EMAIL)
-    password = os.environ.get("TRACELOOM_DEMO_PASSWORD", DEMO_PASSWORD)
+    email, password = settings.demo_email, settings.demo_password
     public_key = f"{PUBLIC_PREFIX}demo-{_derive(settings, 'public', 12)}"
     secret_key = f"{SECRET_PREFIX}demo-{_derive(settings, 'secret', 32)}"
     created = False

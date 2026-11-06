@@ -1,6 +1,6 @@
-# Traceloom design standard (v2)
+# Traceloom design standard (v3)
 
-Revised after human review: the reference image `HWXC_5naEAIA1bB.jpeg` (repo root) is the pinned look. We take its language only (a floating sidebar, an inner rounded card, soft white panels, status pills, a near-black primary, pastel initial avatars), not its brand or content. v1 (the strip rack) is retired. Tokens live in the `:root` block of `sdlc/changes/2026-11-06-phase1-tracing-core/design/mockup.html`; copy it into `traceloom/web/static/app.css`.
+Revised after human review and matching the approved v3 mockup: a neutral SaaS dashboard reference supplied by the owner is the pinned look. We take its language only (a floating sidebar, an inner rounded card, soft white panels, status pills, a near-black primary, pastel initial avatars), not its brand or content. v1 (the strip rack) is retired. Tokens live in the `:root` block of `sdlc/changes/2026-11-06-phase1-tracing-core/design/mockup.html`; copy it into `traceloom/web/static/app.css`.
 
 Mode: Operate. Light and dark are both first-class: system default, a toggle, persisted in `localStorage` and a cookie.
 

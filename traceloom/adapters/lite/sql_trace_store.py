@@ -228,8 +228,8 @@ class SqlTraceStore(SqlReadMixin, SqlAnalyticsMixin):
             else list(dict.fromkeys(target))
         )
         deleted = 0
-        with self.session_factory.begin() as s:
-            for chunk in _chunks(ids):
+        for chunk in _chunks(ids):  # one short transaction per chunk: writers are not starved
+            with self.session_factory.begin() as s:
                 s.execute(
                     delete(Comment).where(
                         Comment.project_id == project_id, Comment.trace_id.in_(chunk)
