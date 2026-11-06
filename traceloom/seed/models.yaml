@@ -1,0 +1,198 @@
+# Built-in model definitions (FR-C1), loaded at startup as global definitions.
+#
+# Prices are USD per token for each usage key (input, output, cache_read, cache_write),
+# approximated from public list prices and meant as a starting point: override any of them
+# per project on the Models settings page. A `tiers` entry replaces the listed prices when the
+# input tokens of a generation exceed its threshold. `match` is a case-insensitive regex
+# searched in the model name; `tokenizer` is `tiktoken:<encoding>` and is only used to count
+# tokens when a generation reports no usage.
+version: 1
+models:
+  - model_name: claude-opus-4-5
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-opus-4-5(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 5.000e-6, output: 2.500e-5, cache_read: 5.000e-7, cache_write: 6.250e-6}
+  - model_name: claude-opus-4-1
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-opus-4-1(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 1.500e-5, output: 7.500e-5, cache_read: 1.500e-6, cache_write: 1.875e-5}
+  - model_name: claude-opus-4
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-opus-4(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 1.500e-5, output: 7.500e-5, cache_read: 1.500e-6, cache_write: 1.875e-5}
+  - model_name: claude-sonnet-4-5
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-sonnet-4-5(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 3.000e-6, output: 1.500e-5, cache_read: 3.000e-7, cache_write: 3.750e-6}
+    tiers:
+      - {threshold: 200000, prices: {input: 6.000e-6, output: 2.250e-5, cache_read: 6.000e-7, cache_write: 7.500e-6}}
+  - model_name: claude-sonnet-4
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-sonnet-4(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 3.000e-6, output: 1.500e-5, cache_read: 3.000e-7, cache_write: 3.750e-6}
+    tiers:
+      - {threshold: 200000, prices: {input: 6.000e-6, output: 2.250e-5, cache_read: 6.000e-7, cache_write: 7.500e-6}}
+  - model_name: claude-haiku-4-5
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-haiku-4-5(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 1.000e-6, output: 5.000e-6, cache_read: 1.000e-7, cache_write: 1.250e-6}
+  - model_name: claude-3-7-sonnet
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-3-7-sonnet(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 3.000e-6, output: 1.500e-5, cache_read: 3.000e-7, cache_write: 3.750e-6}
+  - model_name: claude-3-5-sonnet
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-3-5-sonnet(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 3.000e-6, output: 1.500e-5, cache_read: 3.000e-7, cache_write: 3.750e-6}
+  - model_name: claude-3-5-haiku
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-3-5-haiku(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 8.000e-7, output: 4.000e-6, cache_read: 8.000e-8, cache_write: 1.000e-6}
+  - model_name: claude-3-opus
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-3-opus(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 1.500e-5, output: 7.500e-5, cache_read: 1.500e-6, cache_write: 1.875e-5}
+  - model_name: claude-3-haiku
+    match: '(?i)^(?:[\w.:-]+[/.])?claude-3-haiku(?:-\d{8})?(?:-latest|-v\d+:\d+)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 2.500e-7, output: 1.250e-6, cache_read: 2.500e-8, cache_write: 3.125e-7}
+  - model_name: gpt-4o-mini
+    match: '(?i)^(?:[\w.:-]+[/.])?gpt-4o-mini(?:-\d{4}-\d{2}-\d{2})?$'
+    tokenizer: tiktoken:o200k_base
+    valid_from: 2024-01-01
+    prices: {input: 1.500e-7, output: 6.000e-7, cache_read: 7.500e-8}
+  - model_name: gpt-4o
+    match: '(?i)^(?:[\w.:-]+[/.])?gpt-4o(?:-\d{4}-\d{2}-\d{2})?$'
+    tokenizer: tiktoken:o200k_base
+    valid_from: 2024-01-01
+    prices: {input: 2.500e-6, output: 1.000e-5, cache_read: 1.250e-6}
+  - model_name: gpt-4.1-nano
+    match: '(?i)^(?:[\w.:-]+[/.])?gpt-4\.1-nano(?:-\d{4}-\d{2}-\d{2})?$'
+    tokenizer: tiktoken:o200k_base
+    valid_from: 2024-01-01
+    prices: {input: 1.000e-7, output: 4.000e-7, cache_read: 2.500e-8}
+  - model_name: gpt-4.1-mini
+    match: '(?i)^(?:[\w.:-]+[/.])?gpt-4\.1-mini(?:-\d{4}-\d{2}-\d{2})?$'
+    tokenizer: tiktoken:o200k_base
+    valid_from: 2024-01-01
+    prices: {input: 4.000e-7, output: 1.600e-6, cache_read: 1.000e-7}
+  - model_name: gpt-4.1
+    match: '(?i)^(?:[\w.:-]+[/.])?gpt-4\.1(?:-\d{4}-\d{2}-\d{2})?$'
+    tokenizer: tiktoken:o200k_base
+    valid_from: 2024-01-01
+    prices: {input: 2.000e-6, output: 8.000e-6, cache_read: 5.000e-7}
+  - model_name: gpt-5-nano
+    match: '(?i)^(?:[\w.:-]+[/.])?gpt-5-nano(?:-\d{4}-\d{2}-\d{2})?$'
+    tokenizer: tiktoken:o200k_base
+    valid_from: 2024-01-01
+    prices: {input: 5.000e-8, output: 4.000e-7, cache_read: 5.000e-9}
+  - model_name: gpt-5-mini
+    match: '(?i)^(?:[\w.:-]+[/.])?gpt-5-mini(?:-\d{4}-\d{2}-\d{2})?$'
+    tokenizer: tiktoken:o200k_base
+    valid_from: 2024-01-01
+    prices: {input: 2.500e-7, output: 2.000e-6, cache_read: 2.500e-8}
+  - model_name: gpt-5
+    match: '(?i)^(?:[\w.:-]+[/.])?gpt-5(?:-\d{4}-\d{2}-\d{2})?$'
+    tokenizer: tiktoken:o200k_base
+    valid_from: 2024-01-01
+    prices: {input: 1.250e-6, output: 1.000e-5, cache_read: 1.250e-7}
+  - model_name: o4-mini
+    match: '(?i)^(?:[\w.:-]+[/.])?o4-mini(?:-\d{4}-\d{2}-\d{2})?$'
+    tokenizer: tiktoken:o200k_base
+    valid_from: 2024-01-01
+    prices: {input: 1.100e-6, output: 4.400e-6, cache_read: 2.750e-7}
+  - model_name: o3-mini
+    match: '(?i)^(?:[\w.:-]+[/.])?o3-mini(?:-\d{4}-\d{2}-\d{2})?$'
+    tokenizer: tiktoken:o200k_base
+    valid_from: 2024-01-01
+    prices: {input: 1.100e-6, output: 4.400e-6, cache_read: 5.500e-7}
+  - model_name: o3
+    match: '(?i)^(?:[\w.:-]+[/.])?o3(?:-\d{4}-\d{2}-\d{2})?$'
+    tokenizer: tiktoken:o200k_base
+    valid_from: 2024-01-01
+    prices: {input: 2.000e-6, output: 8.000e-6, cache_read: 5.000e-7}
+  - model_name: gpt-4-turbo
+    match: '(?i)^(?:[\w.:-]+[/.])?gpt-4-turbo(?:-\d{4}-\d{2}-\d{2})?$'
+    tokenizer: tiktoken:cl100k_base
+    valid_from: 2024-01-01
+    prices: {input: 1.000e-5, output: 3.000e-5}
+  - model_name: gpt-3.5-turbo
+    match: '(?i)^(?:[\w.:-]+[/.])?gpt-3\.5-turbo(?:-\d{4})?$'
+    tokenizer: tiktoken:cl100k_base
+    valid_from: 2024-01-01
+    prices: {input: 5.000e-7, output: 1.500e-6}
+  - model_name: gemini-2.5-pro
+    match: '(?i)^(?:[\w.:-]+[/.])?gemini-2\.5-pro(?:-\d{3}|-latest|-preview[\w-]*)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 1.250e-6, output: 1.000e-5}
+    tiers:
+      - {threshold: 200000, prices: {input: 2.500e-6, output: 1.500e-5}}
+  - model_name: gemini-2.5-flash-lite
+    match: '(?i)^(?:[\w.:-]+[/.])?gemini-2\.5-flash-lite(?:-\d{3}|-latest|-preview[\w-]*)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 1.000e-7, output: 4.000e-7}
+  - model_name: gemini-2.5-flash
+    match: '(?i)^(?:[\w.:-]+[/.])?gemini-2\.5-flash(?:-\d{3}|-latest|-preview[\w-]*)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 3.000e-7, output: 2.500e-6}
+  - model_name: gemini-2.0-flash
+    match: '(?i)^(?:[\w.:-]+[/.])?gemini-2\.0-flash(?:-\d{3}|-latest|-preview[\w-]*)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 1.000e-7, output: 4.000e-7}
+  - model_name: gemini-1.5-pro
+    match: '(?i)^(?:[\w.:-]+[/.])?gemini-1\.5-pro(?:-\d{3}|-latest|-preview[\w-]*)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 1.250e-6, output: 5.000e-6}
+    tiers:
+      - {threshold: 128000, prices: {input: 2.500e-6, output: 1.000e-5}}
+  - model_name: gemini-1.5-flash
+    match: '(?i)^(?:[\w.:-]+[/.])?gemini-1\.5-flash(?:-\d{3}|-latest|-preview[\w-]*)?$'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 7.500e-8, output: 3.000e-7}
+  - model_name: llama-3.1-405b
+    match: '(?i)llama[-_]?3\.1[-_]?405b'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 3.500e-6, output: 3.500e-6}
+  - model_name: llama-3.1-70b
+    match: '(?i)llama[-_]?3\.1[-_]?70b'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 8.800e-7, output: 8.800e-7}
+  - model_name: llama-3.1-8b
+    match: '(?i)llama[-_]?3\.1[-_]?8b'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 1.800e-7, output: 1.800e-7}
+  - model_name: llama-3.3-70b
+    match: '(?i)llama[-_]?3\.3[-_]?70b'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 8.800e-7, output: 8.800e-7}
+  - model_name: llama-4-maverick
+    match: '(?i)llama[-_]?4[-_]?maverick'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 2.700e-7, output: 8.500e-7}
+  - model_name: llama-4-scout
+    match: '(?i)llama[-_]?4[-_]?scout'
+    tokenizer: null
+    valid_from: 2024-01-01
+    prices: {input: 1.800e-7, output: 5.900e-7}
