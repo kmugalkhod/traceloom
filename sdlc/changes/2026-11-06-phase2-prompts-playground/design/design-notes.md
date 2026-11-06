@@ -46,3 +46,18 @@ Focus ring 2px offset 2px everywhere; status is icon + word + tint; label and va
 - **T-25 Playground** (section "T-25"): top bar (Compare variants, mobile Run), left editor (connection, model, message cards, Variables, Parameters, Tools, Structured output as collapsible sections), right Output (Run/Stop, Trace this run switch, status chip, usage row). States: idle, streaming, done, escaped output, tool call, stopped, provider error, 429, no connections (Admin links to settings; Member told to ask an Admin and named Admins), opened from a trace with no connection chosen. 390px stacks editor above output.
 - **T-26 Compare** (section "T-26"): breadcrumb, variant count, Add variant (disabled at 4 with reason), Trace this run, Stop all / Run all, shared messages and inputs, columns A to D each with own model, params, output, usage. Stacks at <=1100px (see the 900px frame) and on mobile.
 - **T-27 Save as prompt / Open in playground** (section "T-27"): Open in playground button in the generation panel header (Members and Admins; absent for Viewers); Save dialog with target segmented (new version of a chat prompt / new prompt), prompt select showing "saves as v8", name field with exists-error, required commit message, labels (production locked for Member, enabled with audit note for Admin), saved toast.
+
+
+---
+## Revision 2: declutter (human feedback)
+The whole app, including Phase 1 pages, was too crowded. The mockup now has a **Before / after** section (jump link "Before / after") with Phase 1 frames untouched ("Before") next to the same markup with the v4 rules ("After"): traces list, trace detail and dashboard at 1280 and 390, plus sessions, users, settings and sessions mobile after-only. Every Phase 2 frame uses the v4 rules.
+
+What changed (tokens and rules are in DESIGN.md "Declutter pass"): base text 15px / 1.55, page titles 32px, rows 60px, controls 40 to 44px, 32px section gaps, 40px page padding; panel, table-header, stat and dialog borders removed; one primary action per view with the rest in "..." menus.
+
+Per area:
+- **Playground (T-25/T-26):** equal wide columns; Run is the single primary; Settings panel (Parameters, Tools with a JSON validation state, Schema) opens on demand and overlays the right edge; Compare, Load prompt and Save as prompt moved into the "..." menu. Compare columns have 24px gaps, a series-coloured top bar plus letter badge, status chip, and a one-line usage summary. 4 variants still show as 2 by 2, stacked at <=1100px.
+- **Prompt detail (T-7):** title > content > metadata. Version rail on the left, version content on the right with Set production as the one action (disabled with a reason for Members, absent for Viewers), collapsed Label history, More menu (Open in playground, Copy name, Compare with previous, Delete for Admins).
+- **Settings (T-17, T-24):** one-line rows with status pill, ghost Test and a "..." menu; fewer columns in the deliveries table; Provider select in the add dialog.
+- **Existing pages:** sidebar and shell get roomier spacing; traces list loses the URL bar and the secondary header buttons (saved views, columns, delete matching) into a "..." menu and hides Tags and Scores columns below 1400px; trace detail moves Public share and Delete into a menu and hides Environment, Release and Version from the header; dashboard and stats lose their dividers.
+
+Assumptions added: (a) hiding Tags and Scores columns and the trace-header fields means they need a home in the row/details panel (not drawn); (b) the Settings panel in the playground overlays the response while open (static stack under 1100px); (c) the "..." menus are drawn open in the prompt detail and playground frames only, other menus follow `.pop`.
