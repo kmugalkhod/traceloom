@@ -1,0 +1,30 @@
+{# Load prompt: choose a chat prompt and version; playground_save.js navigates to ?prompt=&version=. #}
+{% import "_macros.html" as m with context %}
+<dialog class="dlg" id="load-prompt" aria-label="Load prompt" data-playground-url="/project/{{ project.id }}/playground">
+  <div class="dialog">
+    {{ m.dialog_head("Load prompt") }}
+    <form data-load-form novalidate>
+      <div class="body">
+        {% if chat_prompts %}
+        <div class="field">
+          <label for="lp-name">Chat prompt</label>
+          <select class="select" id="lp-name" name="prompt">
+            {% for p in chat_prompts %}<option value="{{ p.name }}" data-latest="{{ p.latest_version }}">{{ p.name }} (latest v{{ p.latest_version }})</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="lp-version">Version</label>
+          <input class="input" id="lp-version" name="version" type="number" min="1" step="1" inputmode="numeric" value="{{ chat_prompts[0].latest_version }}" required>
+          <p class="hint">Loading replaces the messages, model and parameters in the editor.</p>
+        </div>
+        {% else %}
+        {{ m.banner("info", "This project has no chat prompts yet. Save one from the playground first.") }}
+        {% endif %}
+      </div>
+      <footer>
+        <button type="button" class="btn" data-dialog-close>Cancel</button>
+        {% if chat_prompts %}<button type="submit" class="btn btn-primary">Load</button>{% endif %}
+      </footer>
+    </form>
+  </div>
+</dialog>

@@ -3,6 +3,7 @@
 {% block title %}{{ trace.name or trace.id }}{% endblock %}
 
 {% block content %}
+<link rel="stylesheet" href="/static/pages.css">
 <div class="th-head">
   <div class="crumbs"><a href="{{ list_url }}">Traces</a>{{ m.icon("i-chev-r", "ico-sm") }}<span class="mono">{{ trace.id }}</span></div>
   <div class="th-title">

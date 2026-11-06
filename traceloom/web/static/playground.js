@@ -590,7 +590,8 @@
   });
   function setMode(mode) {
     rootEl.setAttribute('data-mode', mode);
-    $('pg-grid').hidden = mode === 'compare';
+    // #pg-grid stays on screen in compare mode: the shared messages and inputs are what the columns
+    // follow. CSS (playground_compare.css) hides the single Response panel instead.
     $('pg-compare-mount').hidden = mode !== 'compare';
   }
 
