@@ -305,6 +305,14 @@ class TraceStore(Protocol):
     def dashboard(self, project_id: str, query: DashboardQuery) -> DashboardData: ...
 
 
+class BlobStoreError(Exception):
+    """A blob operation failed (disk full, S3 unreachable, ...)."""
+
+
+class BlobNotFound(BlobStoreError):
+    pass
+
+
 @runtime_checkable
 class BlobStore(Protocol):
     def put(self, key: str, data: bytes) -> None: ...
