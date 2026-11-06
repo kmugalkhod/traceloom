@@ -14,7 +14,7 @@
   <div class="stat"><div class="top">Traces</div><b>{{ u.trace_count | intcomma }}</b><span class="sub">all time</span></div>
   <div class="stat"><div class="top">Tokens</div><b>{{ u.total_tokens | intcomma }}</b><span class="sub">input + output</span></div>
   <div class="stat"><div class="top">Cost</div><b>{{ u.total_cost | cost }}</b><span class="sub">calculated</span></div>
-  <div class="stat"><div class="top">Last seen</div><b>{{ u.last_seen | clock }}</b><span class="sub">{{ u.last_seen | date }}</span></div>
+  <div class="stat"><div class="top">Last seen</div><b>{{ u.last_seen | when }}</b><span class="sub">{{ u.last_seen | date }}</span></div>
 </div>
 
 <div class="panel">
@@ -41,7 +41,7 @@
         {% for t in summary.recent_traces %}
         <tr class="{{ t.max_level if t.max_level in ('ERROR', 'WARNING') else '' }}" data-row>
           <td class="lvl"></td>
-          <td class="mono muted">{{ t.timestamp | clock(true) }}</td>
+          <td class="mono muted">{{ t.timestamp | when(true) }}</td>
           <td class="name"><a href="/project/{{ project.id }}/traces/{{ t.id | urlencode }}">{{ t.name or t.id }}</a></td>
           <td class="num">{{ t.latency_ms | duration }}</td>
           <td class="num">{{ t.total_cost | cost }}</td>
@@ -62,7 +62,7 @@
         <tr data-row>
           <td class="lvl"></td>
           <td class="mono name"><a href="/project/{{ project.id }}/sessions/{{ s.session_id | urlencode }}">{{ s.session_id }}</a></td>
-          <td class="muted">{{ s.last_trace_time | clock }}</td>
+          <td class="muted">{{ s.last_trace_time | when }}</td>
           <td class="num">{{ s.trace_count }}</td>
           <td class="num">{{ s.total_cost | cost }}</td>
         </tr>

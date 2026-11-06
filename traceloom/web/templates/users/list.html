@@ -26,7 +26,7 @@
           <td class="lvl"></td>
           <td><span class="user-cell">{{ m.avatar(u.initials, u.row.user_id, "sm") }}<a class="mono" href="/project/{{ project.id }}/users/{{ u.row.user_id | urlencode }}">{{ u.row.user_id }}</a></span></td>
           <td class="hide-m muted">{{ u.row.first_seen | date }}</td>
-          <td class="muted">{{ u.row.last_seen | clock }}</td>
+          <td class="muted">{{ u.row.last_seen | when }}</td>
           <td class="num">{{ u.row.trace_count | intcomma }}</td>
           <td class="num hide-m">{{ u.row.total_tokens | intcomma }}</td>
           <td class="num">{{ u.row.total_cost | cost }}</td>

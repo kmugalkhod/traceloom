@@ -1,4 +1,4 @@
-"""Number and time formatting shared by the data pages (registered as Jinja filters)."""
+"""Number and time formatting for the sessions, users and dashboard pages (Jinja filters)."""
 
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ for _name, _fn in (
     ("duration", fmt_duration),
     ("cost", fmt_cost),
     ("intcomma", fmt_int),
-    ("clock", fmt_time),
+    ("when", fmt_time),
     ("percent", fmt_percent),
 ):
     templates.env.filters[_name] = _fn

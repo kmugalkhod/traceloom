@@ -27,8 +27,8 @@
         <tr data-row>
           <td class="lvl"></td>
           <td class="mono name"><a href="/project/{{ project.id }}/sessions/{{ s.session_id | urlencode }}">{{ s.session_id }}</a></td>
-          <td class="mono muted hide-m">{{ s.first_trace_time | clock }}</td>
-          <td class="mono muted">{{ s.last_trace_time | clock }}</td>
+          <td class="mono muted hide-m">{{ s.first_trace_time | when }}</td>
+          <td class="mono muted">{{ s.last_trace_time | when }}</td>
           <td class="num">{{ s.trace_count }}</td>
           <td class="num hide-m">{{ s.duration_ms | duration }}</td>
           <td class="num">{{ s.total_cost | cost }}</td>

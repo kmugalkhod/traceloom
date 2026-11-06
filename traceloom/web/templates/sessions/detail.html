@@ -7,7 +7,7 @@
 <h1 class="mono">{{ session.session_id }}</h1>
 <div class="statrow">
   <div class="stat"><div class="top">Traces</div><b>{{ session.trace_count }}</b><span class="sub">in time order</span></div>
-  <div class="stat"><div class="top">Duration</div><b>{{ session.duration_ms | duration }}</b><span class="sub">{{ session.first_trace_time | clock(true) }} to {{ session.last_trace_time | clock(true) }}</span></div>
+  <div class="stat"><div class="top">Duration</div><b>{{ session.duration_ms | duration }}</b><span class="sub">{{ session.first_trace_time | when(true) }} to {{ session.last_trace_time | when(true) }}</span></div>
   <div class="stat"><div class="top">Total cost</div><b>{{ session.total_cost | cost }}</b><span class="sub">sum of {{ session.trace_count }} trace{{ "" if session.trace_count == 1 else "s" }}</span></div>
   <div class="stat"><div class="top">Users</div><b>{{ session.user_ids | length }}</b><span class="sub">{{ session.user_ids | join(", ") }}</span></div>
 </div>
@@ -15,7 +15,7 @@
   <div class="panel-b stack">
     {% for t in turns %}
     <div class="turn">
-      <span class="when">{{ t.trace.timestamp | clock(true) }}</span>
+      <span class="when">{{ t.trace.timestamp | when(true) }}</span>
       <div class="stack-s">
         <div class="bub u"><span class="cap">User</span><div>{{ t.user_text }}</div></div>
         <div class="bub {{ 'e' if t.failed else 'a' }}"><span class="cap">Assistant{% if t.failed %} · step failed{% endif %}</span><div>{{ t.assistant_text }}</div></div>

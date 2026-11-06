@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Dashboard{% endblock %}
+{% block daterange %}{% include "_range_picker.html" %}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/pages.css">
+<link rel="stylesheet" href="/static/vendor/uplot.min.css">
+<script src="/static/vendor/uplot.iife.min.js" defer></script>
+<script src="/static/charts.js" defer></script>
+{{ m.page_header("Dashboard", "Cost, tokens, latency and errors" ~ (" for " ~ environment if environment else "") ~ " over the last " ~ range_label ~ ".") }}
+
+{% macro lat_table(title, label, rows) %}
+<section class="panel c6" aria-label="{{ title }}">
+  <div class="panel-h"><h2>{{ title }}</h2></div>
+  {% if rows %}
+  <div class="rack">
+    <table class="tbl tbl-flat keepcols">
+      <thead><tr><th>{{ label }}</th><th class="r">p50</th><th class="r">p90</th><th class="r">p95</th><th class="r">p99</th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="mono name">{{ r.label }}</td>
+          <td class="num">{{ r.p50 | duration }}</td><td class="num">{{ r.p90 | duration }}</td><td class="num">{{ r.p95 | duration }}</td>
+          <td class="num"><span class="lat-cell"><i data-px="{{ '%.1f' | format(r.px) }}"></i>{{ r.p99 | duration }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}<div class="panel-b"><p class="hint">No data in this range.</p></div>{% endif %}
+</section>
+{% endmacro %}
+
+{% macro bars(title, hint, rows, kind) %}
+<section class="panel c6" aria-label="{{ title }}">
+  <div class="panel-h"><h2>{{ title }}</h2><span class="hint">{{ hint }}</span></div>
+  <div class="panel-b">
+    {% for r in rows %}
+      <div class="hbar">
+        <span class="trunc mono">{{ r.label }}</span>
+        <div class="trk"><i data-w="{{ '%.1f' | format(r.pct) }}" data-series="{{ r.series }}"></i></div>
+        <span class="num">{{ r.value | cost if kind == "cost" else r.value | intcomma }}</span>
+      </div>
+    {% else %}<p class="hint">No model usage in this range.</p>{% endfor %}
+  </div>
+</section>
+{% endmacro %}
+
+{% if empty %}
+<div class="panel">
+  <div class="empty">
+    <h2>No traces in the last {{ range_label }}</h2>
+    <p>{% if environment %}Nothing was recorded in <b>{{ environment }}</b>. {% endif %}Try a longer range, or send a trace with the SDK{% if can("project:api_keys") %} (<a href="{{ base }}/settings/keys">create an API key</a>){% endif %}.</p>
+    <div class="code" tabindex="0"><span class="k">from</span> traceloom_sdk <span class="k">import</span> observe</div>
+  </div>
+</div>
+{% else %}
+<div class="statrow" aria-label="Totals">
+  <div class="stat"><div class="top">Traces</div><b>{{ v.trace_count | intcomma }}</b><span class="sub">last {{ range_label }}</span></div>
+  <div class="stat"><div class="top">Total cost</div><b>{{ v.total_cost | cost }}</b><span class="sub">calculated and provided</span></div>
+  <div class="stat"><div class="top">Total tokens</div><b>{{ v.total_tokens_label }}</b><span class="sub">across all models</span></div>
+  <div class="stat"><div class="top">Error rate</div><b>{{ v.error_share | percent }}</b><span class="sub">{{ v.error_count | intcomma }} observation{{ "" if v.error_count == 1 else "s" }} at ERROR</span></div>
+</div>
+
+<div class="dgrid">
+  <section class="panel c8" aria-label="Traces over time">
+    <div class="panel-h"><h2>Traces over time</h2><span class="hint">per {{ bucket }}</span></div>
+    <div class="panel-b">
+      <div class="chart-box" data-chart='{{ v.chart | tojson }}' role="img" aria-label="Traces per {{ bucket }}, {{ v.trace_count }} in total"></div>
+      <table class="sr" aria-label="Traces per {{ bucket }}">
+        <thead><tr><th>{{ bucket | title }}</th><th>Traces</th></tr></thead>
+        <tbody>{% for row in v.series_rows %}<tr><td>{{ row.bucket.isoformat() }}</td><td>{{ row.count }}</td></tr>{% endfor %}</tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel c4" aria-label="Error rate by level">
+    <div class="panel-h"><h2>Error rate by level</h2><span class="hint">share of observations</span></div>
+    <div class="panel-b stack">
+      {% if v.levels %}
+      <div class="stackbar" role="img" aria-label="{% for l in v.levels %}{{ l.level }} {{ l.share | percent }}{{ ', ' if not loop.last }}{% endfor %}">
+        {% for l in v.levels %}<i data-w="{{ '%.2f' | format(l.share * 100) }}" data-bg="{{ l.color }}"></i>{% endfor %}
+      </div>
+      {% for l in v.levels %}
+        <div class="row"><span class="sw" data-bg="{{ l.color }}"></span>{{ l.level }}<span class="num right">{{ l.share | percent }}</span></div>
+      {% endfor %}
+      {% else %}<p class="hint">No observations in this range.</p>{% endif %}
+    </div>
+  </section>
+
+  {{ bars("Cost by model", "USD", v.cost_rows, "cost") }}
+  {{ bars("Tokens by model", "tokens", v.token_rows, "tokens") }}
+  {{ lat_table("Latency by trace name", "Trace name", v.latency_names) }}
+  {{ lat_table("Latency by model", "Model", v.latency_models) }}
+
+  <section class="panel c12" aria-label="Top users by cost">
+    <div class="panel-h"><h2>Top users by cost</h2><a class="right" href="{{ base }}/users">All users</a></div>
+    {% if v.top_users %}
+    <div class="rack">
+      <table class="tbl tbl-flat keepcols">
+        <tbody>
+          {% for u in v.top_users %}
+          <tr><td class="num muted">{{ loop.index }}</td><td class="mono"><a href="{{ base }}/users/{{ u.user_id | urlencode }}">{{ u.user_id }}</a></td><td class="num">{{ u.cost | cost }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}<div class="panel-b"><p class="hint">No users in this range.</p></div>{% endif %}
+  </section>
+</div>
+{% endif %}
+{% endblock %}
