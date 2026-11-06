@@ -164,3 +164,8 @@ Also: `api/test_security.py` covers CSRF rejection without a token, login rate l
   - The mail console fallback logs the message (FR-A2 needs the reset link) with API secrets, `SMTP_PASSWORD` and `TRACELOOM_SECRET_KEY` scrubbed.
   - The route-table permission sweep enumerates routes from the OpenAPI schema (FastAPI nests included routers privately), so routes with `include_in_schema=False` are not swept.
   - `ruff` excludes `.sdlc/` (governance scripts).
+- 2026-11-06 — S-4 trace explorer (T-14, T-15, T-18):
+  - `SqlReadMixin` expects the host store to expose `session_factory` (a sessionmaker) and exports `trace_filter_clauses(project_id, query)` for delete-by-query. Trace and observation `input`/`output` are stored as JSON text.
+  - Read-contract fixtures live in `tests/contract/stores.py` (a pytest plugin registered in `tests/conftest.py`); `read_store` is parametrized lite always, ClickHouse via `tests/contract/conftest_full.py` under the `it` marker.
+  - ClickHouse stores JSON values as JSON text, reads token/cost totals from the `total` key of `usage_details`/`cost_details`, orders tables by `(project_id, id)` (no partitioning, so replacement is never split across partitions), and indexes `lower(search_text|name|id)` with ngram bloom filters. `adapters/full/*.sql` is package data.
+  - Markdown rendering disables the image rule as well as raw HTML, so viewing a trace never makes a remote request.

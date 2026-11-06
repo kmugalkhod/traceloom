@@ -223,9 +223,11 @@ def test_get_trace_never_crosses_projects(read_store, seed):
     assert read_store.get_trace(P1, "missing") is None
 
 
-def test_first_page_is_fast_on_10k_traces(read_store, seed, lite_session_factory):
+def test_first_page_is_fast_on_10k_traces(lite_session_factory):
+    from tests.contract.stores import LiteReadStore
     from traceloom.db.models import Trace
 
+    store = LiteReadStore(lite_session_factory)
     rows = [
         {
             "project_id": P1,
@@ -253,5 +255,5 @@ def test_first_page_is_fast_on_10k_traces(read_store, seed, lite_session_factory
         TraceQuery(environment="default", tags=["x"], metadata={"a": "b"}),
     ):
         start = time.perf_counter()
-        read_store.list_traces(P1, query)
+        store.list_traces(P1, query)
         assert time.perf_counter() - start < 1.0, query
