@@ -55,14 +55,13 @@ class GoogleProvider(BaseProvider):
         super().__init__(config)
         self._http_client = http_client
 
-    def _client(self) -> Any:
+    def _client(self, http_client: Any) -> Any:
         from google import genai
 
         options: dict[str, Any] = {"timeout": int(self.cfg.timeout * 1000)}  # milliseconds
         if self.cfg.base_url:
             options["base_url"] = self.cfg.base_url
-        if self._http_client is not None:
-            options["httpx_client"] = self._http_client
+        options["httpx_client"] = http_client
         return genai.Client(api_key=self.cfg.api_key, http_options=options)
 
     def build_request(
@@ -118,8 +117,14 @@ class GoogleProvider(BaseProvider):
         finish: str | None = None
         usage: Any = None
         calls = 0
-        stream = self._client().models.generate_content_stream(**request)
+        # genai never closes an injected client, so a pinned one built here is closed here.
+        http_client: Any = None
+        stream: Any = None
         try:
+            from traceloom.llm.http import httpx_module
+
+            http_client = self._http_client or self.pinned_http_client(httpx_module())
+            stream = self._client(http_client).models.generate_content_stream(**request)
             for chunk in stream:
                 if chunk.usage_metadata is not None:
                     usage = chunk.usage_metadata
@@ -141,19 +146,23 @@ class GoogleProvider(BaseProvider):
             close = getattr(stream, "close", None)
             if close is not None:  # stops the HTTP read so the provider sees the client leave
                 close()
+            if http_client is not None and self._http_client is None:
+                http_client.close()
         if usage is not None:
             yield _usage(usage)
         yield DoneDelta(finish)
 
 
 def _usage(u: Any) -> UsageDelta:
+    """`prompt_token_count` includes the cached tokens; input is the uncached rest."""
     details = {}
-    if u.cached_content_token_count:
-        details["cache_read"] = int(u.cached_content_token_count)
+    cached = int(u.cached_content_token_count or 0)
+    if cached:
+        details["cache_read"] = cached
     if u.thoughts_token_count:
         details["reasoning"] = int(u.thoughts_token_count)
     output = int(u.candidates_token_count or 0) + int(u.thoughts_token_count or 0)
-    return UsageDelta(int(u.prompt_token_count or 0), output, details)
+    return UsageDelta(max(int(u.prompt_token_count or 0) - cached, 0), output, details)
 
 
 __all__ = ["GoogleProvider", "map_contents"]

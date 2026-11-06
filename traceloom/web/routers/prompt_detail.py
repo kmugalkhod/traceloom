@@ -20,7 +20,13 @@ from traceloom.db.session import get_db
 from traceloom.prompts import service
 from traceloom.prompts.composition import CompositionError, expand_segments, resolve_content
 from traceloom.prompts.diff import diff_versions
-from traceloom.prompts.service import Actor, NotAllowed, PromptError, PromptNotFound
+from traceloom.prompts.service import (
+    Actor,
+    NotAllowed,
+    PromptConflict,
+    PromptError,
+    PromptNotFound,
+)
 from traceloom.prompts.variables import VARIABLE_RE
 from traceloom.web import prompt_views
 from traceloom.web.context import env_context, page_context
@@ -28,6 +34,7 @@ from traceloom.web.envpref import resolve_env, saved_env
 from traceloom.web.prompt_paths import prompt_url
 from traceloom.web.ranges import range_urls, resolve_range
 from traceloom.web.templating import render
+from traceloom.webhooks import deliver
 
 router = APIRouter(tags=["prompts"])
 
@@ -313,6 +320,7 @@ def move_label(
     name: str,
     access: Access = Depends(require(Perm.PROMPTS_WRITE)),
     form: FormData = Depends(form_data),
+    container: Container = Depends(get_container),
     db: Session = Depends(get_db),
 ):
     label = str(form.get("label", "")).strip()
@@ -334,6 +342,9 @@ def move_label(
         raise HTTPException(403, str(exc)) from exc
     except PromptNotFound as exc:
         raise HTTPException(404, str(exc)) from exc
+    except PromptConflict as exc:
+        db.rollback()
+        raise HTTPException(409, str(exc)) from exc
     except PromptError as exc:
         db.rollback()
         return RedirectResponse(
@@ -341,6 +352,8 @@ def move_label(
             status_code=303,
         )
     db.commit()
+    if changed:
+        deliver.kick(container)  # label.moved webhooks go out now, not at the next sweep
     query: dict[str, Any] = {"version": version}
     if changed:
         query.update(moved=label, was=before.get(label) or "", now=to_version or "")

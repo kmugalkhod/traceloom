@@ -48,11 +48,16 @@ TYPES = ("text", "chat")
 ROLES = ("system", "user", "assistant", "placeholder")
 MAX_TAGS = 20
 MAX_TAG_LENGTH = 50
+MAX_CONTENT_CHARS = 200_000  # one version's text, or all its messages together
 SORTS = ("name", "updated")
 
 
 class PromptError(ValueError):
     """The request is invalid (the message is safe to show)."""
+
+
+class PromptConflict(PromptError):
+    """A concurrent write won; retrying the request is safe (HTTP 409)."""
 
 
 class PromptNotFound(LookupError):
@@ -176,10 +181,16 @@ def _tags(tags: Any) -> list[str]:
     return out
 
 
+def _too_long() -> PromptError:
+    return PromptError(f"A prompt version can have at most {MAX_CONTENT_CHARS:,} characters.")
+
+
 def _content(prompt_type: str, content: Any) -> Any:
     if prompt_type == "text":
         if not isinstance(content, str):
             raise PromptError("A text prompt's content must be a string.")
+        if len(content) > MAX_CONTENT_CHARS:
+            raise _too_long()
         return content
     if not isinstance(content, list) or not content:
         raise PromptError("A chat prompt needs a list of at least one message.")
@@ -190,6 +201,8 @@ def _content(prompt_type: str, content: Any) -> Any:
         if not isinstance(message.get("content"), str):
             raise PromptError(f"Message {i} needs string content.")
         messages.append({"role": message["role"], "content": message["content"]})
+    if sum(len(m["content"]) for m in messages) > MAX_CONTENT_CHARS:
+        raise _too_long()
     return messages
 
 
@@ -408,7 +421,7 @@ def create_version(
             break
         except IntegrityError:
             if attempt == 2:
-                raise PromptError("Another save happened at the same time; try again.") from None
+                raise PromptConflict("Another save happened at the same time; try again.") from None
 
     _audit(
         db,
@@ -524,20 +537,18 @@ def _point_label(
         return False
     if version is None:
         db.delete(row)
-    elif row is None:
-        db.add(
-            PromptLabel(
-                project_id=project.id,
-                prompt_id=prompt.id,
-                label=label,
-                version=version,
-                updated_by=actor.id,
-                updated_at=now,
-            )
-        )
-    else:
+        db.flush()
+    elif row is None and not _insert_label(db, project, prompt, label, version, actor, now):
+        # A concurrent request created the label first: point it here instead.
+        row = db.get(PromptLabel, (prompt.id, label), populate_existing=True)
+        if row is None:
+            raise PromptConflict("The label changed at the same time; try again.")
+        before = row.version
+        if before == version:
+            return False
+    if row is not None and version is not None:
         row.version, row.updated_by, row.updated_at = version, actor.id, now
-    db.flush()
+        db.flush()
     detail = {"prompt": prompt.name, "label": label, "from_version": before, "to_version": version}
     _audit(db, project, actor, "prompt.label_moved", prompt.name, detail)
     events.enqueue(
@@ -548,6 +559,35 @@ def _point_label(
         now=now,
     )
     return True
+
+
+def _insert_label(
+    db: Session,
+    project: Project,
+    prompt: Prompt,
+    label: str,
+    version: int,
+    actor: Actor,
+    now: datetime,
+) -> bool:
+    """Create the label row; False when one already exists (a concurrent move won the insert).
+
+    `ON CONFLICT DO NOTHING` rather than a savepoint: the request's transaction stays intact on
+    both databases (on SQLite a savepoint opened first would commit on release)."""
+    values = {
+        "project_id": project.id,
+        "prompt_id": prompt.id,
+        "label": label,
+        "version": version,
+        "updated_by": actor.id,
+        "updated_at": now,
+    }
+    if db.get_bind().dialect.name == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert
+    else:
+        from sqlalchemy.dialects.sqlite import insert
+    statement = insert(PromptLabel).values(**values).on_conflict_do_nothing()
+    return db.execute(statement).rowcount == 1
 
 
 def _audit(

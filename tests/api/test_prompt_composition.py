@@ -201,3 +201,56 @@ def test_resolve_content_dispatches_on_type():
     assert resolve_content("text", "@@@prompt:tone|label=x@@@", resolver)[0] == "T"
     msgs = [{"role": "user", "content": "@@@prompt:tone|label=x@@@"}]
     assert resolve_content("chat", msgs, resolver)[0][0]["content"] == "T"
+
+
+# --- fan-out limits ------------------------------------------------------------------------
+
+
+def _fan_out(width: int, levels: int):
+    """{lN: (1, text, width refs to lN+1)}, ending in a short leaf."""
+    prompts = {f"l{levels}": (1, "text", "leaf ")}
+    for level in range(levels - 1, -1, -1):
+        prompts[f"l{level}"] = (1, "text", f"@@@prompt:l{level + 1}|label=production@@@" * width)
+    return prompts
+
+
+def test_include_fan_out_is_capped_quickly():
+    import time
+
+    from traceloom.prompts.composition import MAX_EXPANSIONS
+
+    started = time.monotonic()
+    with pytest.raises(CompositionError, match=f"more than {MAX_EXPANSIONS} includes"):
+        resolve_text(
+            "@@@prompt:l0|label=production@@@", store(**_fan_out(width=20, levels=4))
+        )  # five levels of 20 includes: 20**5 expansions uncapped
+    assert time.monotonic() - started < 1
+
+
+def test_expanded_size_is_capped():
+    from traceloom.prompts.composition import MAX_EXPANDED_CHARS
+
+    big = "x" * (MAX_EXPANDED_CHARS // 4 + 1)
+    with pytest.raises(CompositionError, match="longer than"):
+        resolve_text("@@@prompt:big|label=production@@@" * 4, store(big=(1, "text", big)))
+
+
+def test_lookups_are_memoised_per_resolution():
+    calls = []
+    inner = store(**_fan_out(width=3, levels=2))
+
+    def counting(ref):
+        calls.append(ref.raw)
+        return inner(ref)
+
+    text, deps = resolve_text("@@@prompt:l0|label=production@@@" * 2, counting)
+    assert text == "leaf " * 18
+    assert sorted(set(calls)) == sorted(calls)  # each distinct reference looked up once
+    assert [d["name"] for d in deps] == ["l0", "l1", "l2"]
+
+
+def test_normal_includes_within_the_limits_still_work():
+    text, _ = resolve_text(
+        "@@@prompt:l0|label=production@@@", store(**_fan_out(width=4, levels=3))
+    )
+    assert text == "leaf " * 64

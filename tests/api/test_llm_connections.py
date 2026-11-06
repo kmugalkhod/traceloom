@@ -297,3 +297,22 @@ def test_connections_are_project_scoped(db, world, admin, policy, conn, make_pro
         connections.delete(db, other, admin, conn.id)
     assert connections.list_connections(db, other, admin, policy) == []
     assert connections.list_usable(db, other, actor(world, Role.MEMBER), policy) == []
+
+
+def test_dns_rebinding_after_the_open_check_is_blocked_at_connect(
+    db, world, admin, member, settings
+):
+    """open_provider checks the base URL; the adapter's HTTP client checks again for every
+    request and connects to the address it checked, so a flip in between is caught."""
+    answers = [PUBLIC, PUBLIC, "169.254.169.254"]
+    flipping = ConnectionPolicy.from_settings(
+        settings, resolver=lambda host, port: [answers.pop(0) if len(answers) > 1 else answers[0]]
+    )
+    row = connections.create(
+        db, world.project, admin, flipping, provider="openai", name="o",
+        secrets={"api_key": "sk-test-rebinding-0123"}, base_url="https://llm.example.test/v1",
+    )  # fmt: skip
+    adapter = connections.open_provider(db, world.project, member, flipping, row.id)
+    out = list(adapter.stream([{"role": "user", "content": "hi"}], "gpt-4o"))
+    assert len(out) == 1 and "resolves to a blocked address" in out[0].message, out
+    assert answers == ["169.254.169.254"]  # the third lookup was the adapter's, at connect time

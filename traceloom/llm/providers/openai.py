@@ -78,13 +78,16 @@ class OpenAIProvider(BaseProvider):
     # --- client construction (the part that differs per flavour) ------------------------------
 
     def _client_kwargs(self) -> dict[str, Any]:
+        """SDK client arguments. Without an injected client, a fresh SSRF-pinned one is built
+        per call, and closing the SDK client closes it."""
+        from traceloom.llm.http import httpx_module
+
         kwargs: dict[str, Any] = {
             "api_key": self.cfg.api_key,
             "timeout": self.cfg.timeout,
             "max_retries": 0,
         }
-        if self._http_client is not None:
-            kwargs["http_client"] = self._http_client
+        kwargs["http_client"] = self._http_client or self.pinned_http_client(httpx_module("openai"))
         return kwargs
 
     def _make_client(self) -> Any:
@@ -156,9 +159,11 @@ class OpenAIProvider(BaseProvider):
         calls: dict[int, dict[str, str]] = {}
         finish: str | None = None
         usage: UsageDelta | None = None
-        client = self._make_client()
-        stream = client.chat.completions.create(**request)
+        client: Any = None
+        stream: Any = None
         try:
+            client = self._make_client()
+            stream = client.chat.completions.create(**request)
             for chunk in stream:
                 if getattr(chunk, "usage", None):
                     usage = _usage(chunk.usage)
@@ -184,8 +189,9 @@ class OpenAIProvider(BaseProvider):
         finally:
             # Closing the SDK stream drops the HTTP connection, which is how the provider learns
             # that nobody is listening any more (a cancelled run, a closed playground tab).
-            stream.close()
-            if self._http_client is None:
+            if stream is not None:
+                stream.close()
+            if client is not None and self._http_client is None:
                 client.close()
         if usage is not None:
             yield usage
@@ -193,11 +199,14 @@ class OpenAIProvider(BaseProvider):
 
 
 def _usage(u: Any) -> UsageDelta:
+    """`prompt_tokens` already counts the cached tokens; input is the uncached rest, so cost
+    charges each token once (input rate + cache_read rate)."""
     details: dict[str, int] = {}
-    cached = getattr(getattr(u, "prompt_tokens_details", None), "cached_tokens", None)
+    cached = int(getattr(getattr(u, "prompt_tokens_details", None), "cached_tokens", None) or 0)
     reasoning = getattr(getattr(u, "completion_tokens_details", None), "reasoning_tokens", None)
     if cached:
-        details["cache_read"] = int(cached)
+        details["cache_read"] = cached
     if reasoning:
         details["reasoning"] = int(reasoning)
-    return UsageDelta(int(u.prompt_tokens or 0), int(u.completion_tokens or 0), details)
+    prompt = int(u.prompt_tokens or 0)
+    return UsageDelta(max(prompt - cached, 0), int(u.completion_tokens or 0), details)

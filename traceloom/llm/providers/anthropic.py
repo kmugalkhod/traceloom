@@ -86,17 +86,20 @@ class AnthropicProvider(BaseProvider):
         self._http_client = http_client
 
     def _client(self) -> Any:
+        """The SDK client. Without an injected client, a fresh SSRF-pinned one is built per call,
+        and closing the SDK client closes it."""
         import anthropic
+
+        from traceloom.llm.http import httpx_module
 
         kwargs: dict[str, Any] = {
             "api_key": self.cfg.api_key,
             "timeout": self.cfg.timeout,
             "max_retries": 0,  # the playground reports failures instead of waiting
+            "http_client": self._http_client or self.pinned_http_client(httpx_module("anthropic")),
         }
         if self.cfg.base_url:
             kwargs["base_url"] = self.cfg.base_url
-        if self._http_client is not None:
-            kwargs["http_client"] = self._http_client
         return anthropic.Anthropic(**kwargs)
 
     def build_request(
@@ -156,13 +159,24 @@ class AnthropicProvider(BaseProvider):
         response_schema: Mapping[str, Any] | None,
     ) -> Iterator[Delta]:
         request = self.build_request(messages, model, params, tools, response_schema)
-        usage: dict[str, int] = {}
-        stop_reason: str | None = None
-        stop_category: str | None = None
-        pending: dict[int, dict[str, Any]] = {}  # block index -> {id, name, json}
         # Recent SDKs no longer type the sampling parameters; older models still accept them.
         extra = {k: request.pop(k) for k in ("temperature", "top_p") if k in request}
-        with self._client().messages.stream(**request, extra_body=extra or None) as stream:
+        client: Any = None
+        try:  # created inside the try, so it is closed even when building it fails half-way
+            client = self._client()
+            yield from self._events(client, request, extra)
+        finally:
+            if client is not None and self._http_client is None:
+                client.close()
+
+    def _events(
+        self, client: Any, request: dict[str, Any], extra: dict[str, Any]
+    ) -> Iterator[Delta]:
+        usage: dict[str, int] = {}
+        pending: dict[int, dict[str, Any]] = {}  # block index -> {id, name, json}
+        stop_reason: str | None = None
+        stop_category: str | None = None
+        with client.messages.stream(**request, extra_body=extra or None) as stream:
             for event in stream:
                 kind = event.type
                 if kind == "message_start":

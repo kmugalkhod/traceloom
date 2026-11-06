@@ -66,12 +66,26 @@ def _blob_ok(container: Container) -> bool:
     return True
 
 
-def register_webhook_handler(container: Container) -> None:
-    """Route webhook_delivery messages to the delivery worker; the sweeper replays due ones."""
+def register_webhook_handler(container: Container, *, lane: bool = False) -> None:
+    """Route webhook_delivery messages to a few delivery threads of their own, so a slow
+    endpoint never holds up ingestion; the sweeper replays due ones.
+
+    `lane`: the queue runs them on a side lane (the lite in-process queue). Otherwise they go to
+    a `DeliveryPool` that is stopped on shutdown."""
     from traceloom.queue_registry import WEBHOOK_DELIVERY
     from traceloom.webhooks import deliver
 
-    container.queue.register(WEBHOOK_DELIVERY, lambda m: deliver.handle(container, m))
+    def handle(message: Any) -> None:
+        deliver.handle(container, message)
+
+    if lane:
+        container.queue.register(
+            WEBHOOK_DELIVERY, handle, workers=deliver.POOL_WORKERS, capacity=deliver.POOL_BACKLOG
+        )
+    else:
+        pool = deliver.DeliveryPool(handle)
+        container.queue.register(WEBHOOK_DELIVERY, pool.submit)
+        container.shutdown_hooks.append(lambda c: pool.stop())
     container.sweeper.set_due_deliveries(lambda: deliver.due_messages(container.session_factory))
 
 
@@ -80,7 +94,7 @@ def _start_ingestion(container: Container) -> None:
     sweeping. Registered after migrate and seed."""
     from traceloom.ingest.process import process_message
 
-    register_webhook_handler(container)
+    register_webhook_handler(container, lane=True)
     container.queue.start(lambda message: process_message(container, message))
     container.sweeper.run_once(min_age=0)
     container.sweeper.start()

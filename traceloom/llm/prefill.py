@@ -3,6 +3,11 @@
 Generations recorded by the SDK wrappers keep the request's messages as `input` and every other
 request parameter in `model_parameters`, in the producing provider's shape (OpenAI chat or Anthropic
 messages). This normalises both into the playground's canonical shape (see llm/providers/base.py).
+
+Providers reject a tool result whose id does not answer a tool call of the assistant message
+before it. Recorded ids are kept as they are. When a trace has none (hand-written agents), calls
+without an id get a synthetic one and id-less results are paired with the open calls in order;
+a result with no call left to answer becomes a user message, so the replay is still accepted.
 """
 
 from __future__ import annotations
@@ -37,20 +42,28 @@ def _message(m: dict[str, Any]) -> list[dict[str, Any]]:
     content = m.get("content")
     if role == "tool":
         return [
-            {"role": "tool", "tool_call_id": m.get("tool_call_id", ""), "content": _text(content)}
+            {
+                "role": "tool",
+                "tool_call_id": m.get("tool_call_id") or "",
+                "content": _text(content),
+            }
         ]
     blocks = content if isinstance(content, list) else []
     results = [b for b in blocks if isinstance(b, dict) and b.get("type") == "tool_result"]
     out: list[dict[str, Any]] = [
         {
             "role": "tool",
-            "tool_call_id": b.get("tool_use_id", ""),
+            "tool_call_id": b.get("tool_use_id") or "",
             "content": _text(b.get("content")),
         }
         for b in results
     ]
     calls = [
-        {"id": b.get("id", ""), "name": b.get("name", ""), "arguments": _arguments(b.get("input"))}
+        {
+            "id": b.get("id") or "",
+            "name": b.get("name", ""),
+            "arguments": _arguments(b.get("input")),
+        }
         for b in blocks
         if isinstance(b, dict) and b.get("type") == "tool_use"
     ]
@@ -58,7 +71,7 @@ def _message(m: dict[str, Any]) -> list[dict[str, Any]]:
         fn = c.get("function") or {}
         calls.append(
             {
-                "id": c.get("id", ""),
+                "id": c.get("id") or "",
                 "name": fn.get("name", ""),
                 "arguments": _arguments(fn.get("arguments")),
             }
@@ -69,6 +82,30 @@ def _message(m: dict[str, Any]) -> list[dict[str, Any]]:
         if calls:
             message["tool_calls"] = calls
         out.append(message)
+    return out
+
+
+def _pair_tool_calls(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    open_calls: list[str] = []  # ids of the last assistant message's calls not yet answered
+    synthetic = 0
+    for m in messages:
+        if m["role"] == "assistant":
+            for call in m.get("tool_calls") or ():
+                if not call["id"]:
+                    synthetic += 1
+                    call["id"] = f"call_replay_{synthetic}"
+            open_calls = [c["id"] for c in m.get("tool_calls") or ()]
+        elif m["role"] == "tool":
+            if not m["tool_call_id"] and open_calls:
+                m = {**m, "tool_call_id": open_calls[0]}
+            if not m["tool_call_id"]:
+                m = {"role": "user", "content": f"Tool result: {m['content']}"}
+            elif m["tool_call_id"] in open_calls:
+                open_calls.remove(m["tool_call_id"])
+        else:
+            open_calls = []
+        out.append(m)
     return out
 
 
@@ -84,7 +121,7 @@ def messages_from(input_: Any, system: Any = None) -> list[dict[str, Any]]:
         out.append({"role": "system", "content": _text(system)})
     for m in input_:
         out.extend(_message(m) if isinstance(m, dict) else [{"role": "user", "content": str(m)}])
-    return out
+    return _pair_tool_calls(out)
 
 
 def tools_from(raw: Any) -> list[dict[str, Any]]:

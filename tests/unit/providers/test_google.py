@@ -85,7 +85,7 @@ def test_streams_text_tool_call_and_usage(provider, google_script):
         TextDelta("Hel"),
         TextDelta("lo"),
         ToolCallDelta("call_1", "weather", {"city": "Paris"}),
-        UsageDelta(12, 8, {"cache_read": 4, "reasoning": 2}),
+        UsageDelta(8, 8, {"cache_read": 4, "reasoning": 2}),  # 12 prompt tokens, 4 of them cached
         DoneDelta("STOP"),
     ]
 

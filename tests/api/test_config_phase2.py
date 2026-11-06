@@ -82,3 +82,27 @@ def test_configured_key_is_kept_without_warning(
         )
     assert s.encryption_key == key
     assert not caplog.records
+
+
+@pytest.mark.parametrize("bad", ["not-a-fernet-key", "{good},short", "{good}, ,abc"])
+def test_each_encryption_key_must_be_a_valid_fernet_key(bad: str) -> None:
+    good = Fernet.generate_key().decode()
+    message = r"TRACELOOM_ENCRYPTION_KEY key #[123] is not a valid Fernet key"
+    with pytest.raises(ValidationError, match=message):
+        Settings(
+            TRACELOOM_ENV="production",
+            TRACELOOM_SERVER_SECRET=SECRET,
+            TRACELOOM_ENCRYPTION_KEY=bad.format(good=good),
+            _env_file=None,
+        )
+
+
+def test_bad_key_error_never_echoes_the_key() -> None:
+    with pytest.raises(ValidationError) as info:
+        Settings(
+            TRACELOOM_ENV="production",
+            TRACELOOM_SERVER_SECRET=SECRET,
+            TRACELOOM_ENCRYPTION_KEY="hunter2-not-a-key",
+            _env_file=None,
+        )
+    assert "hunter2" not in str(info.value)

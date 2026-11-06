@@ -12,16 +12,24 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.datastructures import FormData
 
-from traceloom.auth.deps import Access, form_data, require
+from traceloom.auth.deps import Access, form_data, get_container, require
 from traceloom.auth.permissions import Perm
+from traceloom.container import Container
 from traceloom.db.models import PRODUCTION_LABEL, User
 from traceloom.db.session import get_db
 from traceloom.prompts import service
-from traceloom.prompts.service import Actor, NotAllowed, PromptError, PromptNotFound
+from traceloom.prompts.service import (
+    Actor,
+    NotAllowed,
+    PromptConflict,
+    PromptError,
+    PromptNotFound,
+)
 from traceloom.prompts.variables import find_message_variables, find_variables
 from traceloom.web.context import page_context
 from traceloom.web.prompt_paths import prompt_url
 from traceloom.web.templating import render
+from traceloom.webhooks import deliver
 
 router = APIRouter(tags=["prompts"])
 
@@ -307,10 +315,12 @@ def create_prompt_version(
     request: Request,
     access: Access = Depends(require(Perm.PROMPTS_WRITE)),
     form: FormData = Depends(form_data),
+    container: Container = Depends(get_container),
     db: Session = Depends(get_db),
 ):
     state = _read_form(form)
     errors: dict[str, str] = {}
+    status = 400
     config: dict[str, Any] = {}
     try:
         config = _merge_config(state)
@@ -336,11 +346,14 @@ def create_prompt_version(
             raise HTTPException(403, str(exc)) from exc
         except PromptError as exc:
             errors[_field_for(str(exc))] = str(exc)
+            if isinstance(exc, PromptConflict):
+                status = 409
         else:
             db.commit()
+            deliver.kick(container)  # webhooks for the new version go out now
             return RedirectResponse(
                 prompt_url(access.project.id, state["name"], f"?version={row.version}"),
                 status_code=303,
             )
     db.rollback()
-    return _editor_page(request, db, access, state, errors, status=400)
+    return _editor_page(request, db, access, state, errors, status=status)

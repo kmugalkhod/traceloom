@@ -24,6 +24,7 @@ class Decision:
     tool: str | None = None
     tool_input: dict[str, Any] = field(default_factory=dict)
     text: str = ""
+    call_id: str = ""  # the id the model gave its tool call, when it gave one
 
 
 # (tool, input) for each planner turn, then the final answer is written from the observations.
@@ -63,8 +64,9 @@ class FakeLLM:
                 output: Any = decision.text
             else:
                 tool, tool_input = SCRIPT[self._turn]
-                decision = Decision(tool=tool, tool_input=tool_input)
-                output = {"tool_call": {"name": tool, "input": tool_input}}
+                call_id = f"toolu_demo_{self._turn + 1:02d}"
+                decision = Decision(tool=tool, tool_input=tool_input, call_id=call_id)
+                output = {"tool_call": {"id": call_id, "name": tool, "input": tool_input}}
             self._turn += 1
             gen.update(
                 output=output,

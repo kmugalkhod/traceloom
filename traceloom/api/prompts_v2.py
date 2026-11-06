@@ -1,26 +1,46 @@
 """Public prompt API (FR-P9), under HTTP Basic project keys like ingestion.
 
 Routes are plain `def`: the database work runs in the threadpool, not on the event loop. Names
-containing `/` may be URL-encoded (`support%2Ftone`). Errors use the Phase 1 envelope.
+containing `/` may be URL-encoded (`support%2Ftone`). Errors use the Phase 1 envelope. Write bodies
+are read with a size limit before they are parsed (413 beyond `MAX_BODY_BYTES`); a write that
+lost a race to a concurrent one is a 409. Writes commit before returning and then hand any
+webhook deliveries they created to the queue, rather than waiting for the next sweep.
 """
 
 from __future__ import annotations
 
 import math
+from collections.abc import Awaitable, Callable
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from sqlalchemy.orm import Session
 
+from traceloom.api.ingestion import read_body
 from traceloom.auth.api_keys import ResolvedKey
-from traceloom.auth.deps import project_key
+from traceloom.auth.deps import get_container, project_key
+from traceloom.container import Container
 from traceloom.db.models import Project
 from traceloom.db.session import get_db
+from traceloom.ingest.accept import BatchTooLarge
 from traceloom.prompts import service
-from traceloom.prompts.service import Actor, NotAllowed, PromptError, PromptNotFound, PromptView
+from traceloom.prompts.service import (
+    Actor,
+    NotAllowed,
+    PromptConflict,
+    PromptError,
+    PromptNotFound,
+    PromptView,
+)
+from traceloom.webhooks import deliver
 
 router = APIRouter(prefix="/api/public/v2", tags=["prompts"])
+
+# A version holds at most service.MAX_CONTENT_CHARS characters; leave room for JSON escaping
+# (up to 6 bytes for one character) plus config, tags and labels.
+MAX_BODY_BYTES = 2_000_000
 
 
 class CreatePrompt(BaseModel):
@@ -41,6 +61,23 @@ class SetLabels(BaseModel):
     new_labels: list[str] = Field(alias="newLabels")
 
 
+def _json_body[M: BaseModel](model: type[M]) -> Callable[[Request], Awaitable[M]]:
+    """A dependency that reads at most MAX_BODY_BYTES and parses them as `model`. FastAPI would
+    otherwise buffer and parse a body of any size before the route runs."""
+
+    async def parse(request: Request) -> M:
+        try:
+            raw = await read_body(request, MAX_BODY_BYTES)
+        except BatchTooLarge as exc:
+            raise HTTPException(413, str(exc)) from None
+        try:
+            return model.model_validate_json(raw)
+        except ValidationError as exc:
+            raise RequestValidationError(exc.errors(include_url=False)) from None
+
+    return parse
+
+
 def _context(key: ResolvedKey, db: Session) -> tuple[Project, Actor]:
     project = db.get(Project, key.project_id)  # the key's own project, never one from the URL
     if project is None:
@@ -53,6 +90,8 @@ def _fail(exc: Exception) -> HTTPException:
         return HTTPException(403, str(exc))
     if isinstance(exc, PromptNotFound):
         return HTTPException(404, str(exc))
+    if isinstance(exc, PromptConflict):
+        return HTTPException(409, str(exc))
     return HTTPException(400, str(exc))
 
 
@@ -131,8 +170,9 @@ def get_prompt(
 
 @router.post("/prompts", status_code=201)
 def create_prompt(
-    body: CreatePrompt,
-    key: ResolvedKey = Depends(project_key),
+    key: ResolvedKey = Depends(project_key),  # before the body: no key, no reading it
+    body: CreatePrompt = Depends(_json_body(CreatePrompt)),
+    container: Container = Depends(get_container),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     project, actor = _context(key, db)
@@ -152,6 +192,8 @@ def create_prompt(
         view = service.get(db, project, actor, body.name, version=row.version, resolve=False)
     except (PromptError, PromptNotFound, NotAllowed) as exc:
         raise _fail(exc) from exc  # the session rolls back, so nothing is half-saved
+    db.commit()
+    deliver.kick(container)  # webhooks for the new version (and labels) go out now
     return _body(view)
 
 
@@ -159,8 +201,9 @@ def create_prompt(
 def set_labels(
     name: str,
     version: int,
-    body: SetLabels,
-    key: ResolvedKey = Depends(project_key),
+    key: ResolvedKey = Depends(project_key),  # before the body: no key, no reading it
+    body: SetLabels = Depends(_json_body(SetLabels)),
+    container: Container = Depends(get_container),
     db: Session = Depends(get_db),
 ) -> dict[str, Any]:
     project, actor = _context(key, db)
@@ -170,4 +213,6 @@ def set_labels(
         view = service.get(db, project, actor, name, version=version, resolve=False)
     except (PromptError, PromptNotFound, NotAllowed) as exc:
         raise _fail(exc) from exc
+    db.commit()
+    deliver.kick(container)
     return _body(view)

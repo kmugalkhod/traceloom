@@ -7,6 +7,7 @@ import secrets
 from functools import lru_cache
 from typing import Literal
 
+from cryptography.fernet import Fernet
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,7 +18,11 @@ logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", extra="ignore", populate_by_name=True, case_sensitive=True
+        env_file=".env",
+        extra="ignore",
+        populate_by_name=True,
+        case_sensitive=True,
+        hide_input_in_errors=True,  # errors must never echo secrets from the environment
     )
 
     # Core
@@ -104,6 +109,25 @@ class Settings(BaseSettings):
                 "TRACELOOM_ENCRYPTION_KEY is not set; using an ephemeral key. "
                 "Stored LLM connection keys and webhook secrets will not survive a restart."
             )
+        return self
+
+    @model_validator(mode="after")
+    def _check_encryption_keys(self) -> Settings:
+        """Every comma-separated key must be a Fernet key, so a typo fails at startup rather
+        than on the first encrypt or decrypt. The message names the key's position only."""
+        keys = [k.strip() for k in self.encryption_key.split(",")]
+        for position, key in enumerate(keys, 1):
+            if not key:
+                continue  # stray commas are ignored, as SecretBox does
+            try:
+                Fernet(key.encode())
+            except (ValueError, TypeError):
+                raise ValueError(
+                    f"TRACELOOM_ENCRYPTION_KEY key #{position} is not a valid Fernet key "
+                    "(32 url-safe base64-encoded bytes; generate one with "
+                    "`python -c 'from cryptography.fernet import Fernet; "
+                    "print(Fernet.generate_key().decode())'`)"
+                ) from None
         return self
 
     @property

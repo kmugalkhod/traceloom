@@ -10,6 +10,10 @@ Canonical inputs (the same for every provider):
 - params: `temperature`, `top_p`, `max_tokens`, `stop` (list of strings); other keys are ignored.
 - tools: `[{"name", "description", "parameters": <JSON schema>}]`.
 - response_schema: a JSON schema the reply must follow, or None.
+
+HTTP-based adapters send through `pinned_http_client` (see llm/http.py): every request is
+SSRF-checked against `ProviderConfig.allow_private`, pinned to the checked address and never
+redirected. A refused address surfaces as an ErrorDelta saying the base URL is not allowed.
 """
 
 from __future__ import annotations
@@ -18,7 +22,10 @@ import importlib
 import re
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
+from types import ModuleType
 from typing import Any, Protocol, runtime_checkable
+
+from traceloom.llm.ssrf import BlockedAddress, Resolver, system_resolver
 
 # --- Deltas -----------------------------------------------------------------------------------
 
@@ -37,13 +44,14 @@ class ToolCallDelta:
 
 @dataclass(frozen=True)
 class UsageDelta:
-    input_tokens: int = 0
+    input_tokens: int = 0  # uncached input only; cached tokens are in details
     output_tokens: int = 0
     details: dict[str, int] = field(default_factory=dict)  # cache_read, cache_write, reasoning, ...
 
     @property
     def total_tokens(self) -> int:
-        return self.input_tokens + self.output_tokens
+        cached = self.details.get("cache_read", 0) + self.details.get("cache_write", 0)
+        return self.input_tokens + cached + self.output_tokens
 
 
 @dataclass(frozen=True)
@@ -72,6 +80,7 @@ class ProviderConfig:
     secrets: dict[str, str] = field(default_factory=dict)  # extra secret values to scrub
     timeout: float = 120.0
     allow_private: bool = True  # SSRF policy for base URLs (llm_allow_private)
+    resolver: Resolver | None = None  # DNS for the SSRF check (None: the system resolver)
 
 
 @runtime_checkable
@@ -109,6 +118,18 @@ class BaseProvider:
 
     def __init__(self, config: ProviderConfig) -> None:
         self.cfg = config
+        self.ssrf_resolver: Resolver = config.resolver or system_resolver
+
+    def pinned_http_client(self, module: ModuleType) -> Any:
+        """A fresh SSRF-pinned `module.Client` for one run; the caller closes it."""
+        from traceloom.llm import http
+
+        return http.pinned_client(
+            module,
+            allow_private=self.cfg.allow_private,
+            timeout=self.cfg.timeout,
+            resolver=self.ssrf_resolver,
+        )
 
     def secret_values(self) -> list[str]:
         return [self.cfg.api_key, *self.cfg.secrets.values()]
@@ -127,7 +148,11 @@ class BaseProvider:
         try:
             yield from self._stream(messages, model, params or {}, tools or (), response_schema)
         except Exception as exc:
-            yield ErrorDelta(self.scrub(f"{type(exc).__name__}: {exc}"))
+            blocked = _blocked_cause(exc)
+            if blocked is not None:  # SDKs wrap it in a generic connection error
+                yield ErrorDelta(self.scrub(f"This base URL is not allowed: {blocked}"))
+            else:
+                yield ErrorDelta(self.scrub(f"{type(exc).__name__}: {exc}"))
 
     def _stream(
         self,
@@ -138,6 +163,17 @@ class BaseProvider:
         response_schema: Mapping[str, Any] | None,
     ) -> Iterator[Delta]:
         raise NotImplementedError
+
+
+def _blocked_cause(exc: BaseException) -> BlockedAddress | None:
+    seen: set[int] = set()
+    current: BaseException | None = exc
+    while current is not None and id(current) not in seen:
+        if isinstance(current, BlockedAddress):
+            return current
+        seen.add(id(current))
+        current = current.__cause__ or current.__context__
+    return None
 
 
 def split_system(messages: Sequence[Mapping[str, Any]]) -> tuple[str, list[Mapping[str, Any]]]:

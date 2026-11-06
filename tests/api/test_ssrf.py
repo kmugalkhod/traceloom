@@ -87,3 +87,38 @@ def test_bad_urls_refused(url):
 
 def test_classify_public():
     assert classify("93.184.216.34") == "public"
+
+
+@pytest.mark.parametrize(
+    "ip",
+    [
+        "64:ff9b::a9fe:a9fe",  # NAT64 well-known prefix + 169.254.169.254
+        "64:ff9b:1::a9fe:a9fe",  # NAT64 local-use prefix (RFC 8215)
+        "2002:a9fe:a9fe::1",  # 6to4 wrapping 169.254.169.254
+        "2002:a9fe:1::",  # 6to4 wrapping link-local 169.254.0.1
+    ],
+)
+@pytest.mark.parametrize("allow_private", [False, True])
+def test_nat64_and_6to4_wrapped_metadata_is_refused(ip, allow_private):
+    assert classify(ip) == "blocked"
+    with pytest.raises(BlockedAddress):
+        resolve_target("https://x.example/", allow_private=allow_private, resolver=fixed(ip))
+
+
+@pytest.mark.parametrize("ip", ["64:ff9b::a00:5", "2002:a00:5::1", "2002:7f00:1::1"])
+def test_nat64_and_6to4_wrapped_private_needs_allow_private(ip):
+    assert classify(ip) == "private"
+
+
+def test_nat64_and_6to4_wrapped_public_stays_public():
+    assert classify("64:ff9b::5db8:d822") == "public"
+    assert classify("2002:5db8:d822::1") == "public"
+
+
+def test_ip_literal_is_never_handed_to_the_resolver():
+    def lying(host, port):
+        raise AssertionError(f"resolver asked about {host}")
+
+    with pytest.raises(BlockedAddress):
+        resolve_target("http://169.254.169.254/", allow_private=True, resolver=lying)
+    assert resolve_target("https://93.184.216.34/", resolver=lying).ip == "93.184.216.34"

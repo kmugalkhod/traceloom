@@ -272,3 +272,34 @@ def test_member_cannot_create_keys(client, login, world):
     url = f"/project/{world.project.id}/settings/keys"
     r = client.post(url, data={"note": "x", "may_move_protected_labels": "true"})
     assert r.status_code == 403
+
+
+# --- limits and conflicts (review fixes) ------------------------------------------------------
+
+
+def test_oversized_bodies_are_refused_before_parsing(client, auth):
+    from traceloom.api.prompts_v2 import MAX_BODY_BYTES
+
+    huge = "x" * (MAX_BODY_BYTES + 1)
+    r = create(client, auth, prompt=huge)
+    assert r.status_code == 413 and r.json()["error"]["code"] == "payload_too_large"
+    assert create(client, auth).status_code == 201
+    r = client.patch(
+        f"{BASE}/support/versions/1", json={"newLabels": ["a"] * MAX_BODY_BYTES}, headers=auth
+    )
+    assert r.status_code == 413
+
+
+def test_malformed_json_is_still_a_422(client, auth):
+    headers = {**auth, "content-type": "application/json"}
+    r = client.post(BASE, content=b"{not json", headers=headers)
+    assert r.status_code == 422
+
+
+def test_a_save_conflict_is_a_409(client, auth, monkeypatch):
+    from traceloom.prompts import service
+
+    assert create(client, auth).status_code == 201
+    monkeypatch.setattr(service, "_latest_version", lambda *a: 0)  # every attempt races to v1
+    r = create(client, auth, prompt="second")
+    assert r.status_code == 409 and "same time" in r.json()["error"]["message"]

@@ -26,6 +26,8 @@ log = logging.getLogger("traceloom")
 PROMPTS_PATH = "/api/public/v2/prompts"
 DEFAULT_TTL_SECONDS = 60.0
 MAX_CACHE_ENTRIES = 256
+REFRESH_BACKOFF_SECONDS = 1.0  # after a failed refresh; doubles per failure up to the max
+MAX_REFRESH_BACKOFF_SECONDS = 60.0
 _RETRY_STATUS = {429, 500, 502, 503, 504}
 _VARIABLE_RE = re.compile(r"\{\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*\}\}")
 
@@ -127,14 +129,27 @@ def prompt_from_dict(data: Mapping[str, Any]) -> TextPrompt | ChatPrompt:
 
 
 def fallback_prompt(name: str, fallback: Any, type: str | None = None) -> TextPrompt | ChatPrompt:
-    """A prompt built from the caller's fallback (a str, or a list of chat messages)."""
+    """A prompt built from the caller's fallback (a str, or a list of chat messages).
+
+    A string given for a chat prompt becomes one user message (a single message dict is
+    wrapped too), never a list of its characters.
+    """
     if type == "chat" or (type is None and isinstance(fallback, list)):
+        if isinstance(fallback, str):
+            return ChatPrompt(name, [{"role": "user", "content": fallback}], is_fallback=True)
+        if isinstance(fallback, Mapping):
+            return ChatPrompt(name, [dict(fallback)], is_fallback=True)
         return ChatPrompt(name, list(fallback), is_fallback=True)
     return TextPrompt(name, str(fallback), is_fallback=True)
 
 
 class PromptCache:
-    """In-process cache with a TTL. Stale values are served while one thread per key refreshes."""
+    """In-process cache with a TTL. Stale values are served while one thread per key refreshes.
+
+    A refresh that fails (raises or returns False) holds off the next one for that key, from
+    REFRESH_BACKOFF_SECONDS doubling up to MAX_REFRESH_BACKOFF_SECONDS, so an unreachable
+    server does not get a new thread and request on every call.
+    """
 
     def __init__(
         self, clock: Callable[[], float] = time.monotonic, max_entries: int = MAX_CACHE_ENTRIES
@@ -144,6 +159,7 @@ class PromptCache:
         self._lock = threading.Lock()
         self._entries: dict[Any, tuple[float, Any]] = {}
         self.refreshers: dict[Any, threading.Thread] = {}
+        self._failures: dict[Any, tuple[int, float]] = {}  # key -> (failures, retry not before)
 
     def get(self, key: Any, ttl: float) -> tuple[Any, bool] | None:
         """(prompt, is_fresh), or None when nothing is cached."""
@@ -159,22 +175,37 @@ class PromptCache:
             self._entries.pop(key, None)
             self._entries[key] = (self._clock(), prompt)
             while len(self._entries) > self._max:  # drop the oldest
-                self._entries.pop(next(iter(self._entries)))
+                oldest = next(iter(self._entries))
+                self._entries.pop(oldest)
+                self._failures.pop(oldest, None)
 
-    def start_refresh(self, key: Any, work: Callable[[], None]) -> bool:
-        """Run `work` on a daemon thread unless this key already has one. Never raises."""
+    def start_refresh(self, key: Any, work: Callable[[], bool | None]) -> bool:
+        """Run `work` on a daemon thread unless this key already has one or is backing off after
+        a failed refresh. `work` returning False counts as a failure. Never raises."""
 
         def run() -> None:
+            ok = False
             try:
-                work()
+                ok = work() is not False
             except Exception:
                 log.debug("prompt refresh failed for %r", key, exc_info=True)
             finally:
                 with self._lock:
                     self.refreshers.pop(key, None)
+                    if ok:
+                        self._failures.pop(key, None)
+                    else:
+                        failures = self._failures.get(key, (0, 0.0))[0] + 1
+                        delay = min(
+                            MAX_REFRESH_BACKOFF_SECONDS,
+                            REFRESH_BACKOFF_SECONDS * 2 ** (failures - 1),
+                        )
+                        self._failures[key] = (failures, self._clock() + delay)
 
         with self._lock:
             if key in self.refreshers:
+                return False
+            if self._clock() < self._failures.get(key, (0, 0.0))[1]:
                 return False
             thread = threading.Thread(target=run, name="traceloom-prompt-refresh", daemon=True)
             self.refreshers[key] = thread
@@ -189,6 +220,7 @@ class PromptCache:
     def clear(self) -> None:
         with self._lock:
             self._entries.clear()
+            self._failures.clear()
 
 
 def _ttl(client: Traceloom, cache_ttl_seconds: float | None) -> float:
@@ -258,10 +290,11 @@ def get_prompt(
     def fetch() -> TextPrompt | ChatPrompt | None:
         return fetch_prompt(client, name, label, version, max_retries, fetch_timeout_seconds)
 
-    def refresh() -> None:
+    def refresh() -> bool:
         fresh = fetch()
         if fresh is not None:
             cache.put(key, fresh)
+        return fresh is not None
 
     if ttl > 0:
         cached = cache.get(key, ttl)

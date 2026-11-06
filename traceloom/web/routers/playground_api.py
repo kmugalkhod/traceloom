@@ -32,7 +32,8 @@ from traceloom.llm.connections import ConnectionInvalid, ConnectionNotFound, Con
 from traceloom.llm.models import models_for
 from traceloom.llm.run import Event, Run, RunSpec
 from traceloom.prompts import service as prompts
-from traceloom.prompts.service import Actor, NotAllowed, PromptError
+from traceloom.prompts.service import Actor, NotAllowed, PromptConflict, PromptError
+from traceloom.webhooks import deliver
 
 router = APIRouter(tags=["playground"])
 
@@ -166,6 +167,7 @@ def run(
 def save(
     body: SaveBody,
     access: Access = Depends(require(Perm.PLAYGROUND_RUN)),
+    container: Container = Depends(get_container),
     db: Session = Depends(get_db),
 ) -> JSONResponse:
     config: dict[str, Any] = {
@@ -205,7 +207,8 @@ def save(
         raise HTTPException(403, str(exc)) from None
     except PromptError as exc:
         db.rollback()
-        raise HTTPException(400, str(exc)) from None
+        raise HTTPException(409 if isinstance(exc, PromptConflict) else 400, str(exc)) from None
+    deliver.kick(container)  # webhooks for the new version go out now
     url = f"/project/{access.project.id}/prompts/{quote(body.name, safe='/')}?version={row.version}"
     return JSONResponse({"name": body.name, "version": row.version, "url": url}, status_code=201)
 

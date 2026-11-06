@@ -3,6 +3,10 @@
 Credentials: `api_key` is the secret access key; `secrets["access_key_id"]` the access key id and
 optionally `secrets["session_token"]`; `config["region"]` the region. All of them are scrubbed
 from errors. Params understood: `max_tokens`, `temperature`, `top_p`, `stop`.
+
+A custom endpoint (`base_url`) goes through the SSRF guard each time a client is built; botocore
+sends with `Retry(False)`, so it never follows a redirect. boto3 resolves the name itself, so
+the address cannot be pinned the way the httpx-based adapters pin theirs.
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ from traceloom.llm.providers.base import (
     UsageDelta,
     split_system,
 )
+from traceloom.llm.ssrf import resolve_target
 
 
 def map_messages(messages: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
@@ -63,6 +68,12 @@ class BedrockProvider(BaseProvider):
     def _client(self) -> Any:
         if self._client_override is not None:
             return self._client_override
+        if self.cfg.base_url:
+            resolve_target(
+                self.cfg.base_url,
+                allow_private=self.cfg.allow_private,
+                resolver=self.ssrf_resolver,
+            )  # raises BlockedAddress
         import boto3
         from botocore.config import Config
 
@@ -136,12 +147,14 @@ class BedrockProvider(BaseProvider):
         response_schema: Mapping[str, Any] | None,
     ) -> Iterator[Delta]:
         request = self.build_request(messages, model, params, tools, response_schema)
-        response = self._client().converse_stream(**request)
         pending: dict[int, dict[str, str]] = {}
         stop_reason: str | None = None
         usage: UsageDelta | None = None
-        stream = response["stream"]
+        client: Any = None
+        stream: Any = None
         try:
+            client = self._client()
+            stream = client.converse_stream(**request)["stream"]
             for event in stream:
                 if "contentBlockStart" in event:
                     start = event["contentBlockStart"]
@@ -173,6 +186,8 @@ class BedrockProvider(BaseProvider):
             close = getattr(stream, "close", None)
             if close is not None:
                 close()
+            if client is not None and self._client_override is None:
+                client.close()
         if usage is not None:
             yield usage
         yield DoneDelta(stop_reason)

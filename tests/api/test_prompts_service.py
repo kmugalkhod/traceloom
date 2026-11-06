@@ -353,3 +353,78 @@ def test_delete_is_project_scoped(db, project, member, admin, make_project, worl
     with pytest.raises(PromptNotFound):
         service.delete(db, make_project(world.org), admin, "support")
     assert db.scalar(select(Prompt)) is not None
+
+
+# --- composition and size limits (review fixes) -----------------------------------------------
+
+
+def _insert_fan_out(db, project, member, width=20, levels=5):
+    """Prompts l1..l{levels}, each including the next one `width` times. Written straight to the
+    tables, as a series of label moves could produce, since a save would refuse them."""
+    save(db, project, member, name=f"l{levels}", content="leaf ")
+    for level in range(levels - 1, 0, -1):
+        prompt = Prompt(project_id=project.id, name=f"l{level}", type="text", created_by=member.id)
+        db.add(prompt)
+        db.flush()
+        content = f"@@@prompt:l{level + 1}|label=latest@@@" * width
+        db.add(PromptVersion(project_id=project.id, prompt_id=prompt.id, version=1,
+                             content=content, commit_message="raw"))  # fmt: skip
+    db.commit()
+
+
+def test_fan_out_of_20_refs_by_5_levels_is_rejected_quickly_at_save(db, project, member):
+    import time
+
+    _insert_fan_out(db, project, member)
+    started = time.monotonic()
+    with pytest.raises(PromptError, match="includes"):
+        save(db, project, member, name="root", content="@@@prompt:l1|label=latest@@@" * 20)
+    assert time.monotonic() - started < 2
+    db.rollback()
+    with pytest.raises(PromptError, match="includes"):
+        service.get(db, project, member, "l1", resolve=True)  # reads are capped as well
+
+
+def test_normal_includes_still_save_and_resolve(db, project, member):
+    save(db, project, member, name="greeting", content="Hello {{name}}. ")
+    save(db, project, member, name="root", content="@@@prompt:greeting|label=latest@@@" * 3)
+    view = service.get(db, project, member, "root", resolve=True)
+    assert view.prompt == "Hello {{name}}. " * 3
+
+
+def test_a_version_over_the_content_limit_is_refused(db, project, member):
+    with pytest.raises(PromptError, match="characters"):
+        save(db, project, member, content="x" * (service.MAX_CONTENT_CHARS + 1))
+    db.rollback()
+    big = [{"role": "user", "content": "x" * (service.MAX_CONTENT_CHARS // 2 + 1)}] * 2
+    with pytest.raises(PromptError, match="characters"):
+        save(db, project, member, name="chat", type="chat", content=big)
+
+
+# --- races (review fixes) ---------------------------------------------------------------------
+
+
+def test_label_move_racing_an_insert_becomes_an_update(db, project, member, monkeypatch):
+    save(db, project, member, content="one")
+    save(db, project, member, content="two")
+    service.move_label(db, project, member, "support", "staging", 1)
+    db.commit()
+    real_get, stale = db.get, [True]
+
+    def racing_get(model, key, *args, **kwargs):
+        if model is PromptLabel and stale and stale.pop():
+            return None  # read before the other request's insert committed
+        return real_get(model, key, *args, **kwargs)
+
+    monkeypatch.setattr(db, "get", racing_get)
+    assert service.move_label(db, project, member, "support", "staging", 2) is True
+    db.commit()
+    monkeypatch.undo()
+    assert service.get(db, project, member, "support", label="staging").version == 2
+
+
+def test_a_save_that_keeps_losing_the_version_race_is_a_conflict(db, project, member, monkeypatch):
+    save(db, project, member, content="one")
+    monkeypatch.setattr(service, "_latest_version", lambda *a: 0)  # always races to v1
+    with pytest.raises(service.PromptConflict, match="same time"):
+        save(db, project, member, content="two")

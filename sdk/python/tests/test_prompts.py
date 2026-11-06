@@ -291,3 +291,25 @@ def test_threads_share_one_fetch_result_safely():
     [t.start() for t in threads]
     [t.join() for t in threads]
     assert results == [1] * 8
+
+
+def test_chat_fallback_given_as_a_string_is_one_user_message():
+    server = Server()
+    server.script = [404]
+    prompt = make(server).get_prompt("x", fallback="Hi {{name}}", type="chat")
+    assert isinstance(prompt, ChatPrompt) and prompt.is_fallback
+    assert prompt.prompt == [{"role": "user", "content": "Hi {{name}}"}]
+    assert prompt.compile(name="Ann") == [{"role": "user", "content": "Hi Ann"}]
+
+
+def test_failed_stale_refreshes_back_off_instead_of_respawning_every_call():
+    server = Server()
+    client = make(server, max_retries=0)
+    client.get_prompt("support", cache_ttl_seconds=0.05, max_retries=0)
+    time.sleep(0.1)
+    server.script = ["error"] * 50
+    before = len(server.requests)
+    for _ in range(20):
+        assert client.get_prompt("support", cache_ttl_seconds=0.05, max_retries=0).version == 1
+        join_refreshers(client)
+    assert len(server.requests) == before + 1  # one failed refresh, then a backoff window

@@ -1,7 +1,10 @@
 """Prompt composition: `@@@prompt:<name>|label=<l>@@@` / `|version=<n>@@@` (FR-P6).
 
 Resolution is recursive (depth limit 5, cycle detection) and records the versions it used. The
-lookup of a referenced prompt is injected, so this module never touches the database.
+lookup of a referenced prompt is injected, so this module never touches the database; each
+distinct reference is looked up once per resolution. A resolution expands at most
+`MAX_EXPANSIONS` includes and produces at most `MAX_EXPANDED_CHARS` characters, so a prompt
+that includes another many times over several levels cannot blow up the server.
 """
 
 from __future__ import annotations
@@ -12,6 +15,8 @@ from dataclasses import dataclass
 from typing import Any
 
 MAX_DEPTH = 5
+MAX_EXPANSIONS = 100  # includes expanded in one resolution, repeats counted
+MAX_EXPANDED_CHARS = 1_000_000
 
 _REF_RE = re.compile(r"@@@prompt:([^\n@]*)@@@")
 _NAME_RE = re.compile(r"[A-Za-z0-9_.\-/]{1,200}")
@@ -79,23 +84,50 @@ def _dependency(resolved: Resolved) -> dict[str, Any]:
     return {"name": resolved.name, "version": resolved.version, "label": resolved.label}
 
 
+def memoised(resolver: Resolver) -> Resolver:
+    """`resolver` with each distinct reference looked up once."""
+    seen: dict[tuple[str, str | None, int | None], Resolved | None] = {}
+
+    def resolve(ref: Reference) -> Resolved | None:
+        key = (ref.name, ref.label, ref.version)
+        if key not in seen:
+            seen[key] = resolver(ref)
+        return seen[key]
+
+    return resolve
+
+
 class _Resolution:
     def __init__(self, resolver: Resolver, root: tuple[str, int] | None) -> None:
-        self.resolver = resolver
+        self.resolver = memoised(resolver)
         self.root = root
         self.dependencies: list[dict[str, Any]] = []
+        self.expansions = 0
 
     def text(self, text: str, stack: tuple[tuple[str, int], ...]) -> str:
         def replace(match: re.Match[str]) -> str:
             return self._include(parse_reference(match.group(0)), stack)
 
-        return _REF_RE.sub(replace, text)
+        out = _REF_RE.sub(replace, text)
+        if len(out) > MAX_EXPANDED_CHARS:
+            raise CompositionError(
+                f"The prompt is longer than {MAX_EXPANDED_CHARS:,} characters once its "
+                "references are expanded"
+            )
+        return out
 
     def _include(self, ref: Reference, stack: tuple[tuple[str, int], ...]) -> str:
         # `stack` holds the prompts being expanded; the top-level content is depth 0.
         if len(stack) - (1 if self.root else 0) >= MAX_DEPTH:
             raise CompositionError(
                 f"Prompt references are nested deeper than {MAX_DEPTH} levels at {ref.raw}",
+                ref.raw,
+            )
+        self.expansions += 1
+        if self.expansions > MAX_EXPANSIONS:
+            raise CompositionError(
+                f"The prompt expands to more than {MAX_EXPANSIONS} includes (counting repeats) "
+                f"at {ref.raw}; include fewer prompts or nest them less",
                 ref.raw,
             )
         resolved = self.resolver(ref)
@@ -161,6 +193,7 @@ def expand_segments(
 
     Raises CompositionError first for any missing include, cycle or excess depth.
     """
+    resolver = memoised(resolver)
     resolve_text(text, resolver, root=root)  # validate; everything below is then safe
 
     def build(value: str) -> tuple[Segment, ...]:

@@ -68,18 +68,37 @@ TOOLS = {"search": search, "calculator": calculator, "lookup_order": lookup_orde
 
 @observe(as_type="chain", name="step")
 def step(llm: Any, question: str, history: list[dict[str, Any]]) -> bool:
-    """One planner turn. Returns True when the agent has its final answer."""
+    """One planner turn. Returns True when the agent has its final answer.
+
+    History is in the OpenAI chat shape: the assistant's tool call carries an id and the tool
+    result names it, so a recorded generation can be replayed against a real provider."""
     decision = llm.complete(question, history)
     if decision.tool is None:
         history.append({"role": "assistant", "content": decision.text})
         return True
-    history.append({"role": "assistant", "content": f"calling {decision.tool}"})
+    call_id = decision.call_id or f"call_{sum(m['role'] == 'tool' for m in history) + 1}"
+    call = {"name": decision.tool, "arguments": json.dumps(decision.tool_input)}
+    history.append(
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [{"id": call_id, "type": "function", "function": call}],
+        }
+    )
     try:
         result = TOOLS[decision.tool](**decision.tool_input)
     except Exception as exc:  # the failed tool span is already marked ERROR; tell the model
         result = f"error: {exc}"
-    history.append({"role": "tool", "content": f"{decision.tool} -> {result}"})
+    history.append({"role": "tool", "tool_call_id": call_id, "content": str(result)})
     return False
+
+
+def _transcript_line(message: dict[str, Any]) -> str:
+    calls = message.get("tool_calls") or ()
+    if calls:
+        fn = calls[0]["function"]
+        return f"assistant: calling {fn['name']}({fn['arguments']})"
+    return f"{message['role']}: {message['content']}"
 
 
 class AnthropicLLM:
@@ -100,7 +119,7 @@ class AnthropicLLM:
         self.model = os.environ.get("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
 
     def complete(self, question: str, history: list[dict[str, Any]]) -> Decision:
-        transcript = "\n".join(f"{m['role']}: {m['content']}" for m in history)
+        transcript = "\n".join(_transcript_line(m) for m in history)
         response = self.client.messages.create(
             model=self.model,
             max_tokens=512,

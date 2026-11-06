@@ -1,14 +1,19 @@
 """Worker side of webhooks: sign, send, retry.
 
-A queue message `{"type": "webhook_delivery", "delivery_id"}` runs `handle` on a queue thread (never
-on the event loop). The delivery row is the source of truth:
+A queue message `{"type": "webhook_delivery", "delivery_id"}` runs `handle` on a small, bounded
+pool of delivery threads (never on the event loop, never on the thread that processes ingestion,
+so a slow endpoint cannot hold up traces). The delivery row is the source of truth:
 
-- `handle` first claims the row by pushing `next_attempt_at` forward by a lease, so a duplicate
-  message or a sweeper pass during the send skips it, and a crash makes it due again afterwards;
-- 2xx -> succeeded; 5xx, timeouts and network errors -> retried with exponential backoff and
-  jitter until `MAX_ATTEMPTS`, then failed; other 4xx and blocked addresses -> failed;
-- the sweeper (`due_messages`) re-enqueues anything due, which is also how retries fire and how
-  deliveries survive a restart.
+- `handle` first claims the row with one conditional UPDATE that pushes `next_attempt_at`
+  forward by a lease (`claim`), so of two workers holding the same message only one sends, and a
+  crash makes it due again afterwards;
+- 2xx -> succeeded; 5xx, 408, 429, timeouts and network errors -> retried with exponential
+  backoff and jitter until `MAX_ATTEMPTS`, then failed; other 4xx and blocked addresses -> failed;
+- a disabled webhook fails its pending deliveries, except `webhook.test`, which an admin can send
+  to a disabled webhook to check it before turning it on;
+- the sweeper (`due_messages`, at most `DUE_BATCH` per pass) re-enqueues anything due, which is
+  also how retries fire, how deliveries survive a restart, and how a message dropped by a full
+  delivery pool is picked up again.
 
 The request goes to the IP the SSRF guard pinned, with the original Host header and TLS name.
 Neither the secret nor the signature is ever logged.
@@ -20,12 +25,15 @@ import hashlib
 import hmac
 import json
 import logging
+import queue
 import random
+import threading
+from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from traceloom.db.base import utcnow
@@ -33,15 +41,19 @@ from traceloom.db.models import Webhook, WebhookDelivery
 from traceloom.llm.crypto import CryptoError
 from traceloom.llm.ssrf import BlockedAddress, resolve_target, system_resolver
 from traceloom.queue_registry import WEBHOOK_DELIVERY
-from traceloom.webhooks.service import WebhookPolicy
+from traceloom.webhooks.service import TEST_EVENT, WebhookPolicy
 
 log = logging.getLogger("traceloom.webhooks")
 
 MAX_ATTEMPTS = 5
 TIMEOUT_SECONDS = 10.0
+TIMEOUT = httpx.Timeout(TIMEOUT_SECONDS, connect=3.0)
 BACKOFF_BASE_SECONDS = 5.0  # attempt n waits about base * 2**(n-1), plus up to 25% jitter
 LEASE_SECONDS = TIMEOUT_SECONDS + 30
-DUE_BATCH = 100
+DUE_BATCH = 20  # deliveries handed out per sweep or kick
+RETRY_STATUSES = frozenset({408, 429})  # plus every 5xx
+POOL_WORKERS = 2  # delivery threads, separate from ingestion
+POOL_BACKLOG = 100  # queued deliveries beyond this are dropped; the sweeper re-sends them
 SIGNATURE_HEADER = "X-Traceloom-Signature"
 DELIVERY_HEADER = "X-Traceloom-Delivery"
 EVENT_HEADER = "X-Traceloom-Event"
@@ -77,6 +89,21 @@ def due_messages(
     return [message(i) for i in ids]
 
 
+def claim(db: Session, delivery_id: str, now: datetime) -> bool:
+    """Take the lease on a due, pending delivery. Exactly one concurrent caller gets True."""
+    result = db.execute(
+        update(WebhookDelivery)
+        .where(
+            WebhookDelivery.id == delivery_id,
+            WebhookDelivery.status == "pending",
+            or_(WebhookDelivery.next_attempt_at.is_(None), WebhookDelivery.next_attempt_at <= now),
+        )
+        .values(next_attempt_at=now + timedelta(seconds=LEASE_SECONDS))
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount == 1
+
+
 def kick(container: Any) -> int:
     """Enqueue every due delivery now (call after committing a change that created some)."""
     messages = due_messages(container.session_factory)
@@ -103,18 +130,18 @@ def handle(
     )
     now = now or utcnow()
     with container.session_factory() as db:
+        if not claim(db, msg["delivery_id"], now):
+            db.rollback()
+            return  # gone, finished, claimed by another worker, or not due yet
+        db.commit()
         delivery = db.get(WebhookDelivery, msg["delivery_id"])
-        if delivery is None or delivery.status != "pending":
+        if delivery is None:
             return
-        if delivery.next_attempt_at is not None and delivery.next_attempt_at > now:
-            return  # claimed by another worker, or not due yet
         hook = db.get(Webhook, delivery.webhook_id)
-        if hook is None or not hook.enabled:
+        if hook is None or (not hook.enabled and delivery.event != TEST_EVENT):
             _finish(delivery, "failed", now, error="webhook disabled or deleted")
             db.commit()
             return
-        delivery.next_attempt_at = now + timedelta(seconds=LEASE_SECONDS)
-        db.commit()
         try:
             secret = policy.box.decrypt(hook.secret_ciphertext)
         except CryptoError:
@@ -171,19 +198,77 @@ def _send(
         EVENT_HEADER: delivery.event,
     }
     try:
-        with httpx.Client(timeout=TIMEOUT_SECONDS, transport=transport) as client:
-            response = client.post(
+        with (
+            httpx.Client(timeout=TIMEOUT, transport=transport, trust_env=False) as client,
+            client.stream(  # the status is all we need: the reply body is never read
+                "POST",
                 target.connect_url,
                 content=body,
                 headers=headers,
                 extensions={"sni_hostname": target.host},
                 follow_redirects=False,
-            )
+            ) as response,
+        ):
+            code = response.status_code
     except httpx.TimeoutException:
         return None, "timeout", True
     except httpx.HTTPError as exc:
         return None, f"network error: {type(exc).__name__}", True
-    code = response.status_code
     if 200 <= code < 300:
         return code, None, False
-    return code, f"HTTP {code}", code >= 500
+    return code, f"HTTP {code}", code >= 500 or code in RETRY_STATUSES
+
+
+class DeliveryPool:
+    """A few daemon threads that run deliveries off the queue consumer's threads.
+
+    `submit` never blocks: when `backlog` deliveries are already waiting, the message is dropped
+    (logged) and the sweeper sends it later, since its row is still pending and due. Used in full
+    mode; the lite in-process queue gives webhook messages a lane of its own instead.
+    """
+
+    def __init__(
+        self,
+        handler: Callable[[Mapping[str, Any]], None],
+        workers: int = POOL_WORKERS,
+        backlog: int = POOL_BACKLOG,
+    ) -> None:
+        self._handler = handler
+        self._queue: queue.Queue[Mapping[str, Any] | None] = queue.Queue(maxsize=backlog)
+        self._threads = [
+            threading.Thread(target=self._run, name=f"traceloom-webhooks-{i}", daemon=True)
+            for i in range(workers)
+        ]
+        for thread in self._threads:
+            thread.start()
+
+    def submit(self, message: Mapping[str, Any]) -> None:
+        try:
+            self._queue.put_nowait(dict(message))
+        except queue.Full:
+            log.warning("webhook delivery pool is full; the sweeper will retry")
+
+    def join(self) -> None:
+        """Wait until every submitted delivery has been handled."""
+        self._queue.join()
+
+    def stop(self, timeout: float = 10.0) -> None:
+        for _ in self._threads:
+            try:
+                self._queue.put(None, timeout=timeout)
+            except queue.Full:
+                break  # the threads are daemons; they die with the process
+        for thread in self._threads:
+            thread.join(timeout)
+
+    def _run(self) -> None:
+        while True:
+            message = self._queue.get()
+            try:
+                if message is None:
+                    return
+                self._handler(message)
+            except Exception:
+                log.exception("webhook delivery failed")
+            finally:
+                self._queue.task_done()

@@ -417,3 +417,32 @@ def test_save_creates_a_new_prompt_version(member_client, world, db):
         },
     )
     assert prod.status_code == 403  # labels follow the protected-label rules
+
+
+def test_cached_prompt_tokens_are_charged_once_at_the_cache_read_rate(container, world):
+    """`prompt_tokens` already includes the cached tokens: input is the uncached rest."""
+    from datetime import UTC, datetime
+
+    from tests.unit.providers.openai_helpers import chunk
+    from traceloom.llm.providers.openai import OpenAIProvider
+
+    script = _script("openai")
+    usage = {"prompt_tokens": 1000, "completion_tokens": 100, "total_tokens": 1100,
+             "prompt_tokens_details": {"cached_tokens": 600}}  # fmt: skip
+    body = "".join(
+        f"data: {json.dumps(c)}\n\n"
+        for c in (chunk({"content": "hi"}), chunk({}, finish="stop"), chunk(usage=usage))
+    )
+    script.reply(content=body + "data: [DONE]\n\n", headers={"content-type": "text/event-stream"})
+    provider = OpenAIProvider(
+        providers.ProviderConfig(api_key="sk-test", base_url="http://openai.test/v1"),
+        http_client=script.http(),
+    )
+    spec = RunSpec(messages=[{"role": "user", "content": "x"}], model="gpt-4o")
+    evs = list(Run(container, world.project.id, provider, spec).events())
+    data = next(e.data for e in evs if e.name == "usage")
+    prices = container.models.find(world.project.id, "gpt-4o", datetime.now(UTC)).prices
+    assert data["input_tokens"] == 400 and data["details"]["cache_read"] == 600
+    expected = 400 * prices["input"] + 600 * prices["cache_read"] + 100 * prices["output"]
+    assert data["cost"] == pytest.approx(expected)
+    assert data["cost_details"]["input"] == pytest.approx(400 * prices["input"])

@@ -58,7 +58,7 @@ def test_streams_text_tool_call_and_usage(provider, openai_script):
         TextDelta("Hel"),
         TextDelta("lo"),
         ToolCallDelta("call_9", "weather", {"city": "Paris"}),
-        UsageDelta(12, 6, {"cache_read": 4, "reasoning": 2}),
+        UsageDelta(8, 6, {"cache_read": 4, "reasoning": 2}),  # 12 prompt tokens, 4 of them cached
         DoneDelta("tool_calls"),
     ]
 

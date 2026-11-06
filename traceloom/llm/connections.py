@@ -403,6 +403,7 @@ def provider_config(policy: ConnectionPolicy, row: LLMConnection) -> ProviderCon
         secrets=extra,
         timeout=policy.timeout,
         allow_private=policy.allow_private,
+        resolver=policy.resolver,  # the adapters' HTTP clients check every request with it
     )
 
 

@@ -1,8 +1,9 @@
 """OpenAI-compatible servers (LiteLLM, vLLM, Ollama, gateways): a required base URL and headers.
 
-The base URL goes through the SSRF guard when the connection is built and again before each
-stream: metadata and link-local addresses are always refused, private ones unless the project's
-policy (`allow_private`, default on for LLM connections) allows them. `config["headers"]` adds
+The base URL goes through the SSRF guard when the connection is built, again before each stream,
+and on every request (the pinned HTTP client): metadata and link-local addresses are always
+refused, private ones unless the project's policy (`allow_private`, default on for LLM
+connections) allows them. `config["headers"]` adds
 custom request headers.
 """
 
@@ -30,12 +31,15 @@ class OpenAICompatibleProvider(OpenAIProvider):
         if not config.base_url:
             raise ValueError("an OpenAI-compatible connection needs a base URL")
         super().__init__(config, http_client=http_client)
-        self._resolver = resolver
+        if resolver is not system_resolver:
+            self.ssrf_resolver = resolver
         self._check_url()  # raises BlockedAddress for a refused target
 
     def _check_url(self) -> None:
         resolve_target(
-            self.cfg.base_url or "", allow_private=self.cfg.allow_private, resolver=self._resolver
+            self.cfg.base_url or "",
+            allow_private=self.cfg.allow_private,
+            resolver=self.ssrf_resolver,
         )
 
     def _client_kwargs(self) -> dict[str, Any]:

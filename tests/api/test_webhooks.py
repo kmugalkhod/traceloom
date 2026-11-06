@@ -285,3 +285,166 @@ def test_other_projects_webhook_is_not_found(db, world, admin, policy, make_proj
     hook, _ = webhooks.create(db, other, admin, policy, url=URL, event_names=[events.LABEL_MOVED])
     with pytest.raises(webhooks.WebhookNotFound):
         webhooks.get(db, world.project, hook.id)
+
+
+# --- review fixes ------------------------------------------------------------------------------
+
+
+def test_send_test_works_on_a_disabled_webhook(container, db, world, admin, setup, policy):
+    hook, _ = setup
+    webhooks.update(db, world.project, admin, policy, hook.id, enabled=False)
+    delivery = webhooks.send_test(db, world.project, admin, hook.id)
+    db.commit()
+    receiver = Receiver()
+    deliver.handle(container, deliver.message(delivery.id), transport=receiver.transport)
+    db.refresh(delivery)
+    assert delivery.status == "succeeded" and len(receiver.requests) == 1
+
+
+def test_real_events_on_a_disabled_webhook_still_fail(container, db, world, admin, setup, policy):
+    hook, _ = setup
+    move_label(db, world, admin)
+    webhooks.update(db, world.project, admin, policy, hook.id, enabled=False)
+    db.commit()
+    receiver = Receiver()
+    delivery = pending(db)[0]
+    deliver.handle(container, deliver.message(delivery.id), transport=receiver.transport)
+    db.refresh(delivery)
+    assert delivery.status == "failed" and receiver.requests == []
+
+
+@pytest.mark.parametrize("status", [408, 429])
+def test_408_and_429_are_retried(container, db, world, admin, setup, status):
+    move_label(db, world, admin)
+    delivery = pending(db)[0]
+    deliver.handle(container, deliver.message(delivery.id), transport=Receiver(status).transport)
+    db.refresh(delivery)
+    assert delivery.status == "pending" and delivery.attempts == 1
+    assert delivery.last_status_code == status and delivery.next_attempt_at is not None
+
+
+def test_claim_is_atomic_across_sessions(container, db, world, admin, setup):
+    """Two workers that both read the row as due: only one of them may claim it."""
+    move_label(db, world, admin)
+    delivery_id = pending(db)[0].id
+    now = utcnow()
+    with container.session_factory() as a, container.session_factory() as b:
+        a.get(WebhookDelivery, delivery_id), b.get(WebhookDelivery, delivery_id)  # both see it due
+        assert deliver.claim(a, delivery_id, now) is True
+        a.commit()
+        assert deliver.claim(b, delivery_id, now) is False
+
+
+def test_requests_use_a_short_connect_timeout(container, db, world, admin, setup):
+    move_label(db, world, admin)
+    receiver = Receiver()
+    deliver.handle(container, deliver.message(pending(db)[0].id), transport=receiver.transport)
+    timeout = receiver.requests[0].extensions["timeout"]
+    assert timeout == {"connect": 3, "read": 10, "write": 10, "pool": 10}
+
+
+def test_a_sweep_hands_out_a_bounded_number_of_deliveries(container, db, world, admin, setup):
+    hook, _ = setup
+    for _ in range(deliver.DUE_BATCH + 5):
+        webhooks.send_test(db, world.project, admin, hook.id)
+    db.commit()
+    assert len(deliver.due_messages(container.session_factory)) == deliver.DUE_BATCH
+    assert deliver.DUE_BATCH <= 25
+
+
+def test_a_hanging_webhook_receiver_does_not_delay_ingestion(
+    client, container, db, world, admin, setup, make_key
+):
+    import base64
+    import threading
+    import time
+
+    release = threading.Event()
+    entered = threading.Event()
+
+    def hang(request):
+        entered.set()
+        release.wait(10)
+        return httpx.Response(200)
+
+    container.webhook_transport = httpx.MockTransport(hang)
+    try:
+        move_label(db, world, admin)
+        deliver.kick(container)
+        assert entered.wait(5)  # a delivery is now stuck on the slow endpoint
+        _, public, secret = make_key(world.project)
+        token = base64.b64encode(f"{public}:{secret}".encode()).decode()
+        batch = [{"id": "e1", "type": "trace-create", "timestamp": utcnow().isoformat(),
+                  "body": {"id": "t-hang", "name": "run"}}]  # fmt: skip
+        started = time.monotonic()
+        r = client.post(
+            "/api/public/ingestion",
+            json={"batch": batch},
+            headers={"Authorization": f"Basic {token}"},
+        )
+        assert r.status_code == 207
+        while time.monotonic() - started < 3:
+            got = container.trace_store.get_existing(world.project.id, {"trace": ["t-hang"]})
+            if got["trace"].get("t-hang"):
+                break
+            time.sleep(0.02)
+        assert got["trace"].get("t-hang"), "ingestion waited behind the webhook delivery"
+    finally:
+        release.set()
+
+
+@pytest.fixture
+def receiver(container, setup):
+    got = Receiver()
+    container.webhook_transport = got.transport
+    return got
+
+
+def _events_sent(container, receiver):
+    container.queue.drain()  # only what was kicked: the sweeper runs once a minute
+    return [r.headers["x-traceloom-event"] for r in receiver.requests]
+
+
+def test_public_api_saves_and_label_moves_deliver_right_away(
+    client, container, world, make_key, receiver
+):
+    import base64
+
+    _, public, secret = make_key(world.project)
+    auth = {"Authorization": "Basic " + base64.b64encode(f"{public}:{secret}".encode()).decode()}
+    body = {"name": "p", "type": "text", "prompt": "hi", "commitMessage": "c"}
+    assert client.post("/api/public/v2/prompts", json=body, headers=auth).status_code == 201
+    assert _events_sent(container, receiver) == [events.VERSION_CREATED]
+    r = client.patch(
+        "/api/public/v2/prompts/p/versions/1", json={"newLabels": ["staging"]}, headers=auth
+    )
+    assert r.status_code == 200
+    assert _events_sent(container, receiver) == [events.VERSION_CREATED, events.LABEL_MOVED]
+
+
+def test_web_saves_and_label_moves_deliver_right_away(
+    client, container, world, login, receiver
+):
+    web = login(client, world.users[Role.MEMBER])
+    project = world.project.id
+    r = web.post(
+        f"/project/{project}/prompts/new",
+        data={"name": "p", "type": "text", "text": "hi", "commit_message": "c"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert _events_sent(container, receiver) == [events.VERSION_CREATED]
+    r = web.post(
+        f"/project/{project}/prompts/p/labels",
+        data={"label": "staging", "version": "1"},
+        follow_redirects=False,
+    )
+    assert r.status_code == 303
+    assert _events_sent(container, receiver)[1:] == [events.LABEL_MOVED]
+    r = web.post(
+        f"/project/{project}/playground/save",
+        json={"mode": "new", "name": "chatp", "commit_message": "from playground",
+              "messages": [{"role": "user", "content": "x"}]},  # fmt: skip
+    )
+    assert r.status_code == 201
+    assert _events_sent(container, receiver)[2:] == [events.VERSION_CREATED]

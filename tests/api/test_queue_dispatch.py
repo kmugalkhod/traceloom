@@ -84,3 +84,76 @@ def test_sweeper_replays_due_deliveries(tmp_path):
         queue.stop()
     assert [m["delivery_id"] for m in hooks] == ["d1", "d2"]
     assert all(m["type"] == WEBHOOK_DELIVERY for m in hooks)
+
+
+def test_inproc_lane_runs_beside_ingest_and_drain_waits_for_it():
+    import threading
+
+    queue, ingest, hooks = InProcQueue(), [], []
+    release, entered = threading.Event(), threading.Event()
+
+    def slow_hook(message):
+        entered.set()
+        release.wait(5)
+        hooks.append(message["delivery_id"])
+
+    queue.register(WEBHOOK_DELIVERY, slow_hook, workers=1, capacity=10)
+    queue.start(ingest.append)
+    try:
+        queue.enqueue({"type": WEBHOOK_DELIVERY, "delivery_id": "d1"})
+        assert entered.wait(5)
+        queue.enqueue({"project_id": "p", "blob_key": "k"})
+        for _ in range(200):  # ingest is handled while the webhook is still stuck
+            if ingest:
+                break
+            threading.Event().wait(0.01)
+        assert [m["blob_key"] for m in ingest] == ["k"] and hooks == []
+        assert queue.pending == 1
+        threading.Timer(0.1, release.set).start()
+        queue.drain()  # also waits for the lane
+        assert hooks == ["d1"] and queue.pending == 0
+    finally:
+        release.set()
+        queue.stop()
+
+
+def test_inproc_lane_is_bounded_and_skips_duplicates():
+    queue, hooks = InProcQueue(), []
+    queue.register(WEBHOOK_DELIVERY, hooks.append, workers=1, capacity=2)
+    queue.start(lambda m: None)
+    queue.pause()
+    try:
+        for i in (1, 1, 2, 3):  # d1 twice (a sweep re-sent it), then one more than fits
+            queue.enqueue({"type": WEBHOOK_DELIVERY, "delivery_id": f"d{i}"})
+        assert queue.pending == 2
+        queue.resume()
+        queue.drain()
+    finally:
+        queue.stop()
+    assert [m["delivery_id"] for m in hooks] == ["d1", "d2"]
+
+
+def test_full_mode_delivery_pool_runs_off_the_consumer_and_never_blocks_it():
+    import threading
+    import time
+
+    from traceloom.webhooks.deliver import DeliveryPool
+
+    release, done = threading.Event(), []
+
+    def slow(message):
+        release.wait(5)
+        done.append(message["delivery_id"])
+
+    pool = DeliveryPool(slow, workers=1, backlog=2)
+    try:
+        started = time.monotonic()
+        for i in range(10):  # one in flight, two waiting, the rest dropped for the sweeper
+            pool.submit({"type": WEBHOOK_DELIVERY, "delivery_id": f"d{i}"})
+        assert time.monotonic() - started < 0.5
+        release.set()
+        pool.join()
+        assert 1 <= len(done) <= 3 and done[0] == "d0"
+    finally:
+        release.set()
+        pool.stop()

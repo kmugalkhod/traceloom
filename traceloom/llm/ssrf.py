@@ -6,7 +6,9 @@ original `Host` header / TLS server name) so a second DNS answer cannot swap in 
 
 Always refused: link-local (includes 169.254.169.254), cloud metadata addresses, unspecified,
 multicast and reserved ranges. Refused unless `allow_private`: loopback, RFC 1918, unique-local,
-carrier-grade NAT and anything else that is not globally routable.
+carrier-grade NAT and anything else that is not globally routable. IPv6 addresses that carry an
+IPv4 address (IPv4-mapped, NAT64 `64:ff9b::/96` and `64:ff9b:1::/48`, 6to4 `2002::/16`) are judged
+by the IPv4 address inside them.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ METADATA_ADDRESSES = frozenset(
     for a in ("169.254.169.254", "169.254.170.2", "100.100.100.200", "fd00:ec2::254")
 )
 SCHEMES = {"http": 80, "https": 443}
+NAT64_PREFIXES = (ipaddress.ip_network("64:ff9b::/96"), ipaddress.ip_network("64:ff9b:1::/48"))
 
 
 class BlockedAddress(ValueError):
@@ -59,11 +62,22 @@ def system_resolver(host: str, port: int) -> list[str]:
     return list(dict.fromkeys(info[4][0] for info in infos))
 
 
+def _embedded_ipv4(ip: IP) -> IP:
+    """The IPv4 address an IPv6 translation/tunnel address points at, else `ip` itself."""
+    if not isinstance(ip, ipaddress.IPv6Address):
+        return ip
+    if ip.ipv4_mapped is not None:
+        return ip.ipv4_mapped
+    if ip.sixtofour is not None:
+        return ip.sixtofour
+    if any(ip in net for net in NAT64_PREFIXES):
+        return ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+    return ip
+
+
 def classify(address: str) -> str:
     """'blocked' (never allowed), 'private' (allowed by policy) or 'public'."""
-    ip: IP = ipaddress.ip_address(address.split("%")[0])
-    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped is not None:
-        ip = ip.ipv4_mapped
+    ip: IP = _embedded_ipv4(ipaddress.ip_address(address.split("%")[0]))
     if (
         ip in METADATA_ADDRESSES
         or ip.is_link_local
@@ -89,7 +103,10 @@ def resolve_target(
         port = parts.port or SCHEMES[parts.scheme]
     except ValueError as exc:
         raise BlockedAddress("URL has an invalid port") from exc
-    addresses = resolver(parts.hostname, port)
+    try:  # an IP literal is checked as written, never handed to a resolver
+        addresses = [str(ipaddress.ip_address(parts.hostname))]
+    except ValueError:
+        addresses = resolver(parts.hostname, port)
     if not addresses:
         raise BlockedAddress(f"cannot resolve host {parts.hostname!r}")
     for address in addresses:  # every answer must pass, not just the one we connect to
