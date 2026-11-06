@@ -17,6 +17,35 @@ def _utc() -> sa.DateTime:
     return sa.DateTime(timezone=True)
 
 
+_INDEX = "ix_observations_project_prompt"
+
+
+def _create_observations_prompt_index() -> None:
+    columns = ["project_id", "prompt_name", "prompt_version"]
+    if op.get_bind().dialect.name == "postgresql":
+        # Observations can be large: build without blocking writes (outside the transaction).
+        with op.get_context().autocommit_block():
+            op.create_index(
+                _INDEX,
+                "observations",
+                columns,
+                postgresql_concurrently=True,
+                if_not_exists=True,
+            )
+        return
+    with op.batch_alter_table("observations", schema=None) as batch_op:
+        batch_op.create_index(_INDEX, columns, unique=False)
+
+
+def _drop_observations_prompt_index() -> None:
+    if op.get_bind().dialect.name == "postgresql":
+        with op.get_context().autocommit_block():
+            op.drop_index(_INDEX, "observations", postgresql_concurrently=True, if_exists=True)
+        return
+    with op.batch_alter_table("observations", schema=None) as batch_op:
+        batch_op.drop_index(_INDEX)
+
+
 def upgrade() -> None:
     op.create_table(
         "prompts",
@@ -193,12 +222,7 @@ def upgrade() -> None:
                 server_default="0",
             )
         )
-    with op.batch_alter_table("observations", schema=None) as batch_op:
-        batch_op.create_index(
-            "ix_observations_project_prompt",
-            ["project_id", "prompt_name", "prompt_version"],
-            unique=False,
-        )
+    _create_observations_prompt_index()
 
     # Existing projects start with `production` protected, like new ones.
     op.execute(
@@ -207,8 +231,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    with op.batch_alter_table("observations", schema=None) as batch_op:
-        batch_op.drop_index("ix_observations_project_prompt")
+    _drop_observations_prompt_index()
     with op.batch_alter_table("api_keys", schema=None) as batch_op:
         batch_op.drop_column("may_move_protected_labels")
 
