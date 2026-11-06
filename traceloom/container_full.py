@@ -63,8 +63,10 @@ def configure(container: Container) -> None:
         apply_migrations(ch_client, s.clickhouse_database)
 
     def start_consumer() -> None:
+        from traceloom.container import register_webhook_handler
         from traceloom.ingest.process import process_message
 
+        register_webhook_handler(container)
         container.queue.start(lambda message: process_message(container, message))
         container.sweeper.run_once(min_age=0)
         container.sweeper.start()
