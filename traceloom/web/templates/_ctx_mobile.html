@@ -8,10 +8,11 @@
   {% if env_ctx %}
   <form method="post" action="/project/{{ project.id }}/prefs/env">
     {{ m.csrf() }}<input type="hidden" name="next" value="{{ request_path }}">
+    <span class="select-wrap env-select"><span class="env-dot" aria-hidden="true"></span>
     <select class="select" name="env" aria-label="Environment" data-autosubmit>
       <option value="all"{% if not env_ctx.current %} selected{% endif %}>All environments</option>
       {% for name in env_ctx.options %}<option value="{{ name }}"{% if name == env_ctx.current %} selected{% endif %}>{{ name }}</option>{% endfor %}
-    </select>
+    </select>{{ m.icon("i-chev-d", "ico-sm") }}</span>
   </form>
   {% endif %}
   {% if from_list or range_urls is defined %}

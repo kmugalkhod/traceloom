@@ -155,3 +155,37 @@ def test_seed_demo_needs_only_the_server_secret_and_its_keys_ingest(
             },
         )
         assert bad.status_code == 401
+
+
+def test_seed_demo_login_works_with_the_printed_credentials(cli_settings, capsys):
+    """The printed email must be one the login form accepts (no reserved domains)."""
+    from fastapi.testclient import TestClient
+
+    from traceloom.main import create_app
+
+    assert cli.main(["seed-demo"]) == 0
+    out = capsys.readouterr().out
+    creds = {
+        ln.split(":", 1)[0]: ln.split(":", 1)[1].strip() for ln in out.splitlines() if ": " in ln
+    }
+    with TestClient(create_app(cli.get_settings())) as client:
+        client.get("/login")
+        client.headers["X-CSRF-Token"] = client.cookies["tl_csrf"]
+        r = client.post(
+            "/login",
+            data={"email": creds["email"], "password": creds["password"]},
+            follow_redirects=False,
+        )
+        assert r.status_code == 303, r.text[:300]
+        assert client.get("/", follow_redirects=False).headers["location"] != "/login"
+
+
+def test_seed_demo_credentials_come_from_settings(cli_settings, capsys, monkeypatch):
+    monkeypatch.setenv("TRACELOOM_DEMO_EMAIL", "owner@example.org")
+    monkeypatch.setenv("TRACELOOM_DEMO_PASSWORD", "another-demo-pass-456")
+    cli.get_settings.cache_clear()
+    assert cli.get_settings().demo_email == "owner@example.org"
+    assert cli.get_settings().demo_password == "another-demo-pass-456"
+    assert cli.main(["seed-demo"]) == 0
+    out = capsys.readouterr().out
+    assert "owner@example.org" in out and "another-demo-pass-456" in out

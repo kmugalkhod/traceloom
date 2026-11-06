@@ -59,7 +59,7 @@
   <div class="stat"><div class="top">Traces</div><b>{{ v.trace_count | intcomma }}</b><span class="sub">last {{ range_label }}</span></div>
   <div class="stat"><div class="top">Total cost</div><b>{{ v.total_cost | cost }}</b><span class="sub">calculated and provided</span></div>
   <div class="stat"><div class="top">Total tokens</div><b>{{ v.total_tokens_label }}</b><span class="sub">across all models</span></div>
-  <div class="stat"><div class="top">Error rate</div><b>{{ v.error_share | percent }}</b><span class="sub">{{ v.error_count | intcomma }} observation{{ "" if v.error_count == 1 else "s" }} at ERROR</span></div>
+  <div class="stat"><div class="top">Error rate</div><b>{{ v.error_share | percent }}</b><span class="sub">{{ v.error_count | plural("observation") }} at ERROR</span></div>
 </div>
 
 <div class="dgrid">

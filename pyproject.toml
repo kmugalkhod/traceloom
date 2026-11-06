@@ -42,7 +42,6 @@ dev = [
     "ruff>=0.5",
     "fakeredis>=2.23",
     "moto[s3]>=5.0",
-    "respx>=0.21",
     "openai>=1.40",
     "anthropic>=0.34",
     "langchain-core>=0.2",

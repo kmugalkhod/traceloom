@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from traceloom.web.formatting import money
 from traceloom.web.templating import templates
 
 
@@ -23,9 +24,9 @@ def fmt_duration(ms: float | None) -> str:
 
 
 def fmt_cost(value: float | None) -> str:
-    if not value:
-        return "$0.0000" if value == 0 else "-"
-    return f"${value:,.4f}"
+    if value is None:
+        return "-"
+    return money(value, 4)
 
 
 def fmt_int(value: Any) -> str:

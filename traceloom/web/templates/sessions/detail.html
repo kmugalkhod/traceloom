@@ -8,7 +8,7 @@
 <div class="statrow">
   <div class="stat"><div class="top">Traces</div><b>{{ session.trace_count }}</b><span class="sub">in time order</span></div>
   <div class="stat"><div class="top">Duration</div><b>{{ session.duration_ms | duration }}</b><span class="sub">{{ session.first_trace_time | when(true) }} to {{ session.last_trace_time | when(true) }}</span></div>
-  <div class="stat"><div class="top">Total cost</div><b>{{ session.total_cost | cost }}</b><span class="sub">sum of {{ session.trace_count }} trace{{ "" if session.trace_count == 1 else "s" }}</span></div>
+  <div class="stat"><div class="top">Total cost</div><b>{{ session.total_cost | cost }}</b><span class="sub">sum of {{ session.trace_count | plural("trace") }}</span></div>
   <div class="stat"><div class="top">Users</div><b>{{ session.user_ids | length }}</b><span class="sub">{{ session.user_ids | join(", ") }}</span></div>
 </div>
 <div class="panel">
@@ -29,5 +29,5 @@
     {% endfor %}
   </div>
 </div>
-<div class="hint">Turns are in time order. Totals equal the sum of the {{ turns | length }} trace{{ "" if turns | length == 1 else "s" }}: {% for t in turns %}{{ t.trace.total_cost | cost }}{{ " + " if not loop.last }}{% endfor %}.</div>
+<div class="hint">Turns are in time order. Totals equal the sum of the {{ turns | length | plural("trace") }}: {% for t in turns %}{{ t.trace.total_cost | cost }}{{ " + " if not loop.last }}{% endfor %}.</div>
 {% endblock %}
