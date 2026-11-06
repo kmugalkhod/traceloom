@@ -28,7 +28,7 @@
       <button type="button" class="btn btn-primary btn-sm" data-dialog-open="create-key">{{ m.icon("i-plus") }}Create API key</button></div>
     <div class="rack">
       <table class="tbl tbl-flat stack-m">
-        <thead><tr><th>Public key</th><th>Note</th><th class="hide-m">Created</th><th class="hide-m">Last used</th><th>Status</th><th class="r"><span class="sr">Actions</span></th></tr></thead>
+        <thead><tr><th>Public key</th><th>Note</th><th class="hide-m">Created</th><th class="hide-m">Last used</th><th>Status</th><th class="r menu"><span class="sr">Actions</span></th></tr></thead>
         <tbody>
         {% for key in keys %}
           <tr{% if key.revoked_at %} class="is-dim"{% endif %}>
@@ -36,10 +36,9 @@
             <td>{{ key.note or "—" }}{% if key.may_move_protected_labels %} <span class="hint">· can move protected labels</span>{% endif %}</td>
             <td class="hide-m muted">{{ key.created_at | date }}</td>
             <td class="hide-m muted">{{ key.last_used_at | ago }}</td>
-            <td>{% if key.revoked_at %}<span class="lv ERROR">Revoked</span>{% else %}<span class="lv ok">Active</span>{% endif %}</td>
-            <td class="r">
-              {% if key.revoked_at %}<span class="hint">Rejected with 401</span>
-              {% else %}
+            <td>{% if key.revoked_at %}<span class="lv ERROR">Revoked</span> <span class="hint">Rejected with 401</span>{% else %}<span class="lv ok">Active</span>{% endif %}</td>
+            <td class="r menu">
+              {% if not key.revoked_at %}
               <div class="menu-wrap">
                 <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="More actions for {{ key.note or key.public_key }}" aria-haspopup="true" aria-expanded="false" data-menu-toggle="key-menu-{{ key.id }}">{{ m.icon("i-more-h") }}</button>
                 <div class="pop pop-right" id="key-menu-{{ key.id }}" data-menu hidden role="menu" aria-label="Key actions">

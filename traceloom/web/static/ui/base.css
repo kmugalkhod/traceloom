@@ -96,3 +96,7 @@
   .ctx-m.row-wrap{flex-wrap:wrap}
   .ctx-m form{flex:1 1 100%}
 }
+
+/* crumbs shown in the page body on mobile only; the desktop copy lives in the context bar */
+.crumbs-m{display:none}
+@container app (max-width:760px){.crumbs-m{display:block}}
