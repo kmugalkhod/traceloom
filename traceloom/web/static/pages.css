@@ -24,3 +24,8 @@
 .user-cell{display:inline-flex;gap:8px;align-items:center}
 .daily td,.daily th{padding:0 12px}
 .chart-fallback{max-width:520px}
+/* Open in playground on trace rows */
+.node .row-act{display:inline-grid;place-items:center;flex:none;width:20px;height:20px;border-radius:var(--r-1);color:var(--ink-3);opacity:0}
+.node:hover .row-act,.node[aria-selected=true] .row-act,.node .row-act:focus-visible{opacity:1}
+.node .row-act:hover{background:var(--surface-3,var(--surface-2));color:var(--accent)}
+@media (hover:none){.node .row-act{opacity:1}}
