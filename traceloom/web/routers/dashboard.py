@@ -12,8 +12,8 @@ from traceloom.container import Container
 from traceloom.db.session import get_db
 from traceloom.ports import DashboardData, DashboardQuery
 from traceloom.web import pagefmt  # noqa: F401  (registers the filters)
-from traceloom.web.context import page_context
-from traceloom.web.envpref import resolve_env, saved_env, switcher_context
+from traceloom.web.context import env_context, page_context
+from traceloom.web.envpref import resolve_env, saved_env
 from traceloom.web.ranges import resolve_range
 from traceloom.web.templating import render
 
@@ -114,7 +114,7 @@ def dashboard_page(
         range_label=RANGE_LABEL[range_key],
         keep={k: v for k, v in params.items() if k != "range"},
         environment=env,
-        **switcher_context(container.trace_store, access.project.id, env, pref),
+        **env_context(db, container.trace_store, access.user, access.project.id, env),
         bucket=bucket,
         empty=data.trace_count == 0,
         base=f"/project/{access.project.id}",

@@ -75,6 +75,7 @@
     </div>
   </div>
 
+  {% include "traces/_delete_matching_button.html" %}
   {% if can(Perm.ANNOTATE) %}
   <button type="button" class="btn btn-primary" data-dialog-open="save-view">{{ m.icon("i-plus") }}Save view</button>
   {% endif %}

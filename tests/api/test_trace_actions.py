@@ -242,3 +242,11 @@ def test_detail_page_slots_load_the_fragments_lazily(world, trace):
         assert 'hx-trigger="load"' in html
     # _scores.html only exports the chips macro, so including it in the page renders nothing
     assert templates.env.get_template("traces/_scores.html").render(**ctx).strip() == ""
+
+
+def test_the_real_detail_page_includes_the_lazy_slots(client, login, world, trace):
+    login_as(client, login, world, Role.MEMBER)
+    html = client.get(base(world)).text
+    for part in ("actions", "tags", "discussion"):
+        assert f'hx-get="{base(world)}/{part}"' in html and 'hx-trigger="load"' in html
+    assert html.count('id="trace-actions"') == 1 and html.count('id="trace-discussion"') == 1

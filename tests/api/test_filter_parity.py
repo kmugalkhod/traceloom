@@ -192,3 +192,29 @@ def test_parity_with_the_traces_list_parser():
                           "latency_max_ms", "cost_min", "cost_max", "bookmarked", "from_time",
                           "to_time"):  # fmt: skip
                 assert getattr(ours, field) == getattr(theirs, field), (url, pref, field)
+
+
+def test_delete_count_equals_the_lists_total_for_the_same_url(client, login, world, traces):
+    """The list's own totals tile and the delete dialog must agree for any filter URL."""
+    admin(client, login, world)
+    for query in (urlencode(URL_FILTERS), "tab=errors", "tag=red&env=prod", "level=WARNING", ""):
+        listing = client.get(f"/project/{pid(world)}/traces?{query}")
+        assert listing.status_code == 200
+        total = int(
+            re.search(r'<div class="top">Traces.*?<b>([\d,]+)</b>', listing.text, re.S)
+            .group(1)
+            .replace(",", "")
+        )
+        count, _ = dialog_count(client, world, query)
+        assert count == total, query
+        link = re.search(r'href="(/project/[^"]*traces-delete-matching\?[^"]*)"', listing.text)
+        assert link, "the list shows Delete matching to an Admin"
+        assert (
+            dialog_count(client, world, link.group(1).split("?", 1)[1].replace("&amp;", "&"))[0]
+            == total
+        )
+
+
+def test_the_list_hides_delete_matching_from_non_admins(client, login, world, traces):
+    login(client, world.user(Role.MEMBER), csrf=False)
+    assert "traces-delete-matching" not in client.get(f"/project/{pid(world)}/traces").text

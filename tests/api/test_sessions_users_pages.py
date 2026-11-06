@@ -314,15 +314,18 @@ def test_saved_environment_applies_to_sessions_users_and_dashboard(
     assert "<b>2</b>" in client.get(base + "/dashboard?env=all").text
 
 
-def test_switcher_context_needs_a_store_that_lists_environments():
-    from traceloom.web.envpref import resolve_env, switcher_context
+def test_env_resolution_matches_the_list():
+    from traceloom.web.envpref import resolve_env
 
-    class Store:
-        def list_environments(self, project_id):
-            return ["dev", "prod"]
-
-    assert switcher_context(object(), "p", None, None) == {}  # no switcher yet
-    ctx = switcher_context(Store(), "p", "staging", "prod")["env_ctx"]
-    assert ctx == {"options": ["dev", "prod", "staging"], "current": "staging", "saved": "prod"}
     assert resolve_env({}, "prod") == "prod" and resolve_env({"env": "all"}, "prod") is None
     assert resolve_env({"env": "dev"}, "prod") == "dev" and resolve_env({}, None) is None
+
+
+def test_pages_show_the_shared_environment_switcher(client, login, world, container, db):
+    seed_trace(
+        container, pid(world), "e1", environment="prod", session_id="s", user_id="u", timestamp=NOW
+    )
+    login(client, world.user(Role.VIEWER), csrf=False)
+    for path in ("/sessions", "/users", "/dashboard"):
+        html = client.get(f"/project/{pid(world)}{path}?env=prod").text
+        assert f'action="/project/{pid(world)}/prefs/env"' in html and 'value="prod"' in html, path
