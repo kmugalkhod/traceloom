@@ -1,0 +1,48 @@
+{# Shared macros. Everything rendered here is autoescaped; never use |safe on user content. #}
+{% macro icon(name, cls="") -%}
+<svg class="ico {{ cls }}" aria-hidden="true"><use href="#{{ name }}"/></svg>
+{%- endmacro %}
+
+{% macro csrf() -%}
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+{%- endmacro %}
+
+{% macro avatar(text, seed=None, size="") -%}
+{% set s = seed or text %}
+<span class="avatar av{{ (s | map('ord') | sum) % 5 + 1 }} {{ size }}">{{ text }}</span>
+{%- endmacro %}
+
+{% macro field(id, label, name=None, type="text", value="", error=None, hint=None, placeholder="", required=False, readonly=False, autocomplete=None, autofocus=False) -%}
+<div class="field">
+  <label for="{{ id }}">{{ label }}</label>
+  <input class="input" id="{{ id }}" name="{{ name or id }}" type="{{ type }}" value="{{ value }}"
+         placeholder="{{ placeholder }}"{% if required %} required{% endif %}{% if readonly %} readonly{% endif %}
+         {% if autocomplete %} autocomplete="{{ autocomplete }}"{% endif %}{% if autofocus %} autofocus-field{% endif %}
+         {% if error %} aria-invalid="true" aria-describedby="e-{{ id }}"{% elif hint %} aria-describedby="h-{{ id }}"{% endif %}>
+  {% if error %}<div class="field-error" id="e-{{ id }}" role="alert">{{ icon("i-error", "ico-sm") }}<span>{{ error }}</span></div>
+  {% elif hint %}<div class="hint" id="h-{{ id }}">{{ hint }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro banner(kind, body, role="status") -%}
+<div class="banner {{ kind }}" role="{{ 'alert' if kind == 'err' else role }}">
+  {{ icon({"err": "i-error", "ok": "i-check", "warn": "i-warn"}.get(kind, "i-info")) }}
+  <div>{{ body }}</div>
+</div>
+{%- endmacro %}
+
+{% macro page_header(title, sub=None) -%}
+<div class="page-h">
+  <div class="grow"><h1>{{ title }}</h1>{% if sub %}<p class="sub">{{ sub }}</p>{% endif %}</div>
+  <div class="row-wrap">{{ caller() if caller is defined else "" }}</div>
+</div>
+{%- endmacro %}
+
+{% macro copy_button(target, label="Copy") -%}
+<button type="button" class="btn btn-sm" data-copy="{{ target }}">{{ icon("i-copy") }}<span data-copy-label>{{ label }}</span></button>
+{%- endmacro %}
+
+{% macro dialog_head(title, icon_name=None) -%}
+<header>{% if icon_name %}{{ icon(icon_name) }}{% endif %}<h2>{{ title }}</h2>
+  <button type="button" class="btn btn-icon btn-ghost btn-sm right" aria-label="Close" data-dialog-close>{{ icon("i-x") }}</button></header>
+{%- endmacro %}

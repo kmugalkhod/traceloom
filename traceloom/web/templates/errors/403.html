@@ -1,0 +1,13 @@
+{% extends layout %}
+{% import "_macros.html" as m %}
+{% block title %}No access{% endblock %}
+{% block content %}
+<div class="empty">
+  <span class="err-code">403</span>
+  <h1>You do not have access to this</h1>
+  <p>{{ message }} If you think this is a mistake, ask an Owner or Admin of the organization to change your role.</p>
+  <div class="row-wrap">
+    <a class="btn btn-primary" href="/">Go to your projects</a>
+  </div>
+</div>
+{% endblock %}

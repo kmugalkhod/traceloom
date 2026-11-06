@@ -1,0 +1,35 @@
+{% import "_macros.html" as m %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="htmx-config" content='{"includeIndicatorStyles":false,"allowEval":false}'>
+<title>{% block title %}Traceloom{% endblock %} · Traceloom</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
+<script src="/static/app.js"></script>
+</head>
+<body>
+{% include "_icons.html" %}
+<div class="app">
+<div class="auth">
+  <aside class="auth-side">
+    <div class="brand">{{ m.icon("i-logo", "ico-lg") }}Traceloom</div>
+    <div class="stack">
+      <h2 class="auth-pitch">See what every run actually did.</h2>
+      <p class="dim auth-lede">Traces, cost and errors from your own agents, on a server your team owns.</p>
+    </div>
+    <span class="hint">Self-hosted. Your data stays on your server.</span>
+  </aside>
+  <main class="auth-main" id="main">
+    <div class="auth-card">
+      <div class="brand auth-brand-m">{{ m.icon("i-logo", "ico-lg") }}Traceloom</div>
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+</div>
+</body>
+</html>
