@@ -133,3 +133,21 @@ def test_stream_failure_midway_is_scrubbed():
 
 def test_registered_by_name():
     assert providers.get_factory("bedrock") is BedrockProvider
+
+
+def test_closing_the_delta_stream_closes_the_event_stream():
+    class Closable:
+        closed = False
+
+        def __iter__(self):
+            return iter(EVENTS)
+
+        def close(self):
+            Closable.closed = True
+
+    provider, _ = make()
+    Fake(provider._client(), Closable())
+    deltas = provider.stream([{"role": "user", "content": "hi"}], MODEL)
+    assert next(deltas) == TextDelta("Hel")
+    deltas.close()  # the caller (a cancelled playground run) walks away mid-stream
+    assert Closable.closed

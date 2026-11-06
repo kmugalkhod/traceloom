@@ -140,31 +140,39 @@ class BedrockProvider(BaseProvider):
         pending: dict[int, dict[str, str]] = {}
         stop_reason: str | None = None
         usage: UsageDelta | None = None
-        for event in response["stream"]:
-            if "contentBlockStart" in event:
-                start = event["contentBlockStart"]
-                use = (start.get("start") or {}).get("toolUse")
-                if use:
-                    pending[start["contentBlockIndex"]] = {
-                        "id": use["toolUseId"],
-                        "name": use["name"],
-                        "json": "",
-                    }
-            elif "contentBlockDelta" in event:
-                block = event["contentBlockDelta"]
-                delta = block.get("delta") or {}
-                if delta.get("text"):
-                    yield TextDelta(delta["text"])
-                elif "toolUse" in delta and block["contentBlockIndex"] in pending:
-                    pending[block["contentBlockIndex"]]["json"] += delta["toolUse"].get("input", "")
-            elif "contentBlockStop" in event:
-                call = pending.pop(event["contentBlockStop"]["contentBlockIndex"], None)
-                if call:
-                    yield ToolCallDelta(call["id"], call["name"], _parse_args(call["json"]))
-            elif "messageStop" in event:
-                stop_reason = event["messageStop"].get("stopReason")
-            elif "metadata" in event:
-                usage = _usage(event["metadata"].get("usage") or {})
+        stream = response["stream"]
+        try:
+            for event in stream:
+                if "contentBlockStart" in event:
+                    start = event["contentBlockStart"]
+                    use = (start.get("start") or {}).get("toolUse")
+                    if use:
+                        pending[start["contentBlockIndex"]] = {
+                            "id": use["toolUseId"],
+                            "name": use["name"],
+                            "json": "",
+                        }
+                elif "contentBlockDelta" in event:
+                    block = event["contentBlockDelta"]
+                    delta = block.get("delta") or {}
+                    if delta.get("text"):
+                        yield TextDelta(delta["text"])
+                    elif "toolUse" in delta and block["contentBlockIndex"] in pending:
+                        pending[block["contentBlockIndex"]]["json"] += delta["toolUse"].get(
+                            "input", ""
+                        )
+                elif "contentBlockStop" in event:
+                    call = pending.pop(event["contentBlockStop"]["contentBlockIndex"], None)
+                    if call:
+                        yield ToolCallDelta(call["id"], call["name"], _parse_args(call["json"]))
+                elif "messageStop" in event:
+                    stop_reason = event["messageStop"].get("stopReason")
+                elif "metadata" in event:
+                    usage = _usage(event["metadata"].get("usage") or {})
+        finally:
+            close = getattr(stream, "close", None)
+            if close is not None:
+                close()
         if usage is not None:
             yield usage
         yield DoneDelta(stop_reason)
