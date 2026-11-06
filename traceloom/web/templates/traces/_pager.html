@@ -1,0 +1,8 @@
+{# The "Showing 1-N of M" footer with Load more. Rendered in place, and out-of-band by HTMX. #}
+{% import "_macros.html" as m with context %}
+<div class="pager" id="pager"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <span>Showing {{ 1 if shown else 0 }}–{{ shown }} of {{ total | count }} · {{ page_size }} per page</span>
+  {% if next_url %}
+  <a class="btn" href="{{ next_url }}" hx-get="{{ next_url }}" hx-target="#trace-rows" hx-swap="beforeend" hx-indicator="#loading-bar">{{ m.icon("i-chev-d") }}Load more</a>
+  {% endif %}
+</div>

@@ -113,9 +113,9 @@
     document.body.removeChild(ta);
   }
 
-  // Selects that save themselves (role pickers), and confirmations on destructive forms.
+  // Selects and checkboxes that save themselves (role pickers, column chooser), and confirmations.
   document.addEventListener('change', function (e) {
-    var s = e.target.closest('select[data-autosubmit]');
+    var s = e.target.closest('[data-autosubmit]');
     if (s && s.form) { s.form.requestSubmit(); }
   });
   document.addEventListener('submit', function (e) {

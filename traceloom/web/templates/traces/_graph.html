@@ -1,0 +1,16 @@
+{% import "_macros.html" as m with context %}
+<div class="graph">
+  <svg viewBox="0 0 {{ graph.width }} {{ graph.height }}" width="{{ graph.width }}" role="img" aria-label="Agent graph: {{ graph.nodes | map(attribute='name') | join(', ') }}">
+    <defs><marker id="ar" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L8 4L0 8z"/></marker></defs>
+    {% for e in graph.edges %}<path class="ge{% if e.kind == 'next' %} seq{% endif %}" {% if e.kind == 'next' %}marker-end="url(#ar)" {% endif %}d="{{ edge_path(e) }}"/>{% endfor %}
+    {% for n in graph.nodes %}
+    <a href="{{ node_urls[n.first_observation_id].page }}" hx-get="{{ node_urls[n.first_observation_id].io }}" hx-target="#io-pane" hx-swap="innerHTML" hx-push-url="{{ node_urls[n.first_observation_id].page }}" data-obs-link data-obs="{{ n.first_observation_id }}">
+      <g class="gn {{ 'err' if n.has_error else '' }}{{ ' sel' if state.obs == n.first_observation_id else '' }}" transform="translate({{ n.x }},{{ n.y }})" role="button" aria-label="{{ n.name or n.type }}, {{ n.count }} call{{ '' if n.count == 1 else 's' }}">
+        <rect width="{{ n.w }}" height="{{ n.h }}" rx="3"/><rect class="tb ty-{{ n.type }} tb-{{ n.type }}" width="6" height="{{ n.h }}"/>
+        <text x="14" y="19">{{ (n.name or n.type)[:20] }}</text>
+        <text class="sub" x="14" y="35">{{ n.count }} call{{ '' if n.count == 1 else 's' }} · {{ n.total_ms | latency }}</text>
+      </g>
+    </a>
+    {% endfor %}
+  </svg>
+</div>

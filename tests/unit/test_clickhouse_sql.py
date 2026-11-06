@@ -493,3 +493,16 @@ def test_update_flags_and_delete():
     assert ClickHouseTraceStore(client2, "db").delete_traces(PID, TraceQuery(name="x")) == 2
     assert_project_scoped(*client2.queries[0])
     assert "name = {name:String}" in client2.queries[0][0]
+
+
+def test_stats_and_environment_queries_are_project_scoped_and_bound():
+    from traceloom.adapters.full.clickhouse_trace_store import build_environments, build_trace_stats
+    from traceloom.ports import TraceQuery
+
+    sql, params = build_trace_stats("p1", TraceQuery(user_id="u1", environment="prod"))
+    assert "FROM traces FINAL" in sql and "project_id = {project_id:String}" in sql
+    assert "countIf(max_level = 'ERROR')" in sql and "quantileExact(0.95)(latency_ms)" in sql
+    assert params["project_id"] == "p1" and params["user_id"] == "u1" and "u1" not in sql
+    sql, params = build_environments("p1")
+    assert "SELECT DISTINCT environment" in sql and "project_id = {project_id:String}" in sql
+    assert params == {"project_id": "p1"}

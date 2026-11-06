@@ -1,0 +1,20 @@
+{# The environment switcher in the context bar. Pages that filter by environment pass env_ctx. #}
+{% import "_macros.html" as m with context %}
+{% if env_ctx %}
+<div class="env-sw rel">
+  <span class="cap">Environment</span>
+  <button type="button" class="picker" aria-haspopup="true" aria-expanded="false" data-menu-toggle="env-menu">
+    <span class="env-dot" aria-hidden="true"></span>{{ env_ctx.current or "All environments" }}{{ m.icon("i-chev-d", "ico-sm") }}
+  </button>
+  <div class="pop pop-env" id="env-menu" data-menu hidden>
+    <form method="post" action="/project/{{ project.id }}/prefs/env">
+      {{ m.csrf() }}<input type="hidden" name="next" value="{{ request_path }}">
+      <button class="item" type="submit" name="env" value="all"{% if not env_ctx.current %} aria-checked="true"{% endif %}>All environments</button>
+      {% for name in env_ctx.options %}
+        <button class="item" type="submit" name="env" value="{{ name }}"{% if name == env_ctx.current %} aria-checked="true"{% endif %}>{{ name }}</button>
+      {% endfor %}
+    </form>
+    <div class="hint">Saved for you in this project.</div>
+  </div>
+</div>
+{% endif %}

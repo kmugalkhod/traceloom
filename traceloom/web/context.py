@@ -174,3 +174,20 @@ def settings_tabs(project_id: str, current: str, role: Role | None) -> list[dict
 def landing(project_id: str) -> str:
     """Where a signed-in user starts inside a project."""
     return f"/project/{project_id}/traces"
+
+
+def env_context(
+    db: Session, store: Any, user: User, project_id: str, selected: str | None
+) -> dict[str, Any]:
+    """What `_env_switcher.html` needs: the project's environments and the current choice.
+
+    `selected` is the environment in effect (None = all). Pages pass what they resolved from the
+    URL and the user's saved preference, so every list shows the same switcher.
+    """
+    from traceloom.services import views
+
+    environments = store.list_environments(project_id)
+    saved = views.get_pref(db, user.id, project_id, "env")
+    if selected and selected not in environments:
+        environments = sorted({*environments, selected})
+    return {"env_ctx": {"options": environments, "current": selected, "saved": saved}}

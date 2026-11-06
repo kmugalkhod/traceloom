@@ -81,6 +81,7 @@
       <button type="button" class="btn btn-icon" aria-label="Switch theme" data-theme-toggle>{{ m.icon("i-sun") }}</button>
     </div>
     <main class="main" id="main" tabindex="-1">
+      {% block ctx_m %}{% endblock %}
       {% block content %}{% endblock %}
     </main>
   </div>
