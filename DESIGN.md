@@ -1,6 +1,6 @@
 # Traceloom design standard (v3)
 
-Revised after human review and matching the approved v3 mockup: a neutral SaaS dashboard reference supplied by the owner is the pinned look. We take its language only (a floating sidebar, an inner rounded card, soft white panels, status pills, a near-black primary, pastel initial avatars), not its brand or content. v1 (the strip rack) is retired. Tokens live in the `:root` block of `sdlc/changes/2026-11-06-phase1-tracing-core/design/mockup.html`; copy it into `traceloom/web/static/app.css`.
+Revised after human review and matching the approved v3 mockup: a neutral SaaS dashboard reference supplied by the owner is the pinned look. We take its language only (a floating sidebar, an inner rounded card, soft white panels, status pills, a near-black primary, pastel initial avatars), not its brand or content. v1 (the strip rack) is retired. Tokens live in the `:root` block of `sdlc/changes/2026-11-06-phase1-tracing-core/design/mockup.html`; copy it into `traceloom/web/static/app.css`. Phase 2 adds components only (see the last section; CSS in `sdlc/changes/2026-11-06-phase2-prompts-playground/design/mockup.html`) and changes no token.
 
 Mode: Operate. Light and dark are both first-class: system default, a toggle, persisted in `localStorage` and a cookie.
 
@@ -38,3 +38,16 @@ Desktop: 244px floating sidebar (brand tile, org / project picker, Observe and W
 
 ## Components
 Shell, buttons (primary black, default white, danger, ghost, icon, small), inputs with inline errors, switch, segmented tray (selected = raised white), tabs, tags, status pills, source pills (provided / calculated / annotation), score chip `name: value`, panels, banners, empty states, dialogs, popover menus, tables (tinted header bar, 48px rows, level marker, cursor row, selected row), stat row (label, tinted icon chip, 30px number, caption), tree, timeline with TTFT marker, agent-graph node, IO viewer, comments, bars. States: default, hover, focus-visible (2px ring, 2px offset), disabled (50%, `aria-disabled`), loading, empty, error, selected.
+
+## Phase 2 additions (prompts, playground, connections, webhooks)
+No token, font, radius or shadow changed. Nav: a **Build** group (Prompts, Playground) sits between Observe and Project; on mobile the bottom bar is Traces, Prompts, Playground, Dashboard, More (More holds Sessions, Users, Settings). Settings tabs gain LLM connections and Webhooks, rendered for Admins only.
+- **Label pill** (`.lab`): 999 radius, word + optional `vN`. `production` is green with a lock (protected); `latest` is dashed outline; others use `--accent-soft`; "No production label" is amber with an icon.
+- **Version pill** (`.vp`): mono `vN`, radius 7; current/selected uses `--accent-soft`. **Type pill** and **tag** reuse chip sizing.
+- **Editor** (`.ed`): mono 12.5px, line gutter, `--field-line` border, 2px focus ring. `{{variable}}` is `.var` (accent-soft fill, accent text, outline, weight 600); `@@@prompt:...@@@` is `.inc` (tool hue, same treatment). Highlights always carry an outline, never colour alone.
+- **Message card** (`.mcard`): role select, grip, up/down/remove icon buttons; assistant header uses `--accent-soft`; placeholder messages are muted.
+- **Diff** (`.diff`, `.cdiff`): line rows with old/new numbers and a `+` or minus sign column on `--ok-bg` / `--err-bg`; config diff is key, old, arrow, new. All values are text.
+- **Output panel**: streaming text with a block caret (stops under reduced motion), a status chip (Streaming, Done, Stopped, Failed), a Stop button (`.btn-stop`: outlined red) that replaces Run while streaming, and a 6-cell **usage row** (`.usage`: input, output, total tokens, cost with the `calculated` source pill, latency, time to first token; pending values render muted).
+- **Compare columns** (`.cols`): letter badge (A to D, series colours plus the letter), model select, params line, own output and usage. 3 in a row at wide widths, 2 by 2 for 4, stacked at <=1100px.
+- **Connection row** (`.conn`): provider tile (pastel pair), name, provider pill, key hint `…last4`, last-test pill, actions. Secrets are only ever a masked field with Replace key.
+- **Secret-once** (`.secret` inside an ok banner), **delivery status** reuses `.lv` pills (Delivered, Retrying n of 5, Failed), **toast** (`.toast`, near-black, bottom right, with Undo).
+- A disabled control a role cannot use stays visible only where the role can reasonably ask for it (production move for Members, with the reason under it); everywhere else it is not rendered.
