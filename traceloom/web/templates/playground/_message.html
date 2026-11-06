@@ -1,0 +1,16 @@
+{# One editable message card. playground.js clones the <template> built from this macro. #}
+{% macro card(role="user", content="") -%}
+<div class="mcard {{ role }}" data-msg>
+  <header>
+    <span class="grip" aria-hidden="true">{{ m.icon("i-grip", "ico-sm") }}</span>
+    <select class="role-sel" data-msg-role aria-label="Role">
+      {% for r in ("system", "user", "assistant") %}<option value="{{ r }}"{% if r == role %} selected{% endif %}>{{ r | title }}</option>{% endfor %}
+    </select>
+    <span class="grow"></span>
+    <button type="button" class="btn btn-icon btn-sm btn-ghost" data-msg-up aria-label="Move message up">{{ m.icon("i-up", "ico-sm") }}</button>
+    <button type="button" class="btn btn-icon btn-sm btn-ghost" data-msg-down aria-label="Move message down">{{ m.icon("i-down", "ico-sm") }}</button>
+    <button type="button" class="btn btn-icon btn-sm btn-ghost" data-msg-remove aria-label="Remove message">{{ m.icon("i-x", "ico-sm") }}</button>
+  </header>
+  <div class="ed-wrap" data-ed><pre class="ed-hl" aria-hidden="true"></pre><textarea class="ed-ta" data-msg-text rows="3" aria-label="Message content" spellcheck="false">{{ content }}</textarea></div>
+</div>
+{%- endmacro %}
