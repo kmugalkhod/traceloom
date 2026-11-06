@@ -19,3 +19,4 @@
 .variant-usage div{display:flex;gap:6px}
 .variant-usage dt{color:var(--ink-3)}
 .variant-usage dd{margin:0;font-family:var(--font-mono)}
+.v-note{grid-column:1/-1;margin:0}
