@@ -1,6 +1,6 @@
 # Plan: Traceloom Phase 2 — prompt management and playground
 
-From: spec.md (d8fdf0f) · Status: accepted · Accepted by: Kunal Mugalkhod
+From: spec.md (d8fdf0f) · Status: implemented · Accepted by: Kunal Mugalkhod
 
 <!-- Status: draft -> accepted (engineer; tech lead for higher-risk) -> implemented.
      Keep this file in sync with the code: a deviation updates plan.md in the same commit. -->
@@ -194,6 +194,67 @@ Also:
 - 2026-11-06 — The playground API lives in `web/routers/playground_api.py` (the page router `playground.py` stays with the UI task), and pre-fill normalisation is a new `llm/prefill.py`. `GET /from-observation/{obs_id}` takes a required `?trace_id=` because `TraceStore` has no observation-by-id lookup. JSON clients must send `Accept: application/json` to get the error envelope on these `/project/...` paths. The stream is an async generator that pulls each provider chunk with `run_in_threadpool`, checks `request.is_disconnected()` between chunks and cancels the run in `finally` (newer servers report a disconnect only as a failed write, after which Starlette skips background tasks); each adapter closes its SDK stream (and the client it built) in `finally`, because dropping the HTTP connection is how the provider learns the client left; a provider read already blocked in its worker thread ends at its next chunk.
 - 2026-11-06 — Include cycles are refused before the write: the prompt service resolves the include graph as it will be after the save or label move (a pending-version overlay on the resolver, root = the written version), so a loop through `latest`, a label or itself fails with a 400 naming the path. Why: QA found saves and label moves that closed a loop were accepted. A flush-then-rollback savepoint was avoided because pysqlite commits when a savepoint is released before any write has begun the transaction.
 
+- 2026-11-06 — Design refresh applied app-wide, requested by Kunal: the v3.1 declutter rules (14px/1.5 body, 24px titles, 48px rows, 36px controls, 24px section gaps) are in `app.css` on `:root` and unscoped, so every Phase 1 page changes. Markup changed only where nothing could be lost: trace detail gets a second details row (Environment, Release, Version); the dashboard Breakdown tab panel and the "..." menus on Phase 1 pages were completed in the review fixes (see below).
+- 2026-11-06 — `/prompts/new` is shared by the new-prompt and new-version editors (`?from=<name>&version=<n>` starts a version), and prompt-name routes use a `{name:promptname}` path convertor (`web/prompt_paths.py`) that never matches the literal `new`, so router include order cannot shadow it.
+- 2026-11-06 — Compare and Save-as-prompt are self-contained fragments the T-25 page mounts: `GET /playground/compare-panel` and `GET /playground/save-dialog` return HTML that `playground_compare.js` / `playground_save.js` insert on first use, and both read the shared editor through T-25's `window.Playground` API (`getState`, `setState`, `runStream`, `setMode`) and the `pg:action` / `pg:state` events (an earlier draft used a `traceloomPlayground.snapshot()` hook, superseded). `POST /playground/save` gained `mode` (`auto` | `new` | `version`) and returns the new version's `url`. Trace detail shows `prompt: <name> v<n>` and "Open in playground" (`?obs=&trace_id=`) on generations, Member+ only.
+- 2026-11-06 — A Load prompt dialog was added (`GET /playground/load-dialog`, `routers/playground_load.py`, `playground/_load.html`, handled in `playground_save.js`): the playground menu's "Load prompt" item had no owner. It lists the project's chat prompts with their latest version, then navigates to `?prompt=<name>&version=<n>`, which T-25 loads.
+- 2026-11-06 — Which model parameters the playground offers comes from one rule set, `llm/models.PARAM_RULES` / `supported_params(provider, model)`, handed to the page as `config.paramRules` and evaluated in `playground.js`. Claude 5-family ids (listed, unlisted, dated, `-latest`) and OpenAI reasoning models (o-series, gpt-5) take only `max_tokens`. Why: Claude 5-family models reject sampling parameters, so the adapter drops them. Consequence: AC-4 was amended (spec.md, decided by Kunal Mugalkhod).
+- 2026-11-06 — Shared Phase 1 behaviour changed (beyond the CSS refresh): `app.js` places every popup menu with `position: fixed` (right-aligned to its button, flipped above when needed, clamped to an 8px margin, closed on scroll or resize), and menus are keyboard-navigable (focus on the first item, ArrowUp/Down, Escape returns focus). The sidebar gains a "Build" group (Prompts, Playground); on phones the bottom bar is Traces, Prompts, Playground, Dashboard, More, with a More sheet holding Sessions, Users and Settings (`BOTTOM_NAV` / `MORE_NAV` in `web/context.py`, `base.html`). New e2e tests: `tests/e2e/test_menus_viewport.py`, `tests/e2e/test_prompt_menu_keyboard.py`.
+- 2026-11-06 — Files beyond "Files that change": `web/prompt_views.py`, `web/prompt_paths.py`, `static/playground_compare.{js,css}`, `playground_save.js`, `connections.js`, `prompt_detail.js`, `pages.css`, `auth/api_keys.py`, `auth/deps.py` (`may_move_protected_labels` on `ResolvedKey`), `web/routers/settings_keys.py` (the key-creation checkbox), `container.py` (`register_webhook_handler`), `_icons.html`, `base.html`. `ingest/process.py` is unchanged: the queue registry replaced the planned edit.
+- 2026-11-06 — `claude-haiku-4-5` keeps `valid_from: 2024-01-01` from the Phase 1 seed instead of FR-X3's 2026-01-01, because re-dating would drop pricing for older traces. Decided by the lead at build time.
+- 2026-11-06 — The optional live provider smoke tests (`TRACELOOM_LIVE_LLM=1`, NFR-5 / Risks) are deferred. The default suite stays offline with fake transports for all six providers.
+- 2026-11-06 — "Tests that prove it" names differ from the plan; the behaviour is covered by renamed tests, among them:
+  - `test_get_defaults_to_production_else_latest`
+  - `test_chat_compile`
+  - `test_stale_while_revalidate_with_one_second_ttl`
+  - `test_start_generation_prompt_sets_name_and_version`
+  - `test_fallback_prompt_is_not_linked`
+  - `test_member_moves_staging_and_it_is_audited`
+  - `test_retry_then_success_signed` (covers signature verification)
+  - `test_pending_deliveries_are_redelivered_after_restart`
+  - `test_secret_is_encrypted_and_only_a_hint_is_exposed` and `test_failing_test_connection_never_reveals_the_secret`
+  - `test_hint_shows_last_four`
+  - `test_rotated_key_still_decrypts_old_data`
+  - `test_startup_fails_outside_dev_without_key`
+  - `test_cycle_raises_naming_the_reference` and `test_cyclic_include_is_400_naming_the_cycle`
+  - `test_resolve_replaces_and_records_dependency_versions`
+
+- 2026-11-06 — Review fixes (backend and security):
+  - **LLM HTTP and SSRF:** LLM provider HTTP goes through `traceloom/llm/http.py`.
+    - A pinned httpx/httpx2 transport runs `resolve_target` on every request and connects to the checked IP with the original Host header and SNI.
+    - It never follows redirects and ignores proxy environment variables (`trust_env=False`), so a corporate HTTP proxy can't be used for LLM calls.
+    - An IP-literal host is checked as written, without a DNS lookup.
+    - Bedrock checks its custom endpoint whenever a client is built, but isn't pinned, because boto3 resolves the name itself.
+    - The SSRF guard also unwraps NAT64 and 6to4 addresses.
+  - **Webhook delivery:**
+    - Deliveries run off the ingestion consumer: a 2-thread lane of the in-process queue in lite mode, and a 2-thread `DeliveryPool` in full mode. Each holds at most 100 waiting deliveries and drops beyond that, because the sweeper re-sends pending rows.
+    - Each sweep or kick hands out at most 20. The timeout is 10 s with a 3 s connect limit, and the response body is never read.
+    - Deliveries are claimed with one conditional UPDATE. 408 and 429 are retried.
+    - `webhook.test` is delivered even when the webhook is disabled.
+    - Prompt and label writes (web and public API) commit, then kick delivery.
+  - **Label races:** a label move that races a concurrent insert uses `INSERT … ON CONFLICT DO NOTHING` and then an update, and lost races return 409 (`PromptConflict`).
+  - **Composition limits:** composition is capped at 100 include expansions and 1,000,000 expanded characters per resolution, with lookups memoised per run. A version is capped at 200,000 characters, and public prompt write bodies at 2,000,000 bytes (413).
+  - **Token usage:** OpenAI and Google report input as prompt tokens minus cached tokens, so cached tokens are no longer charged twice. `tests/unit/providers/test_openai.py:61` and `test_google.py:88` encoded the double count (input 12 with 4 cached) and now expect 8, a correction, not a loosening. `UsageDelta.total_tokens` includes cache_read and cache_write.
+  - **Replayed tool calls:** the demo agent records tool calls with ids, and prefill pairs or synthesises ids for older traces.
+  - **Config:** `TRACELOOM_ENCRYPTION_KEY` entries are each validated as Fernet keys at startup.
+  - **SDK:** a chat fallback given as a string becomes one user message, and failed stale refreshes back off.
+  - **Provider clients:** each is created inside the `try`, so it's always closed.
+
+- 2026-11-06 — Review fixes (UI, decided by Kunal Mugalkhod to include the Phase 1 restructure):
+  - **Dashboard:** Cost, Tokens and both latency tables share one tabbed Breakdown panel (roving tabindex, arrows, Home/End, 2×2 tabs at ≤760px).
+  - **"..." menus on Phase 1 pages:**
+    - traces list: "Save view" is the only primary; saved views, columns and "Delete matching" are in one menu;
+    - trace detail: Bookmark stays visible; share, copy ids and delete are in a menu that renders only for HTMX requests, so `/actions` without JavaScript keeps every control inline;
+    - session and user detail: "View traces" plus a menu;
+    - settings members, invites, keys and models: row menus.
+  - **Keys and Models tables** use stacked mobile rows, so their actions stay on screen at 390px.
+  - **Menus app-wide:** choosing a menu item now closes the menu and returns focus to its button.
+  - **Playground:** shows "Ended early" / "The stream ended early" when a stream closes without `done`, in single and compare mode. The compare menu item reads "Exit compare" while compare is on.
+  - **Webhooks panel:** uses `panel-vis`.
+  - **Tests:** new tests cover AC-4 as amended (`test_rerun_of_a_claude5_generation_drops_temperature`) and AC-8's legacy loop (`test_api_get_on_a_legacy_loop_in_the_db_is_400_naming_the_cycle`). The vacuous assertion in `test_connections_page.py` now checks the rendered saved-headers element (a correction).
+  - **Docs:** DESIGN.md has a "Phase 1 screens as built" section.
+  - **Visual check:** 15 of 40 screenshots were viewed.
+
 ## Proposed `.env.example` lines (for the human; agents cannot edit that file)
 ```
 # --- Phase 2: prompts, playground, webhooks ---
@@ -208,7 +269,3 @@ TRACELOOM_PROVIDER_TIMEOUT_SECONDS=120
 # SDK (the app that calls get_prompt): seconds to cache a fetched prompt; 0 disables the cache.
 TRACELOOM_PROMPT_CACHE_TTL=60
 ```
-- 2026-11-06 — Design refresh applied app-wide, requested by Kunal: the v3.1 declutter rules (14px/1.5 body, 24px titles, 48px rows, 36px controls, 24px section gaps) are in `app.css` on `:root` and unscoped, so every Phase 1 page changes. Markup changed only where nothing could be lost: trace detail gets a second details row (Environment, Release, Version); the dashboard Breakdown tab panel and the "..." menus on Phase 1 pages are not restructured yet.
-- 2026-11-06 — `/prompts/new` is shared by the new-prompt and new-version editors (`?from=<name>&version=<n>` starts a version), and prompt-name routes use a `{name:promptname}` path convertor (`web/prompt_paths.py`) that never matches the literal `new`, so router include order cannot shadow it.
-- 2026-11-06 — Compare and Save-as-prompt are self-contained fragments the T-25 page mounts: `GET /playground/compare-panel` and `GET /playground/save-dialog` return HTML that `playground_compare.js` / `playground_save.js` insert on first use, and both read the shared editor through `window.traceloomPlayground.snapshot()`. `POST /playground/save` gained `mode` (`auto` | `new` | `version`) and returns the new version's `url`. Trace detail shows `prompt: <name> v<n>` and "Open in playground" (`?obs=&trace_id=`) on generations, Member+ only.
-- 2026-11-06 — A Load prompt dialog was added (`GET /playground/load-dialog`, `routers/playground_load.py`, `playground/_load.html`, handled in `playground_save.js`): the playground menu's "Load prompt" item had no owner. It lists the project's chat prompts with their latest version, then navigates to `?prompt=<name>&version=<n>`, which T-25 loads.
