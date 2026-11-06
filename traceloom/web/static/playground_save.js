@@ -47,7 +47,10 @@
       var snap = window.Playground ? window.Playground.getState() : null;
       var name = (mode() === 'new' ? nameInput.value : select.value).trim();
       var message = form.elements.commit_message.value.trim();
-      if (!snap || !snap.messages || !snap.messages.length) { banner(errorBox, 'There are no messages to save.'); return; }
+      // Prompts hold system, user and assistant messages; tool results and tool calls are not saved.
+      var kept = snap && snap.messages ? snap.messages.filter(function (m) { return m.role !== 'tool'; }) : [];
+      var dropped = snap && snap.messages ? snap.messages.length - kept.length : 0;
+      if (!kept.length) { banner(errorBox, 'There are no messages to save.'); return; }
       if (!name) { banner(errorBox, 'Enter a prompt name.'); return; }
       if (!message) { banner(errorBox, 'A commit message is required.'); return; }
       var submit = form.querySelector('[data-save-submit]');
@@ -58,7 +61,7 @@
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-Token': cookie('tl_csrf') },
         body: JSON.stringify({
           name: name, mode: mode(), commit_message: message,
-          messages: snap.messages.map(function (m) { return { role: m.role, content: m.content || '' }; }),
+          messages: kept.map(function (m) { return { role: m.role, content: m.content || '' }; }),
           model: snap.model || null, params: snap.params || {}, tools: snap.tools || []
         })
       }).then(function (r) {
@@ -70,7 +73,8 @@
           banner(errorBox, err || 'Could not save the prompt.');
           return;
         }
-        banner(doneBox, 'Saved ' + res.data.name + ' as version ' + res.data.version + '.', res.data.url, 'View version');
+        var note = dropped ? ' ' + dropped + ' tool message' + (dropped === 1 ? ' was' : 's were') + ' not saved.' : '';
+        banner(doneBox, 'Saved ' + res.data.name + ' as version ' + res.data.version + '.' + note, res.data.url, 'View version');
         form.elements.commit_message.value = '';
       }).catch(function () {
         submit.disabled = false;

@@ -57,21 +57,34 @@
     });
   }
 
-  function addMessage(v, role, content) {
+  // A message row edits role and content. Tool calls and tool call ids are not editable here; a row
+  // copied from the shared messages keeps them and says so.
+  function addMessage(v, message) {
+    message = message || { role: 'user', content: '' };
     var row = document.createElement('div');
     row.className = 'v-msg';
     var sel = document.createElement('select');
     sel.className = 'select'; sel.setAttribute('data-m-role', ''); sel.setAttribute('aria-label', 'Role');
-    ['system', 'user', 'assistant'].forEach(function (r) {
+    ['system', 'user', 'assistant', 'tool'].forEach(function (r) {
       var o = document.createElement('option'); o.value = r; o.textContent = r; sel.appendChild(o);
     });
-    sel.value = role || 'user';
+    sel.value = message.role || 'user';
     var ta = document.createElement('textarea');
     ta.className = 'input'; ta.rows = 2; ta.setAttribute('data-m-content', ''); ta.setAttribute('aria-label', 'Message');
-    ta.value = content || '';
+    ta.value = message.content || '';
+    var extra = {};
+    if (message.tool_calls) { extra.tool_calls = message.tool_calls; }
+    if (message.tool_call_id) { extra.tool_call_id = message.tool_call_id; }
+    row.__extra = extra;
     var rm = document.createElement('button');
     rm.type = 'button'; rm.className = 'btn btn-icon btn-ghost btn-sm'; rm.setAttribute('data-m-remove', ''); rm.setAttribute('aria-label', 'Remove message'); rm.textContent = '×';
     row.appendChild(sel); row.appendChild(ta); row.appendChild(rm);
+    if (Object.keys(extra).length) {
+      var note = document.createElement('p');
+      note.className = 'hint v-note';
+      note.textContent = extra.tool_calls ? 'Keeps its tool calls (not editable here).' : 'Keeps its tool call id (not editable here).';
+      row.appendChild(note);
+    }
     $(v, '[data-v-messages]').appendChild(row);
   }
 
@@ -152,8 +165,12 @@
 
   function ownMessages(v) {
     return all(v, '.v-msg').map(function (row) {
-      return { role: $(row, '[data-m-role]').value, content: $(row, '[data-m-content]').value };
-    }).filter(function (m) { return m.content.trim() !== ''; });
+      var m = { role: $(row, '[data-m-role]').value, content: $(row, '[data-m-content]').value };
+      var extra = row.__extra || {};
+      if (m.role === 'assistant' && extra.tool_calls) { m.tool_calls = extra.tool_calls; }
+      if (m.role === 'tool' && extra.tool_call_id) { m.tool_call_id = extra.tool_call_id; }
+      return m;
+    }).filter(function (m) { return m.content.trim() !== '' || m.tool_calls; });
   }
 
   function stateFor(v, shared) {
@@ -217,7 +234,7 @@
     else if (t.closest('[data-run-all]')) { runAll(); }
     else if (v && t.closest('[data-variant-remove]')) { removeVariant(v); }
     else if (v && t.closest('[data-variant-stop]')) { stop(v); }
-    else if (v && t.closest('[data-v-add-message]')) { addMessage(v, 'user', ''); }
+    else if (v && t.closest('[data-v-add-message]')) { addMessage(v); }
     else if (v && t.closest('[data-m-remove]')) { t.closest('.v-msg').remove(); }
   });
 
@@ -235,8 +252,8 @@
       own.hidden = e.target.checked;
       if (!e.target.checked && !all(v, '.v-msg').length) {
         var shared = window.Playground ? window.Playground.getState() : { messages: [] };
-        (shared.messages || []).forEach(function (m) { addMessage(v, m.role, m.content); }); // start from a copy of the shared messages
-        if (!all(v, '.v-msg').length) { addMessage(v, 'user', ''); }
+        (shared.messages || []).forEach(function (m) { addMessage(v, m); }); // start from a copy of the shared messages
+        if (!all(v, '.v-msg').length) { addMessage(v); }
       }
     }
   });
