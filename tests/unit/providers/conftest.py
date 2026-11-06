@@ -57,3 +57,9 @@ def anthropic_script():
 @pytest.fixture
 def openai_script():
     return _script("openai")
+
+
+@pytest.fixture
+def google_script():
+    pytest.importorskip("google.genai")
+    return _script("openai")  # any httpx2-based SDK gives the right module; genai accepts httpx2
