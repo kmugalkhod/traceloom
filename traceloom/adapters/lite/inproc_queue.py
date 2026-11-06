@@ -9,12 +9,12 @@ from __future__ import annotations
 import logging
 import threading
 from collections import deque
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from typing import Any
 
-log = logging.getLogger("traceloom.queue")
+from traceloom.queue_registry import INGEST, Handler, HandlerRegistry
 
-Handler = Callable[[Mapping[str, Any]], None]
+log = logging.getLogger("traceloom.queue")
 
 
 class InProcQueue:
@@ -25,6 +25,7 @@ class InProcQueue:
         self._paused = False
         self._stopped = True
         self._handler: Handler | None = None
+        self._registry = HandlerRegistry()
         self._thread: threading.Thread | None = None
 
     # --- Queue port -------------------------------------------------------------------------
@@ -34,11 +35,17 @@ class InProcQueue:
             self._items.append(dict(message))
             self._cond.notify_all()
 
+    def register(self, message_type: str, handler: Handler) -> None:
+        """Route messages of `message_type` to `handler` (start() registers the ingest one)."""
+        self._registry.register(message_type, handler)
+
     def start(self, handler: Handler) -> None:
+        """`handler` takes messages without a type (ingest batches)."""
         with self._cond:
             if self._thread is not None and self._thread.is_alive():
                 return
             self._handler, self._stopped = handler, False
+            self._registry.register(INGEST, handler)
         self._thread = threading.Thread(target=self._run, name="traceloom-queue", daemon=True)
         self._thread.start()
 
@@ -101,7 +108,7 @@ class InProcQueue:
 
     def _handle(self, item: Mapping[str, Any]) -> None:
         try:
-            self._handler(item)  # type: ignore[misc]
+            self._registry.dispatch(item)
         except Exception:
             # The raw batch stays pending in the blob store; the sweeper replays it.
             log.exception("queue handler failed for %r", dict(item))
