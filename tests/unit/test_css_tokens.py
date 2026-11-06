@@ -5,8 +5,15 @@ from pathlib import Path
 
 UI_DIR = Path(__file__).resolve().parents[2] / "traceloom" / "web" / "static" / "ui"
 FILES = [
-    "base", "traces", "trace-detail", "trace-tree", "trace-io",
-    "dashboard", "prompts", "playground", "settings",
+    "base",
+    "traces",
+    "trace-detail",
+    "trace-tree",
+    "trace-io",
+    "dashboard",
+    "prompts",
+    "playground",
+    "settings",
 ]
 LITERAL_COLOUR = re.compile(r"#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(")
 
@@ -37,6 +44,13 @@ def test_no_literal_colours_in_ui_css():
 
 
 def test_literal_colour_pattern_catches_literals():
-    for bad in ("color:#fff", "color: #1a2b3c", "background:rgb(0,0,0)", "x:rgba(1,2,3,.5)", "x:hsl(1,2%,3%)"):
+    bad_samples = (
+        "color:#fff",
+        "color: #1a2b3c",
+        "background:rgb(0,0,0)",
+        "x:rgba(1,2,3,.5)",
+        "x:hsl(1,2%,3%)",
+    )
+    for bad in bad_samples:
         assert LITERAL_COLOUR.search(bad), bad
     assert not LITERAL_COLOUR.search("color:var(--fg);margin:0")
