@@ -1106,3 +1106,12 @@ dialog.dlg .dialog{width:100%}
 /* Dialogs whose body and footer sit inside a <form> get the same spacing as direct children */
 .dialog>form>.body{padding:6px 20px 18px;display:flex;flex-direction:column;gap:16px}
 .dialog>form>footer{padding:14px 20px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;background:var(--surface);border-radius:0 0 20px 20px}
+
+/* ===== LLM connections: custom-model chips ===== */
+.chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;height:auto;min-height:36px;padding:4px 8px;cursor:text}
+.chips:focus-within{outline:2px solid var(--focus);outline-offset:2px}
+.chip-list{display:contents}
+.chip-in{flex:1 1 120px;min-width:80px;border:0;background:transparent;outline:0;font-size:12.5px;color:var(--ink);padding:4px 0}
+.chips .chip button{border:0;background:none;cursor:pointer;color:var(--ink-2);padding:0 0 0 4px;font-size:14px;line-height:1}
+.dialog [hidden]{display:none!important}
+.panel.panel-vis{overflow:visible}
