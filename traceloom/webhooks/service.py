@@ -123,6 +123,20 @@ def list_deliveries(
     return list(db.scalars(stmt))
 
 
+def recent_deliveries(
+    db: Session, project: Project, actor: Actor, limit: int = 50
+) -> list[WebhookDelivery]:
+    """The project's newest deliveries across all its webhooks (project-scoped)."""
+    _require(actor)
+    stmt = (
+        select(WebhookDelivery)
+        .where(WebhookDelivery.project_id == project.id)
+        .order_by(WebhookDelivery.created_at.desc(), WebhookDelivery.id)
+        .limit(max(1, min(limit, 200)))
+    )
+    return list(db.scalars(stmt))
+
+
 def create(
     db: Session,
     project: Project,
