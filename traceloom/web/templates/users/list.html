@@ -8,7 +8,7 @@
 {% if users %}
 <div class="panel">
   <div class="rack">
-    <table class="tbl roomy keepcols" aria-label="Users">
+    <table class="tbl keepcols" aria-label="Users">
       <thead>
         <tr>
           <th class="lvl"></th>
@@ -42,14 +42,15 @@
   </div>
 </div>
 {% elif not first_page %}
-<div class="panel"><div class="empty"><h2>No more users</h2><p><a href="{{ first_href }}">Back to the first page</a></p></div></div>
+<div class="panel">
+  {% call m.empty_state("i-users", "No more users") %}<div class="acts"><a class="btn" href="{{ first_href }}">Back to the first page</a></div>{% endcall %}
+</div>
 {% else %}
 <div class="panel">
-  <div class="empty">
-    <h2>No users yet</h2>
-    <p>Set a <span class="mono">user_id</span> on your traces to see who is using your agents and what they cost.</p>
+  {% call m.empty_state("i-users", "No users yet", "Set a user_id on your traces to see who is using your agents and what they cost.") %}
     <div class="code" tabindex="0"><span class="n">update_current_trace</span>(user_id=<span class="s">"usr_maria"</span>)</div>
-  </div>
+    {% if can("project:api_keys") %}<div class="acts"><a class="btn btn-primary" href="/project/{{ project.id }}/settings/keys">Create an API key</a></div>{% endif %}
+  {% endcall %}
 </div>
 {% endif %}
 {% endblock %}
