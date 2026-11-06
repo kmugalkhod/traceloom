@@ -194,7 +194,8 @@
           "qa": "Open a trace with many spans at 1440px. Scroll the page and check the tree panel stays sticky and scrolls inside itself, durations line up on the right, and the toolbar is one row. At 390px check the panes stack with the tree first.",
           "ui": true,
           "depends_on": [
-            "T1"
+            "T1",
+            "T6"
           ]
         },
         {
@@ -218,7 +219,8 @@
           "qa": "Open a trace, select a span and check the Input/Output blocks look light with a copy button. Add a comment and a score as a Member and check the two panels are top-aligned and the score form fields are one row of equal height.",
           "ui": true,
           "depends_on": [
-            "T1"
+            "T1",
+            "T7"
           ]
         },
         {
