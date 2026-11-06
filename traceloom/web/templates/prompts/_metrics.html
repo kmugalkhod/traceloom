@@ -40,14 +40,15 @@ with traceloom_sdk.start_generation("answer", model="...", prompt=prompt):
   <div class="panel-h"><h2>Linked generations</h2><span class="hint right">Most recent {{ limit }}</span></div>
   <div class="rack">
     <table class="tbl tbl-flat cardrows">
-      <thead><tr><th>Time</th><th>Trace</th>{% if version == "all" %}<th>Version</th>{% endif %}<th class="hide-m">Model</th><th class="r hide-m">Latency</th><th class="r hide-m">Tokens</th><th class="r">Cost</th></tr></thead>
+      <thead><tr><th>Trace</th><th class="hide-m">Time</th>{% if version == "all" %}<th>Version</th>{% endif %}<th class="hide-m">Model</th><th class="r hide-m">Latency</th><th class="r hide-m">Tokens</th><th class="r">Cost</th></tr></thead>
       <tbody>
       {% for g in generations %}
         <tr>
-          <td class="muted m-show">{{ g.start_time | ago }}</td>
           <td class="m-show"><a href="/project/{{ project.id }}/traces/{{ g.trace_id | urlencode }}" class="mono">{{ g.trace_id }}</a>
-            {% if g.level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif g.level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% endif %}</td>
-          {% if version == "all" %}<td><span class="vp">v{{ g.version }}</span></td>{% endif %}
+            {% if g.level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif g.level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% endif %}
+            <span class="t-when muted">{{ g.start_time | ago }}</span></td>
+          <td class="hide-m muted">{{ g.start_time | ago }}</td>
+          {% if version == "all" %}<td class="hide-m"><span class="vp">v{{ g.version }}</span></td>{% endif %}
           <td class="hide-m mono">{{ g.model or "–" }}</td>
           <td class="num hide-m">{{ g.latency_ms | latency }}</td>
           <td class="num hide-m">{{ g.tokens | count }}</td>

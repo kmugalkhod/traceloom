@@ -988,7 +988,7 @@ dialog.dlg .dialog{width:100%}
 .inputs-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding-top:8px}
 .msgs{display:flex;flex-direction:column;gap:12px}
 .pgx .outp{border-left:0}
-@container app (max-width:1100px){.drawer{position:static;width:auto;box-shadow:none}.vrail,.pgx,.pgx.with-drawer{grid-template-columns:1fr}.rail{position:static;flex-direction:row;overflow-x:auto}.rv{min-width:220px}.pgx{gap:32px}}
+@container app (max-width:1100px){.drawer{position:static;width:auto;box-shadow:none}.vrail,.pgx,.pgx.with-drawer{grid-template-columns:1fr}.rail{position:static}.pgx{gap:32px}}
 @container app (max-width:760px){.inputs-row{grid-template-columns:1fr}.vrail{gap:24px}}
 /* declutter gallery */
 .pop-menu{position:absolute;right:0;top:44px;z-index:6;min-width:220px}
@@ -1092,3 +1092,16 @@ dialog.dlg .dialog{width:100%}
 .sk-line{height:14px;margin:6px 0}
 .filterbar .select{width:auto;flex:0 0 auto;min-width:130px}
 @container app (max-width:760px){.filterbar .select{flex:1 1 40%}}
+
+/* Fixes from the design review: stacked version rail, enabled-looking buttons in dialogs and toasts */
+.dialog>header .btn-ghost{color:var(--ink)}
+.dialog>footer .btn:not(.btn-primary):not([aria-disabled=true]){color:var(--ink)}
+.toast .btn,.toast .btn-ghost{color:var(--surface);opacity:1}
+.toast .btn:hover,.toast .btn-ghost:hover{background:rgba(127,127,127,.3)}
+.toast .btn-ghost{border-color:rgba(127,127,127,.45)}
+.tbl.cardrows .t-when{display:none}
+@container app (max-width:760px){.tbl.cardrows .t-when{display:inline}}
+.menu-wrap .pop .item:focus-visible,.pop .item:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+/* Dialogs whose body and footer sit inside a <form> get the same spacing as direct children */
+.dialog>form>.body{padding:6px 20px 18px;display:flex;flex-direction:column;gap:16px}
+.dialog>form>footer{padding:14px 20px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;background:var(--surface);border-radius:0 0 20px 20px}
