@@ -1,0 +1,22 @@
+{% import "_macros.html" as m with context %}
+<div class="tl" role="grid" aria-label="Timeline">
+  <div class="tl-axis"><span></span><div class="ticks tick-axis">
+    {% for pct, ms in timeline.ticks %}<span class="tick tick-{{ (pct | round | int) }}">{{ ms | latency }}</span>{% endfor %}
+  </div></div>
+  {% for row in timeline_rows %}
+  {% set b = row.bar %}
+  <div class="tl-row" role="row" aria-selected="{{ 'true' if row.selected else 'false' }}" data-obs="{{ b.id }}">
+    <div class="lb"><span class="indent indent-{{ [row.indent, 8] | min }}"></span><span class="ty ty-{{ b.type }}" title="{{ b.type }}">{{ m.icon("i-" ~ b.type if b.type in icon_types else "i-span") }}</span>
+      <a class="trunc t" href="{{ row.page_url }}" hx-get="{{ row.io_url }}" hx-target="#io-pane" hx-swap="innerHTML" hx-push-url="{{ row.page_url }}" data-obs-link>{{ b.name }}</a><span class="num dim dur">{{ row.duration }}</span></div>
+    <div class="tr">
+      <svg class="tl-svg ty-{{ b.type }}" viewBox="0 0 100 28" preserveAspectRatio="none" aria-hidden="true">
+        <rect class="b {{ b.level if b.level in ('ERROR', 'WARNING') else '' }}" x="{{ b.left_pct }}" y="8" width="{{ b.width_pct }}" height="12" rx="0.4"/>
+        {% if b.ttft_pct is not none %}<line class="t" x1="{{ b.ttft_pct }}" x2="{{ b.ttft_pct }}" y1="3" y2="25"><title>Time to first token {{ row.ttft }}</title></line>{% endif %}
+      </svg>
+    </div>
+  </div>
+  {% else %}
+  <div class="hint tree-empty">This trace has no observations.</div>
+  {% endfor %}
+  <div class="legend"><span class="row"><span class="ttft-key"></span>Time to first token</span><span class="row"><span class="sw sw-err"></span>ERROR</span><span class="row"><span class="sw sw-warn"></span>WARNING (amber outline)</span></div>
+</div>

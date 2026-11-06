@@ -43,6 +43,16 @@ templates.env.filters["ord"] = ord
 templates.env.filters.update(FILTERS)
 templates.env.globals["now_utc"] = lambda: datetime.now(UTC)
 templates.env.globals["Perm"] = Perm
+templates.env.globals["icon_types"] = {
+    "generation",
+    "span",
+    "agent",
+    "tool",
+    "chain",
+    "retriever",
+    "embedding",
+    "event",
+}
 templates.env.globals["Role_ADMIN"] = Role.ADMIN
 
 

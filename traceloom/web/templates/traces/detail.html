@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ trace.name or trace.id }}{% endblock %}
+
+{% block content %}
+<div class="th-head">
+  <div class="crumbs"><a href="{{ list_url }}">Traces</a>{{ m.icon("i-chev-r", "ico-sm") }}<span class="mono">{{ trace.id }}</span></div>
+  <div class="th-title">
+    <h1>{{ trace.name or "(unnamed trace)" }}</h1>
+    {% if trace.max_level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif trace.max_level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% endif %}
+    {% for flag in flags %}<span class="chip">{{ flag }}</span>{% endfor %}
+    <span class="right row-wrap">{% include "traces/_actions.html" ignore missing %}</span>
+  </div>
+  <dl class="kv">
+    <div><dt>Trace id</dt><dd class="mono row"><span id="trace-id">{{ trace.id }}</span><button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="Copy trace id" title="Copy trace id" data-copy="#trace-id">{{ m.icon("i-copy") }}</button></dd></div>
+    <div><dt>User</dt><dd>{% if trace.user_id %}<a href="/project/{{ project.id }}/users/{{ trace.user_id | urlencode }}">{{ trace.user_id }}</a>{% else %}<span class="muted">–</span>{% endif %}</dd></div>
+    <div><dt>Session</dt><dd>{% if trace.session_id %}<a href="/project/{{ project.id }}/sessions/{{ trace.session_id | urlencode }}">{{ trace.session_id }}</a>{% else %}<span class="muted">–</span>{% endif %}</dd></div>
+    <div><dt>Latency</dt><dd class="mono">{{ kv.latency }}</dd></div>
+    <div><dt>Cost</dt><dd class="mono">{{ kv.cost }}</dd></div>
+    <div><dt>Tokens</dt><dd class="mono">{{ kv.tokens }}</dd></div>
+    <div><dt>Env</dt><dd>{{ trace.environment }}</dd></div>
+    {% if trace.release %}<div><dt>Release</dt><dd class="mono">{{ trace.release }}</dd></div>{% endif %}
+    {% if trace.version %}<div><dt>Version</dt><dd class="mono">{{ trace.version }}</dd></div>{% endif %}
+  </dl>
+  <div class="row-wrap" id="trace-tags">
+    <span class="cap">Tags</span>
+    {% for tag in trace.tags %}<span class="chip">{{ tag }}</span>{% else %}<span class="muted">none</span>{% endfor %}
+    {% include "traces/_tags.html" ignore missing %}
+  </div>
+</div>
+
+<div class="split" data-trace-detail>
+  <section class="panel" aria-label="Trace structure">
+    <div class="pane-tools">
+      <div class="seg" role="tablist" aria-label="View">
+        <button type="button" role="tab" data-view="tree" aria-selected="{{ 'true' if state.view == 'tree' else 'false' }}">Tree</button>
+        <button type="button" role="tab" data-view="timeline" aria-selected="{{ 'true' if state.view == 'timeline' else 'false' }}">Timeline</button>
+        {% if show_graph %}<button type="button" role="tab" data-view="graph" aria-selected="{{ 'true' if state.view == 'graph' else 'false' }}">Graph</button>{% endif %}
+      </div>
+      <span class="hint hide-m"><kbd>t</kbd> toggles tree / timeline</span>
+      <span class="right row">
+        {% if debug_count %}<a class="row switch-row" href="{{ debug_url }}"><span class="dim">Show DEBUG ({{ debug_count }})</span><span class="switch" role="switch" aria-checked="{{ 'true' if state.debug else 'false' }}"></span></a>{% endif %}
+        {% if first_error_id %}<a class="btn btn-sm" href="{{ first_error_url }}" hx-get="{{ first_error_io }}" hx-target="#io-pane" hx-swap="innerHTML" hx-push-url="{{ first_error_url }}" data-jump data-obs-link data-obs="{{ first_error_id }}">{{ m.icon("i-error") }}Jump to first error</a><span class="hide-m"><kbd>e</kbd></span>{% endif %}
+      </span>
+    </div>
+    <div data-body="tree"{% if state.view != "tree" %} hidden{% endif %}>{% include "traces/_tree.html" %}</div>
+    <div data-body="timeline"{% if state.view != "timeline" %} hidden{% endif %}>{% include "traces/_timeline.html" %}</div>
+    {% if show_graph %}<div data-body="graph"{% if state.view != "graph" %} hidden{% endif %}>{% include "traces/_graph.html" %}</div>{% endif %}
+  </section>
+
+  <section class="panel" aria-label="Selected observation" id="io-pane" aria-live="polite">
+    {% include "traces/_io.html" %}
+  </section>
+</div>
+
+{% include "traces/_scores.html" ignore missing %}
+{% include "traces/_comments.html" ignore missing %}
+{% endblock %}
+
+{% block dialogs %}
+{% include "traces/_dialogs.html" ignore missing %}
+<script src="/static/trace.js" defer></script>
+{% endblock %}
