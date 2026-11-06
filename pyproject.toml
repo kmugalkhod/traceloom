@@ -32,6 +32,9 @@ dependencies = [
     "redis>=5.0",
     "dramatiq[redis]>=1.17",
     "cryptography>=42",
+    "anthropic>=0.34",
+    "openai>=1.40",
+    "google-genai>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -43,9 +46,6 @@ dev = [
     "ruff>=0.5",
     "fakeredis>=2.23",
     "moto[s3]>=5.0",
-    "openai>=1.40",
-    "anthropic>=0.34",
-    "google-genai>=1.0",
     "langchain-core>=0.2",
 ]
 

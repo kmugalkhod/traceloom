@@ -529,3 +529,23 @@ def test_stats_and_environment_queries_are_project_scoped_and_bound():
     sql, params = build_environments("p1")
     assert "SELECT DISTINCT environment" in sql and "project_id = {project_id:String}" in sql
     assert params == {"project_id": "p1"}
+
+
+def test_apply_migrations_runs_idempotent_statements_in_the_database():
+    client = FakeClient()
+    ch.apply_migrations(client, "tl_test")
+    sql = [c[0] for c in client.commands]
+    assert len(sql) == 1
+    assert sql[0].startswith(
+        "ALTER TABLE tl_test.observations ADD INDEX IF NOT EXISTS idx_prompt_name"
+    )
+    assert all("IF NOT EXISTS" in s or "IF EXISTS" in s for s in sql)  # safe to repeat
+    with pytest.raises(ValueError):
+        ch.apply_migrations(client, "bad; DROP")
+
+
+def test_schema_and_migration_declare_the_same_prompt_index():
+    schema = ch.SCHEMA_FILE.read_text()
+    migration = ch.MIGRATIONS_FILE.read_text()
+    definition = "idx_prompt_name coalesce(prompt_name, '') TYPE bloom_filter(0.01) GRANULARITY 4"
+    assert definition in schema and definition in migration

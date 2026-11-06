@@ -6,8 +6,8 @@ V, M, A, W = Role.VIEWER, Role.MEMBER, Role.ADMIN, Role.OWNER
 
 # One row per matrix line in the spec: (actions, roles allowed).
 MATRIX = [
-    ([Perm.TRACES_READ], {V, M, A, W}),
-    ([Perm.ANNOTATE], {M, A, W}),
+    ([Perm.TRACES_READ, Perm.PROMPTS_READ], {V, M, A, W}),
+    ([Perm.ANNOTATE, Perm.PROMPTS_WRITE, Perm.PLAYGROUND_RUN], {M, A, W}),
     ([Perm.SHARE_TOGGLE, Perm.TRACES_DELETE, Perm.COMMENT_DELETE_ANY], {A, W}),
     (
         [
@@ -17,6 +17,10 @@ MATRIX = [
             Perm.INVITES,
             Perm.ROLES,
             Perm.PROJECT_CREATE,
+            Perm.PROMPT_LABELS_PROTECTED,
+            Perm.PROMPTS_DELETE,
+            Perm.LLM_CONNECTIONS,
+            Perm.WEBHOOKS,
         ],
         {A, W},
     ),

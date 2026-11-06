@@ -111,6 +111,15 @@ def _rows():
             action="trace.delete",
             detail={"count": 1},
         ),
+        models.Prompt(id="pr1", project_id="p1", name="support/greeting", type="text"),
+        models.PromptVersion(
+            id="pv1", project_id="p1", prompt_id="pr1", version=1, content="Hi {{name}}"
+        ),
+        models.PromptLabel(project_id="p1", prompt_id="pr1", label="staging", version=1),
+        models.ProtectedLabel(project_id="p1", label="staging"),
+        models.LLMConnection(id="lc1", project_id="p1", provider="openai", name="main"),
+        models.Webhook(id="wh1", project_id="p1", url="https://example.com/hook"),
+        models.WebhookDelivery(id="wd1", webhook_id="wh1", project_id="p1", event="prompt.label"),
         models.Trace(project_id="p1", id="t1", timestamp=NOW, tags=["x"], metadata_={"k": "v"}),
         models.Observation(
             project_id="p1", id="o1", trace_id="t1", start_time=NOW, usage_details={"input": 3}
