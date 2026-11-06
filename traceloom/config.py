@@ -7,9 +7,10 @@ import secrets
 from functools import lru_cache
 from typing import Literal
 
-from cryptography.fernet import Fernet
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from traceloom.llm.crypto import generate_key
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,7 @@ class Settings(BaseSettings):
                     "TRACELOOM_ENCRYPTION_KEY must be set when TRACELOOM_ENV is not dev"
                 )
             # Dev only: stored provider keys and webhook secrets become unreadable on restart.
-            self.encryption_key = Fernet.generate_key().decode()
+            self.encryption_key = generate_key()
             logger.warning(
                 "TRACELOOM_ENCRYPTION_KEY is not set; using an ephemeral key. "
                 "Stored LLM connection keys and webhook secrets will not survive a restart."

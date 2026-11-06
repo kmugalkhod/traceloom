@@ -6,21 +6,32 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections.abc import Callable, Iterable, Mapping
 from datetime import UTC, datetime
+from typing import Any
 
 from traceloom.ingest.accept import PENDING
 from traceloom.ports import BlobStore, Queue
+from traceloom.queue_registry import WEBHOOK_DELIVERY
 
 log = logging.getLogger("traceloom.ingest")
 
 
 class Sweeper:
     def __init__(
-        self, blobs: BlobStore, queue: Queue, min_age_seconds: float, interval_seconds: float
+        self,
+        blobs: BlobStore,
+        queue: Queue,
+        min_age_seconds: float,
+        interval_seconds: float,
+        due_deliveries: Callable[[], Iterable[Mapping[str, Any]]] | None = None,
     ) -> None:
+        """`due_deliveries` returns the queue messages of webhook deliveries due for (re)delivery,
+        read from the DB. It is only wired in lite mode; Redis keeps its own retry schedule."""
         self._blobs = blobs
         self._queue = queue
         self._min_age = min_age_seconds
+        self._due_deliveries = due_deliveries
         self._interval = max(1.0, interval_seconds)
         self._recent: dict[str, float] = {}  # blob key -> monotonic time it was last enqueued
         self._stop = threading.Event()
@@ -42,7 +53,18 @@ class Sweeper:
             enqueued += 1
         if enqueued:
             log.info("sweeper re-enqueued %d pending batch(es)", enqueued)
-        return enqueued
+        return enqueued + self._replay_deliveries()
+
+    def _replay_deliveries(self) -> int:
+        if self._due_deliveries is None:
+            return 0
+        count = 0
+        for message in self._due_deliveries():
+            self._queue.enqueue({**message, "type": WEBHOOK_DELIVERY})
+            count += 1
+        if count:
+            log.info("sweeper re-enqueued %d webhook delivery(ies)", count)
+        return count
 
     def start(self) -> None:
         if self._thread is not None:
