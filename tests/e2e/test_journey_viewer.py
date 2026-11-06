@@ -23,9 +23,9 @@ def test_viewer_reads_but_cannot_annotate(live_server, browser_page):  # noqa: F
     page = browser_page
 
     sign_in(page, live_server, world["viewer"], DEFAULT_PASSWORD)
-    page.goto(base + "/actions")
-    assert "alpha" in page.content()
-    assert page.locator("form, textarea, input, button[type=submit]").count() == 0
+    for part in ("actions", "tags"):
+        page.goto(f"{base}/{part}")
+        assert page.locator("form, textarea, input, button[type=submit]").count() == 0
     page.goto(base + "/discussion")
     assert "quality" in page.content() and "0.8" in page.content()
     assert page.locator("form, textarea, input").count() == 0
@@ -51,7 +51,7 @@ def test_member_journey_in_the_browser(live_server, browser_page):  # noqa: F811
     page = browser_page
     sign_in(page, live_server, world["member"], DEFAULT_PASSWORD)
 
-    page.goto(base + "/actions")
+    page.goto(base + "/tags")
     page.fill("#new-tag", "refund")
     with page.expect_navigation():
         page.get_by_role(

@@ -99,7 +99,7 @@ def test_bookmark_toggles(client, login, world, trace, container):
     html = page(client, world, "actions")
     assert 'aria-pressed="false"' in html
     r = post_form(client, html, base(world) + "/bookmark", {"value": "1"}, headers=HX)
-    assert r.status_code == 200 and "Bookmarked" in r.text
+    assert r.status_code == 200 and "Bookmarked" in r.text and r.headers["HX-Refresh"] == "true"
     assert stored(container, world).trace.bookmarked is True
     r = post_form(client, r.text, base(world) + "/bookmark", {"value": "0"}, headers=HX)
     assert stored(container, world).trace.bookmarked is False
@@ -107,12 +107,14 @@ def test_bookmark_toggles(client, login, world, trace, container):
 
 def test_tags_add_remove_dedupe_and_validate(client, login, world, trace, container):
     login_as(client, login, world, Role.MEMBER)
-    html = page(client, world, "actions")
+    html = page(client, world, "tags")
     r = post_form(client, html, base(world) + "/tags", {"tag": "  refund   flow "}, headers=HX)
-    assert r.status_code == 200
+    assert (
+        r.status_code == 200 and r.headers["HX-Refresh"] == "true"
+    )  # the header's tag chips change
     post_form(client, r.text, base(world) + "/tags", {"tag": "alpha"}, headers=HX)  # duplicate
     assert stored(container, world).trace.tags == ["alpha", "refund flow"]
-    r = post_form(client, page(client, world, "actions"), base(world) + "/tags/remove",
+    r = post_form(client, page(client, world, "tags"), base(world) + "/tags/remove",
                   {"tag": "alpha"}, headers=HX)  # fmt: skip
     assert stored(container, world).trace.tags == ["refund flow"]
     r = post_form(client, r.text, base(world) + "/tags", {"tag": "  "}, headers=HX)
@@ -121,7 +123,7 @@ def test_tags_add_remove_dedupe_and_validate(client, login, world, trace, contai
 
 def test_tag_with_markup_renders_as_text(client, login, world, trace):
     login_as(client, login, world, Role.MEMBER)
-    html = page(client, world, "actions")
+    html = page(client, world, "tags")
     r = post_form(client, html, base(world) + "/tags", {"tag": "<script>alert(1)</script>"},
                   headers=HX)  # fmt: skip
     assert "<script>alert" not in r.text and "&lt;script&gt;alert(1)&lt;/script&gt;" in r.text
@@ -130,7 +132,8 @@ def test_tag_with_markup_renders_as_text(client, login, world, trace):
 def test_member_sees_controls(client, login, world, trace):
     login_as(client, login, world, Role.MEMBER)
     actions, discussion = page(client, world, "actions"), page(client, world, "discussion")
-    assert "Bookmark" in actions and 'name="tag"' in actions and "Remove tag alpha" in actions
+    tags = page(client, world, "tags")
+    assert "Bookmark" in actions and 'name="tag"' in tags and "Remove tag alpha" in tags
     assert 'name="body"' in discussion and 'name="data_type"' in discussion
     assert "Public share" not in actions and "data-dialog-open" not in actions  # Admin+ only
 
@@ -138,13 +141,14 @@ def test_member_sees_controls(client, login, world, trace):
 def test_no_edit_controls_for_viewer(client, login, world, trace):
     login_as(client, login, world, Role.VIEWER)
     actions, discussion = page(client, world, "actions"), page(client, world, "discussion")
-    for html in (actions, discussion):
+    tags = page(client, world, "tags")
+    for html in (actions, discussion, tags):
         assert (
             "<form" not in html
             and "<textarea" not in html
             and "<button" not in html.replace("data-copy", "").replace("btn btn-icon", "")
         )  # nothing interactive at all
-    assert "alpha" in actions  # the facts are still readable
+    assert "alpha" not in tags  # the detail page itself shows the tags; no editor for a Viewer
     assert "Remove tag" not in actions and "Add tag" not in actions
 
 
@@ -218,3 +222,23 @@ def test_score_chips_macro_for_the_list(client):
     )  # fmt: skip
     assert "<b>quality</b><span>0.8</span>" in out and "<b>ok</b><span>true</span>" in out
     assert "&lt;b&gt;x&lt;/b&gt;" in out
+
+
+def test_detail_page_slots_load_the_fragments_lazily(world, trace):
+    """The partials detail.html includes are small lazy-load slots (its context: trace, project)."""
+    from traceloom.web.templating import templates
+
+    ctx = {"project": world.project, "trace": type("T", (), {"id": "t1"})(), "csrf_token": ""}
+    for name, div, part in (
+        ("traces/_actions.html", "trace-actions", "actions"),
+        ("traces/_tags.html", "trace-tags-controls", "tags"),
+        ("traces/_comments.html", "trace-discussion", "discussion"),
+    ):
+        html = templates.env.get_template(name).render(**ctx)
+        assert (
+            f'id="{div}"' in html
+            and f'hx-get="/project/{world.project.id}/traces/t1/{part}"' in html
+        )
+        assert 'hx-trigger="load"' in html
+    # _scores.html only exports the chips macro, so including it in the page renders nothing
+    assert templates.env.get_template("traces/_scores.html").render(**ctx).strip() == ""

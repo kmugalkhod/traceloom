@@ -19,6 +19,8 @@ def seed_trace(
     observations: int = 2,
     cost: float | None = None,
     tokens: int | None = None,
+    level: str | None = None,
+    duration_ms: float | None = None,
     scores: list[ScoreRow] | None = None,
     **fields: Any,
 ) -> TraceRow:
@@ -38,6 +40,10 @@ def seed_trace(
         )
         for i in range(observations)
     ]
+    if level is not None:
+        obs[0].level = level
+    if duration_ms is not None:
+        obs[0].end_time = ts + timedelta(milliseconds=duration_ms)
     if cost is not None:
         obs[0].cost_details = {"total": cost}
     if tokens is not None:

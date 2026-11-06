@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from urllib.parse import parse_qsl
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
+from starlette.datastructures import QueryParams
 
 from traceloom.auth.deps import Access, get_container, require
 from traceloom.auth.permissions import Perm
 from traceloom.container import Container
+from traceloom.db.models import UserPref
 from traceloom.db.session import get_db
 from traceloom.ports import TraceQuery
 from traceloom.services import audit
@@ -55,18 +55,25 @@ def _delete(
     return removed
 
 
-def _matching(container: Container, access: Access, raw: str) -> tuple[TraceQuery, list[str]]:
-    pairs = parse_qsl(raw, keep_blank_values=False)
-    params = dict(pairs)
-    multi: dict[str, list[str]] = {}
-    for key, value in pairs:
-        multi.setdefault(key, []).append(value)
-    query = trace_filters.parse_trace_query(params, multi)
-    return query, container.trace_store.matching_trace_ids(access.project.id, query)
+def _env_pref(db: Session, access: Access) -> str | None:
+    """The saved environment (user_prefs `env`) the list applies when the URL names none."""
+    row = db.get(UserPref, (access.user.id, access.project.id, "env"))
+    return row.value if row and row.value else None
+
+
+def _matching(
+    db: Session, container: Container, access: Access, raw: str
+) -> tuple[TraceQuery, list[str], str]:
+    """(query, matching ids, explicit filter) for a list query string."""
+    params = QueryParams(raw)
+    pref = _env_pref(db, access)
+    query = trace_filters.parse_trace_query(params, pref)
+    ids = container.trace_store.matching_trace_ids(access.project.id, query)
+    return query, ids, trace_filters.explicit_filter(params, pref)
 
 
 def _dialog_page(request, db, access, raw, query, ids, *, error="", status=200):
-    params = dict(parse_qsl(raw))
+    params = QueryParams(raw)
     context = page_context(
         db,
         access,
@@ -87,8 +94,7 @@ def delete_matching_dialog(
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
 ):
-    raw = request.url.query
-    query, ids = _matching(container, access, raw)
+    query, ids, raw = _matching(db, container, access, request.url.query)
     return _dialog_page(request, db, access, raw, query, ids)
 
 
@@ -100,8 +106,7 @@ async def delete_matching(
     db: Session = Depends(get_db),
 ):
     form = await request.form()
-    raw = str(form.get("filter", ""))
-    query, ids = _matching(container, access, raw)
+    query, ids, raw = _matching(db, container, access, str(form.get("filter", "")))
     if not ids:
         return _dialog_page(
             request, db, access, raw, query, ids, error="No traces match.", status=400

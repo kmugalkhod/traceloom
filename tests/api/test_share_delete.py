@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
@@ -189,13 +191,18 @@ def test_delete_unknown_trace_is_404(client, login, world, trace):
 
 @pytest.fixture
 def many(container, world, make_project):
+    now = datetime.now(UTC)
     for i in range(5):
-        seed_trace(container, pid(world), f"keep{i}", name="keep", environment="prod")
+        seed_trace(
+            container, pid(world), f"keep{i}", name="keep", environment="prod", timestamp=now
+        )
     for i in range(3):
-        seed_trace(container, pid(world), f"drop{i}", name="drop", environment="prod")
+        seed_trace(
+            container, pid(world), f"drop{i}", name="drop", environment="prod", timestamp=now
+        )
     other = make_project(world.org, "Other")
     for i in range(2):
-        seed_trace(container, other.id, f"drop{i}", name="drop", environment="prod")
+        seed_trace(container, other.id, f"drop{i}", name="drop", environment="prod", timestamp=now)
     return other
 
 
@@ -237,13 +244,21 @@ def test_delete_by_filter_audited(client, login, world, many, container, db):
         "drop1",
         "drop2",
     ]
-    assert row.detail["filter"] == {"name": "drop"} and row.detail["query_string"] == "name=drop"
+    assert row.detail["filter"]["name"] == "drop" and "from_time" in row.detail["filter"]
+    assert row.detail["query_string"] == "name=drop&range=24h"  # defaults made explicit
 
 
 def test_count_is_rechecked_at_delete_time(client, login, world, many, container):
     as_role(client, login, world, Role.ADMIN)
     page = dialog(client, world, "name=drop").text
-    seed_trace(container, pid(world), "drop-late", name="drop", environment="prod")  # a 4th appears
+    seed_trace(
+        container,
+        pid(world),
+        "drop-late",
+        name="drop",
+        environment="prod",
+        timestamp=datetime.now(UTC),
+    )  # a 4th appears
     r = post_form(
         client,
         page,

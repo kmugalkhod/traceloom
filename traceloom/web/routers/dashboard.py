@@ -13,7 +13,8 @@ from traceloom.db.session import get_db
 from traceloom.ports import DashboardData, DashboardQuery
 from traceloom.web import pagefmt  # noqa: F401  (registers the filters)
 from traceloom.web.context import page_context
-from traceloom.web.ranges import environment, resolve_range
+from traceloom.web.envpref import resolve_env, saved_env, switcher_context
+from traceloom.web.ranges import resolve_range
 from traceloom.web.templating import render
 
 router = APIRouter(tags=["dashboard"])
@@ -96,7 +97,8 @@ def dashboard_page(
 ):
     params = dict(request.query_params)
     range_key, start, end = resolve_range(params)
-    env = environment(params)
+    pref = saved_env(db, access.user.id, access.project.id)
+    env = resolve_env(params, pref)
     bucket = "hour" if range_key in ("1h", "24h") else "day"
     data = container.trace_store.dashboard(
         access.project.id,
@@ -112,6 +114,7 @@ def dashboard_page(
         range_label=RANGE_LABEL[range_key],
         keep={k: v for k, v in params.items() if k != "range"},
         environment=env,
+        **switcher_context(container.trace_store, access.project.id, env, pref),
         bucket=bucket,
         empty=data.trace_count == 0,
         base=f"/project/{access.project.id}",

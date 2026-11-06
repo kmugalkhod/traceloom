@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 
 from tests.e2e.live_server import browser_page, live_server, make_world, sign_in  # noqa: F401
@@ -47,10 +49,15 @@ def test_share_then_unshare(live_server, browser_page):  # noqa: F811
 
 def test_delete_matching_in_the_browser(live_server, browser_page):  # noqa: F811
     world = make_world(live_server)
+    now = datetime.now(UTC)  # inside the list's default 24 hour range
     for i in range(4):
-        seed_trace(live_server.container, world["project_id"], f"keep{i}", name="keep")
+        seed_trace(
+            live_server.container, world["project_id"], f"keep{i}", name="keep", timestamp=now
+        )
     for i in range(3):
-        seed_trace(live_server.container, world["project_id"], f"drop{i}", name="drop")
+        seed_trace(
+            live_server.container, world["project_id"], f"drop{i}", name="drop", timestamp=now
+        )
     page = browser_page
     sign_in(page, live_server, world["admin"], DEFAULT_PASSWORD)
 

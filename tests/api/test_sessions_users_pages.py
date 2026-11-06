@@ -235,7 +235,7 @@ def test_user_page_shows_usage_and_links_to_filtered_traces(client, login, world
     r = get(client, login, world, "/users/alice")
     assert r.status_code == 200
     assert "alice" in r.text and "$1.0000" in r.text and "3,000" in r.text
-    assert f'href="/project/{pid(world)}/traces?user_id=alice"' in r.text
+    assert f'href="/project/{pid(world)}/traces?user=alice"' in r.text
     assert (
         f"/project/{pid(world)}/traces/u1" in r.text
         and f"/project/{pid(world)}/traces/u2" in r.text
@@ -273,3 +273,56 @@ def test_data_pages_are_csp_clean(client, login, world, conversation, people):
         html = get(client, login, world, path).text
         assert not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", html)
         assert not re.search(r"\sstyle=", html) and not re.search(r"\son\w+=", html)
+
+
+# --- environment: the saved choice, overridden by ?env= ------------------------------------------
+
+
+def test_saved_environment_applies_to_sessions_users_and_dashboard(
+    client, login, world, container, db
+):
+    from traceloom.db.models import UserPref
+
+    for env in ("prod", "dev"):
+        seed_trace(
+            container, pid(world), f"t-{env}", session_id=f"sess-{env}", user_id=f"user-{env}",
+            environment=env, cost=1.0, timestamp=NOW,
+        )  # fmt: skip
+    login(client, world.user(Role.VIEWER), csrf=False)
+    db.add(
+        UserPref(user_id=world.user(Role.VIEWER).id, project_id=pid(world), key="env", value="prod")
+    )
+    db.commit()
+    base = f"/project/{pid(world)}"
+
+    def seen(path, pattern):
+        return sorted(set(re.findall(pattern, client.get(base + path).text)))
+
+    for path, pattern in (
+        ("/sessions", r"sessions/(sess-\w+)\""),
+        ("/users", r"users/(user-\w+)\""),
+    ):
+        assert seen(path, pattern) == [pattern.split("(")[1].split("-")[0] + "-prod"], path
+        assert (
+            len(seen(path + "?env=dev", pattern)) == 1
+            and "dev" in seen(path + "?env=dev", pattern)[0]
+        )
+        assert len(seen(path + "?env=all", pattern)) == 2
+    assert (
+        'class="stat"><div class="top">Traces</div><b>1</b>' in client.get(base + "/dashboard").text
+    )
+    assert "<b>2</b>" in client.get(base + "/dashboard?env=all").text
+
+
+def test_switcher_context_needs_a_store_that_lists_environments():
+    from traceloom.web.envpref import resolve_env, switcher_context
+
+    class Store:
+        def list_environments(self, project_id):
+            return ["dev", "prod"]
+
+    assert switcher_context(object(), "p", None, None) == {}  # no switcher yet
+    ctx = switcher_context(Store(), "p", "staging", "prod")["env_ctx"]
+    assert ctx == {"options": ["dev", "prod", "staging"], "current": "staging", "saved": "prod"}
+    assert resolve_env({}, "prod") == "prod" and resolve_env({"env": "all"}, "prod") is None
+    assert resolve_env({"env": "dev"}, "prod") == "dev" and resolve_env({}, None) is None

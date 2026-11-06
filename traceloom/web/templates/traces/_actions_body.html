@@ -1,0 +1,36 @@
+{% import "_macros.html" as m with context %}
+<link rel="stylesheet" href="/static/pages.css">
+{% set base = "/project/" ~ project.id ~ "/traces/" ~ trace.id %}
+<div class="stack-s">
+  <div class="row-wrap">
+    {% if can("traces:annotate") %}
+      <form method="post" action="{{ base }}/bookmark" hx-post="{{ base }}/bookmark" hx-target="#trace-actions" hx-swap="innerHTML">
+        {{ m.csrf() }}<input type="hidden" name="value" value="{{ '0' if trace.bookmarked else '1' }}">
+        <button class="btn" type="submit" aria-pressed="{{ 'true' if trace.bookmarked else 'false' }}">{{ m.icon("i-bookmark") }}{{ "Bookmarked" if trace.bookmarked else "Bookmark" }}</button>
+      </form>
+    {% elif trace.bookmarked %}
+      <span class="chip">{{ m.icon("i-bookmark", "ico-sm") }}Bookmarked</span>
+    {% endif %}
+    {% include "traces/_share_toggle.html" %}
+    {% if can("traces:delete") %}
+      <button type="button" class="btn btn-danger btn-sm" data-dialog-open="delete-trace">{{ m.icon("i-trash") }}Delete</button>
+    {% endif %}
+  </div>
+
+  {% if error %}{{ m.banner("err", error) }}{% endif %}
+
+  {% include "traces/_share_link.html" %}
+</div>
+
+{% if can("traces:delete") %}
+<dialog class="dlg" id="delete-trace" aria-label="Delete this trace?">
+  <div class="dialog">
+    {{ m.dialog_head("Delete this trace?", "i-trash") }}
+    <form method="post" action="/project/{{ project.id }}/traces-delete/{{ trace.id }}">
+      {{ m.csrf() }}
+      <div class="body"><p>Deletes <span class="mono">{{ trace.id }}</span> with its {{ counts.observations }} observation{{ "" if counts.observations == 1 else "s" }}, {{ counts.scores }} score{{ "" if counts.scores == 1 else "s" }} and {{ counts.comments }} comment{{ "" if counts.comments == 1 else "s" }}. This cannot be undone.</p></div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-danger">Delete trace</button></footer>
+    </form>
+  </div>
+</dialog>
+{% endif %}

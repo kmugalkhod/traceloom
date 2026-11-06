@@ -16,7 +16,8 @@ from traceloom.db.session import get_db
 from traceloom.ports import InvalidCursor, UserQuery
 from traceloom.web import pagefmt  # noqa: F401  (registers the filters)
 from traceloom.web.context import initials, page_context
-from traceloom.web.ranges import environment, resolve_range
+from traceloom.web.envpref import resolve_env, saved_env, switcher_context
+from traceloom.web.ranges import resolve_range
 from traceloom.web.templating import WEB_DIR, render
 
 router = APIRouter(tags=["users"])
@@ -45,7 +46,8 @@ def users_list(
     sort = sort if sort in SORTS else "last_seen"
     descending = dir != "asc"
     range_key, start, end = resolve_range(params, default=DEFAULT_RANGE)
-    env = environment(params)
+    pref = saved_env(db, access.user.id, access.project.id)
+    env = resolve_env(params, pref)
     query = UserQuery(
         environment=env, from_time=start, to_time=end, sort=sort, descending=descending,
         cursor=cursor or None, limit=PAGE,
@@ -73,6 +75,7 @@ def users_list(
         range_key=range_key,
         keep={k: v for k, v in params.items() if k not in ("cursor", "range")},
         environment=env,
+        **switcher_context(container.trace_store, access.project.id, env, pref),
         first_page=cursor is None,
         first_href=f"{base}?{urlencode(no_cursor)}",
         next_href=(
@@ -123,6 +126,6 @@ def user_page(
         chart=chart,
         charts_available=charts_available(),
         author_names=names,
-        traces_href=f"/project/{access.project.id}/traces?{urlencode({'user_id': user_id})}",
+        traces_href=f"/project/{access.project.id}/traces?{urlencode({'user': user_id})}",
     )
     return render(request, "users/detail.html", context)

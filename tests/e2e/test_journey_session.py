@@ -44,5 +44,5 @@ def test_session_replay_and_users(live_server, browser_page):  # noqa: F811
     with page.expect_navigation():
         page.get_by_role("link", name="alice").click()
     link = page.get_by_role("link", name="View traces")
-    assert link.get_attribute("href") == f"/project/{world['project_id']}/traces?user_id=alice"
+    assert link.get_attribute("href") == f"/project/{world['project_id']}/traces?user=alice"
     assert "$0.1500" in page.locator("main").inner_text()

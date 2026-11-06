@@ -15,7 +15,8 @@ from traceloom.db.session import get_db
 from traceloom.ports import InvalidCursor, SessionQuery, TraceRow
 from traceloom.web import pagefmt  # noqa: F401  (registers the filters)
 from traceloom.web.context import page_context
-from traceloom.web.ranges import environment, resolve_range
+from traceloom.web.envpref import resolve_env, saved_env, switcher_context
+from traceloom.web.ranges import resolve_range
 from traceloom.web.render import is_chat, pretty_json
 from traceloom.web.templating import render
 
@@ -59,7 +60,8 @@ def sessions_list(
     sort = sort if sort in SORTS else "last_trace"
     descending = dir != "asc"
     range_key, start, end = resolve_range(params, default=DEFAULT_RANGE)
-    env = environment(params)
+    pref = saved_env(db, access.user.id, access.project.id)
+    env = resolve_env(params, pref)
     query = SessionQuery(
         environment=env, from_time=start, to_time=end, sort=sort, descending=descending,
         cursor=cursor or None, limit=PAGE,
@@ -94,6 +96,7 @@ def sessions_list(
         range_key=range_key,
         keep={k: v for k, v in keep.items()},
         environment=env,
+        **switcher_context(container.trace_store, access.project.id, env, pref),
         first_page=cursor is None,
         first_href=f"{base}?{urlencode(no_cursor)}",
         next_href=next_href,

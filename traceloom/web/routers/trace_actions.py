@@ -122,7 +122,15 @@ def _actions_response(
         counts=_counts(db, detail, access.project.id),
         share_path=f"{container.settings.base_url.rstrip('/')}/share/{access.project.id}/{detail.trace.id}",
     )
-    return render(request, "traces/_actions.html", ctx, status=status)
+    return render(request, "traces/_actions_body.html", ctx, status=status)
+
+
+def _tags_response(
+    request: Request, db, container, access, detail, *, error: str = "", status: int = 200
+) -> HTMLResponse:
+    ctx = _base_context(access, detail)
+    ctx["error"] = error
+    return render(request, "traces/_tags_body.html", ctx, status=status)
 
 
 def _discussion_response(
@@ -153,10 +161,19 @@ def _discussion_response(
     return render(request, "traces/_panels.html", ctx, status=status)
 
 
-def _done(request: Request, access: Access, trace_id: str, fragment) -> Response:
-    """HTMX gets the refreshed fragment; a plain form post goes back to the detail page."""
+def _done(
+    request: Request, access: Access, trace_id: str, fragment, refresh: bool = False
+) -> Response:
+    """HTMX gets the refreshed fragment; a plain form post goes back to the detail page.
+
+    `refresh` asks HTMX to reload the whole page: bookmark, share and tag changes also change
+    the header the detail page renders itself (flag chips, tag chips).
+    """
     if request.headers.get("hx-request"):
-        return fragment()
+        response = fragment()
+        if refresh:
+            response.headers["HX-Refresh"] = "true"
+        return response
     return RedirectResponse(f"/project/{access.project.id}/traces/{trace_id}", status_code=303)
 
 
@@ -173,6 +190,18 @@ def actions_fragment(
 ):
     detail = _detail(container, access.project.id, trace_id)
     return _actions_response(request, db, container, access, detail)
+
+
+@router.get(BASE + "/tags", response_class=HTMLResponse)
+def tags_fragment(
+    request: Request,
+    trace_id: str,
+    access: Access = Depends(require(Perm.TRACES_READ)),
+    container: Container = Depends(get_container),
+    db: Session = Depends(get_db),
+):
+    detail = _detail(container, access.project.id, trace_id)
+    return _tags_response(request, db, container, access, detail)
 
 
 @router.get(BASE + "/discussion", response_class=HTMLResponse)
@@ -357,6 +386,7 @@ async def set_bookmark(
     return _done(
         request, access, trace_id,
         lambda: _actions_response(request, db, container, access, detail),
+        refresh=True,
     )  # fmt: skip
 
 
@@ -376,13 +406,13 @@ async def add_tag(
     detail = _detail(container, access.project.id, trace_id)
     tag = _clean_tag(str(form.get("tag", "")))
     if not tag:
-        return _actions_response(
+        return _tags_response(
             request, db, container, access, detail, error="Enter a tag.", status=400
         )
     tags = list(detail.trace.tags)
     if tag not in tags:
         if len(tags) >= MAX_TAGS:
-            return _actions_response(
+            return _tags_response(
                 request, db, container, access, detail,
                 error=f"A trace can have at most {MAX_TAGS} tags.", status=400,
             )  # fmt: skip
@@ -391,7 +421,8 @@ async def add_tag(
         detail = _detail(container, access.project.id, trace_id)
     return _done(
         request, access, trace_id,
-        lambda: _actions_response(request, db, container, access, detail),
+        lambda: _tags_response(request, db, container, access, detail),
+        refresh=True,
     )  # fmt: skip
 
 
@@ -412,7 +443,8 @@ async def remove_tag(
         detail = _detail(container, access.project.id, trace_id)
     return _done(
         request, access, trace_id,
-        lambda: _actions_response(request, db, container, access, detail),
+        lambda: _tags_response(request, db, container, access, detail),
+        refresh=True,
     )  # fmt: skip
 
 
@@ -445,4 +477,5 @@ async def set_share(
     return _done(
         request, access, trace_id,
         lambda: _actions_response(request, db, container, access, detail),
+        refresh=True,
     )  # fmt: skip
