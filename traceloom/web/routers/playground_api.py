@@ -13,12 +13,13 @@ from collections.abc import AsyncIterator
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 from starlette.concurrency import run_in_threadpool
 
+from traceloom.api.errors import error_body
 from traceloom.auth.deps import Access, get_container, require
 from traceloom.auth.permissions import Perm
 from traceloom.container import Container
@@ -78,17 +79,23 @@ def _actor(access: Access) -> Actor:
     return Actor.for_user(access.user, access.role)
 
 
-def _limit(container: Container, access: Access) -> None:
+def _limit(container: Container, access: Access) -> JSONResponse | None:
+    """None when allowed, else the 429. It is always the JSON envelope: this endpoint is called by
+    the page's fetch, whatever `Accept` it sent."""
     result = container.limiter.hit(
         f"playground:{access.user.id}:{access.project.id}", container.settings.playground_rate
     )
     if not result.allowed:
-        raise HTTPException(
-            429,
+        message = (
             f"Playground limit reached ({container.settings.playground_rate}). "
-            "Wait a moment and run again.",
+            "Wait a moment and run again."
+        )
+        return JSONResponse(
+            error_body(429, message),
+            status_code=429,
             headers={"Retry-After": str(max(1, round(result.retry_after)))},
         )
+    return None
 
 
 @router.post("/project/{project_id}/playground/run")
@@ -98,8 +105,9 @@ def run(
     access: Access = Depends(require(Perm.PLAYGROUND_RUN)),
     container: Container = Depends(get_container),
     db: Session = Depends(get_db),
-) -> StreamingResponse:
-    _limit(container, access)
+) -> Response:
+    if (limited := _limit(container, access)) is not None:
+        return limited
     policy = _policy(container)
     try:
         provider = connections.open_provider(

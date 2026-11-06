@@ -188,6 +188,24 @@ def test_over_the_rate_limit_returns_429(
     assert int(r.headers["retry-after"]) >= 1
 
 
+def test_rate_limit_body_is_the_json_envelope_even_without_an_accept_header(
+    member_client, world, conn_id, fake_provider, container, monkeypatch
+):
+    providers.register("anthropic", fake_provider)
+    monkeypatch.setattr(container.settings, "playground_rate", "1/minute")
+    del member_client.headers["Accept"]
+    assert member_client.post(url(world, "run"), json=body(conn_id)).status_code == 200
+    for accept in (None, "*/*", "text/event-stream", "application/json"):
+        headers = {"Accept": accept} if accept else {}
+        r = member_client.post(url(world, "run"), json=body(conn_id), headers=headers)
+        assert r.status_code == 429 and r.headers["content-type"].startswith("application/json")
+        error = r.json()["error"]
+        assert error["code"] == "rate_limited" and error["message"].startswith(
+            "Playground limit reached"
+        )
+        assert int(r.headers["retry-after"]) >= 1
+
+
 def test_csrf_and_roles(client, login, world, conn_id, fake_provider):
     providers.register("anthropic", fake_provider)
     no_csrf = login(client, world.users[Role.MEMBER], csrf=False)
