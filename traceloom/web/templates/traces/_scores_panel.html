@@ -1,6 +1,6 @@
 {% import "_macros.html" as m with context %}
 {% set base = "/project/" ~ project.id ~ "/traces/" ~ trace.id %}
-<div class="tp" id="tp-scores" role="tabpanel" aria-labelledby="dt-scores">
+<div class="tp" id="tp-scores" role="tabpanel" aria-labelledby="dt-scores" data-count="{{ scores | length }}">
   <div class="tp-b" id="scores">
     {% for s in scores_panel %}
       <div class="row-wrap line-b">

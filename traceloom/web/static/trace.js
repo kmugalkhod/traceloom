@@ -75,6 +75,10 @@
     if (!list) { return; }
     var all = Array.prototype.slice.call(list.querySelectorAll('[role=tab]'));
     var pick = all.filter(function (t) { return t.id === id; })[0] || all[0];
+    ['scores', 'cmt'].forEach(function (k) {  // counts live on the fragment; the tabs are re-rendered
+      var panel = document.getElementById('tp-' + k), n = document.getElementById('tabn-' + (k === 'cmt' ? 'comments' : 'scores'));
+      if (panel && n && panel.hasAttribute('data-count')) { n.textContent = panel.getAttribute('data-count'); }
+    });
     all.forEach(function (t) {
       var on = t === pick;
       t.setAttribute('aria-selected', String(on));

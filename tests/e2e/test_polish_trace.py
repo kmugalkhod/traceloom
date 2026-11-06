@@ -244,3 +244,19 @@ def test_member_adds_and_removes_a_tag_inline(live_server, browser_page):  # noq
     page.locator("#trace-tags button[aria-label='Remove tag gamma']").wait_for(state="detached")
     assert "gamma" not in " ".join(chip_texts(page))
     no_console_errors(page)
+
+
+def test_a_half_typed_comment_survives_selecting_another_node(live_server, browser_page):  # noqa: F811
+    page = browser_page
+    open_page(live_server, page, "member", "/traces/t-ok")
+    page.locator(".split .node").nth(1).wait_for()
+    # every tab names a panel that exists from the start, even while the fragment loads
+    for tab in page.locator("#io-pane [data-tabs] [role=tab]").all():
+        assert page.locator("#" + tab.get_attribute("aria-controls")).count() == 1
+    page.get_by_role("tab", name="Comments").click()
+    page.fill("#comment-body", "half typed")
+    page.locator(".node a.t").nth(1).click()
+    page.locator("#io-pane h2", has_text="step1").wait_for()
+    assert page.get_by_role("tab", name="Comments").get_attribute("aria-selected") == "true"
+    assert page.input_value("#comment-body") == "half typed"
+    no_console_errors(page)

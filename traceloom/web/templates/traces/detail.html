@@ -49,12 +49,13 @@
     {% if show_graph %}<div class="pane-body" data-body="graph"{% if state.view != "graph" %} hidden{% endif %}>{% include "traces/_graph.html" %}</div>{% endif %}
   </section>
 
-  <section class="panel dpane" aria-label="Selected observation" id="io-pane" aria-live="polite">
-    {% include "traces/_io.html" %}
+  <section class="panel dpane" aria-label="Selected observation">
+    <div id="io-pane" aria-live="polite">{% include "traces/_io.html" %}</div>
+    {# Scores and Comments are trace-level: they live outside the region a node selection swaps. #}
+    <div class="dbody disc-body">{% include "traces/_comments.html" ignore missing %}</div>
   </section>
 </div>
 
-{# Scores and Comments are tabs of the detail pane (traces/_io.html); the include is kept so the slot stays overridable. #}
 {% include "traces/_scores.html" ignore missing %}
 {% endblock %}
 
