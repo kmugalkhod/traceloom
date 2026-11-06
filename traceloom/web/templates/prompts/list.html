@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Prompts{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block content %}
+{% call m.page_header("Prompts", "Versioned instructions for " ~ project.name ~ ". Search covers names, tags and content.") %}
+  {% if can_write %}<a class="btn btn-primary" href="{{ new_url }}">{{ m.icon("i-plus") }}New prompt</a>{% endif %}
+{% endcall %}
+
+{% if everything == 0 %}
+  {% include "prompts/_empty.html" %}
+{% else %}
+<div class="plist">
+  <nav class="panel d-only" aria-label="Folders">
+    <ul class="ftree">
+      <li><a href="{{ folder_url('') }}"{% if not folder %} aria-current="true"{% endif %}>{{ m.icon("i-prompt") }}All prompts<span class="n">{{ everything }}</span></a></li>
+      {% for path, count in root_folders %}
+      <li><a href="{{ folder_url(path) }}"{% if folder == path %} aria-current="true"{% endif %}>{{ m.icon("i-folder") }}{{ path }}<span class="n">{{ count }}</span></a>
+        {% if folder == path or folder.startswith(path ~ '/') %}
+        <ul>
+          {% for sub, subcount in child_folders if sub.startswith(path ~ '/') %}
+          <li><a href="{{ folder_url(sub) }}"{% if folder == sub %} aria-current="true"{% endif %}>{{ m.icon("i-folder") }}{{ sub.rsplit('/', 1)[-1] }}<span class="n">{{ subcount }}</span></a></li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </nav>
+
+  <div class="stack">
+    {% if folder %}
+    <nav class="crumbs" aria-label="Folder path">
+      <a href="{{ folder_url('') }}">All prompts</a>
+      {% for path, part in crumbs %}{{ m.icon("i-chev-r", "ico-sm") }}<a href="{{ folder_url(path) }}">{{ part }}</a>{% endfor %}
+    </nav>
+    {% endif %}
+    {% include "prompts/_filters.html" %}
+
+    {% if items %}
+    <div class="panel"><div class="rack">
+      <table class="tbl cardrows">
+        <thead><tr><th>Name</th><th>Latest</th><th>Labels</th><th class="hide-m">Tags</th><th class="hide-m">Updated</th></tr></thead>
+        <tbody>
+        {% for p in items %}
+          <tr>
+            <td class="c-name m-show"><div class="cell2">
+              <b><a href="{{ prompt_url(p.name) }}">{% if p.folder %}<span class="fp">{{ p.folder }}/</span>{% endif %}{{ p.name.rsplit('/', 1)[-1] }}</a></b>
+              <span><span class="type-pill">{{ m.icon("i-sessions" if p.type == "chat" else "i-prompt", "ico-sm") }}{{ "Chat" if p.type == "chat" else "Text" }}</span></span>
+              {% if p.snippet %}<span class="match">{{ p.snippet }}</span>{% endif %}
+            </div></td>
+            <td class="m-show num-r"><span class="vp cur">v{{ p.latest_version }}</span></td>
+            <td class="m-show m-full c-full">
+              {% if PRODUCTION not in p.labels %}<span class="lab none">{{ m.icon("i-warn", "ico-sm") }}No production label</span>{% endif %}
+              <div class="lab-set">
+              {% for name, version in p.labels | dictsort(by='key') if name == PRODUCTION %}<span class="lab prod">{{ m.icon("i-lock", "ico-sm") }}{{ name }} <span class="vv">v{{ version }}</span></span>{% endfor %}
+              {% for name, version in p.labels | dictsort(by='key') if name != PRODUCTION %}<span class="lab">{{ name }} <span class="vv">v{{ version }}</span></span>{% endfor %}
+              </div>
+            </td>
+            <td class="hide-m">{% for t in p.tags %}<span class="tag">{{ t }}</span> {% endfor %}</td>
+            <td class="hide-m"><div class="cell2"><b>{{ p.updated_at | ago }}</b><span>{{ people.get(p.updated_by, "API key" if p.updated_by else "") }}</span></div></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div></div>
+    <div class="row jc-between">
+      <span class="hint">{{ total }} prompt{{ "" if total == 1 else "s" }}</span>
+      <span class="row">{% if prev_url %}<a class="btn btn-sm" href="{{ prev_url }}">Previous</a>{% endif %}{% if next_url %}<a class="btn btn-sm" href="{{ next_url }}">Next</a>{% endif %}</span>
+    </div>
+    {% else %}
+    <div class="panel empty">
+      {{ m.icon("i-search", "ico-lg") }}
+      <h2>No prompts match</h2>
+      <p>Nothing in {{ "this folder" if folder else "the project" }} matches your search and filters.</p>
+      <p><a class="btn" href="{{ clear_url }}">Clear filters</a></p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
