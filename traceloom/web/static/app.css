@@ -1115,3 +1115,6 @@ dialog.dlg .dialog{width:100%}
 .chips .chip button{border:0;background:none;cursor:pointer;color:var(--ink-2);padding:0 0 0 4px;font-size:14px;line-height:1}
 .dialog [hidden]{display:none!important}
 .panel.panel-vis{overflow:visible}
+
+/* Popup menus placed by app.js: fixed, so no ancestor overflow clips them */
+.pop.is-placed{position:fixed;right:auto;bottom:auto;margin:0;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow:auto;z-index:60}
