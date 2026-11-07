@@ -7,18 +7,21 @@
 .ctxbar .crumbs~.env-sw,.ctxbar .crumbs~.select-wrap{margin-right:0}
 @container app (max-width:760px){.ctxbar .crumbs{display:none}}
 
+/* The header starts 16px under the context bar. */
+.main:has(.th-head){padding-top:var(--sp-6)}
+
 /* Compact header: title row, then one row of inline metrics with the tags. */
 .th-head{display:flex;flex-direction:column;gap:8px;flex:none}
 .th-title{display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-height:36px}
 .th-title h1{font-size:24px;letter-spacing:-.02em;line-height:1.2;margin:0}
 .mline-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px}
-.mline,.th-head .mline.kv{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 0;margin:0;padding:0;font-size:14px;color:var(--ink-2)}
+.mline,.th-head .mline.kv{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 0;column-gap:0;margin:0;padding:0;font-size:14px;color:var(--ink-2)}
 /* .kv stacks dt over dd (flex-direction:column); the inline row needs a row so the "·" is a sibling, not a line above. */
 .mline>div,.mline.kv>div{display:flex;flex-direction:row;align-items:baseline;gap:0;min-width:0}
 .mline>div+div::before{content:"·";margin:0 8px;color:var(--ink-3)}
 .mline dt{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .mline dd{margin:0;font-weight:500}
-.mline .num{font-family:var(--font-ui);font-variant-numeric:tabular-nums;text-align:left;color:var(--ink)}
+.mline .num{font-size:inherit;font-family:var(--font-ui);font-variant-numeric:tabular-nums;text-align:left;color:var(--ink)}
 
 /* Tags: chips, an x for Members+, inline "+ Add tag". */
 .tags{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
@@ -47,4 +50,9 @@
   .split[data-trace-detail]{grid-template-columns:minmax(0,1fr);min-height:0;flex:none}
   .split[data-trace-detail]>.tree-pane{max-height:50vh}
   .split[data-trace-detail]>.dpane{min-height:420px}
+}
+@container app (max-width:760px){
+  /* Wrapped rows would start with a stray dot: use plain spacing instead of separators. */
+  .th-head .mline{column-gap:14px}
+  .mline>div+div::before{content:none}
 }
