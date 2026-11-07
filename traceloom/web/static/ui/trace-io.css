@@ -14,7 +14,7 @@
 .dbody .tp[hidden]{display:none}
 .dpane #io-pane{display:contents}
 .disc{display:contents}
-.dbody:not(:has(.tp:not([hidden]))){display:none}
+.dpane .dbody:not(:has(.tp:not([hidden]))){display:none}
 .tp[aria-busy=true] .skel{height:96px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line)}
 @media (prefers-reduced-motion:no-preference){.tp[aria-busy=true] .skel{animation:skel-pulse 1.2s ease-in-out infinite}}
 @keyframes skel-pulse{50%{opacity:.5}}
