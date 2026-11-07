@@ -84,6 +84,7 @@ def test_controls_load_on_the_real_detail_page(live_server, browser_page):  # no
 
     sign_in(page, live_server, world["viewer"], DEFAULT_PASSWORD)
     page.goto(base)
+    page.get_by_role("tab", name="Comments").click()
     page.wait_for_selector("#comments")  # the lazy discussion fragment arrived
     assert page.locator("#comments textarea, #scores form, #trace-actions button").count() == 0
 
@@ -94,6 +95,7 @@ def test_controls_load_on_the_real_detail_page(live_server, browser_page):  # no
     page.wait_for_selector("text=Bookmarked")  # HX-Refresh reloaded the page header too
     stored = live_server.container.trace_store.get_trace(world["project_id"], "t1")
     assert stored.trace.bookmarked is True
+    page.get_by_role("tab", name="Comments").click()
     page.fill("#comment-body", "from the detail page")
     page.get_by_role("button", name="Comment", exact=True).click()
     page.wait_for_selector("text=from the detail page")

@@ -139,6 +139,17 @@ def test_page_lists_traces_with_kpis_tabs_and_pills(client, world, login, seeded
     assert 'class="sidenav"' in html and 'aria-current="page"' in html
 
 
+def test_numeric_and_score_columns_are_aligned_and_error_rows_calm(client, world, login, seeded):
+    login(client, world.user(Role.VIEWER))
+    html = client.get(url(world), headers=H).text
+    for name in ("Latency", "Cost"):
+        assert re.search(rf'<th class="r"[^>]*><a [^>]*>{name}', html)
+    assert 'class="num r"' in html and 'class="num r c-cost"' in html
+    assert '<th class="c">Scores</th>' in html and '<td class="c">' in html
+    assert "err-text" not in html  # error rows keep marker and pill, no red numbers
+    assert 'class="lv ERROR"' in html
+
+
 def test_outsiders_get_404_and_anonymous_are_sent_to_login(client, world, make_user, login, seeded):
     assert client.get(url(world), follow_redirects=False).status_code == 303
     login(client, make_user())

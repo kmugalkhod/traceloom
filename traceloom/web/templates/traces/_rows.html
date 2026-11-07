@@ -9,13 +9,13 @@
   {% if "user" in columns %}<td>{% if r.user %}<span class="row"><span class="avatar sm {{ r.user_av }}">{{ r.user_initials }}</span>{{ r.user }}</span>{% else %}<span class="muted">–</span>{% endif %}</td>{% endif %}
   {% if "session" in columns %}<td class="mono">{{ r.session or "–" }}</td>{% endif %}
   {% if "tags" in columns %}<td>{% for tag in r.tags %}<span class="chip">{{ tag }}</span> {% else %}<span class="muted">–</span>{% endfor %}</td>{% endif %}
-  {% if "latency" in columns %}<td class="num{% if r.level == 'ERROR' %} err-text{% endif %}">{{ r.latency_ms | latency }}</td>{% endif %}
-  {% if "tokens" in columns %}<td class="num">{{ r.tokens | count }}</td>{% endif %}
-  {% if "cost" in columns %}<td class="num c-cost{% if r.level == 'ERROR' %} err-text{% endif %}">{{ r.cost | money }}</td>{% else %}<td class="c-cost only-m num">{{ r.cost | money }}</td>{% endif %}
+  {% if "latency" in columns %}<td class="num r">{{ r.latency_ms | latency }}</td>{% endif %}
+  {% if "tokens" in columns %}<td class="num r">{{ r.tokens | count }}</td>{% endif %}
+  {% if "cost" in columns %}<td class="num r c-cost">{{ r.cost | money }}</td>{% else %}<td class="c-cost only-m num r">{{ r.cost | money }}</td>{% endif %}
   {% if "level" in columns %}<td>{% include "traces/_level.html" %}</td>{% endif %}
-  {% if "scores" in columns %}<td>{% for name, value in r.scores %}<span class="score"><b>{{ name }}</b><span>{{ value }}</span></span> {% else %}<span class="muted">–</span>{% endfor %}{% if r.more_scores %} <span class="hint">+{{ r.more_scores }}</span>{% endif %}</td>{% endif %}
+  {% if "scores" in columns %}<td class="c">{% for name, value in r.scores %}<span class="score"><b>{{ name }}</b><span>{{ value }}</span></span> {% else %}<span class="muted">—</span>{% endfor %}{% if r.more_scores %} <span class="hint">+{{ r.more_scores }}</span>{% endif %}</td>{% endif %}
   {% if "environment" in columns %}<td>{{ r.environment }}</td>{% endif %}
   {% if "release" in columns %}<td class="mono">{{ r.release or "–" }}</td>{% endif %}
-  <td class="only-m c-meta"><span class="mono">{{ r.clock }}</span>{% if r.user %}<span>{{ r.user }}</span>{% endif %}<span class="mono{% if r.level == 'ERROR' %} err-text{% endif %}">{{ r.latency_ms | latency }}</span><span class="mono">{{ r.tokens | count }} tok</span><span>{% include "traces/_level.html" %}</span></td>
+  <td class="only-m c-meta"><span class="mono">{{ r.clock }}</span>{% if r.user %}<span>{{ r.user }}</span>{% endif %}<span class="mono">{{ r.latency_ms | latency }}</span><span class="mono">{{ r.tokens | count }} tok</span><span>{% include "traces/_level.html" %}</span></td>
 </tr>
 {% endfor %}

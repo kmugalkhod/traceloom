@@ -57,30 +57,35 @@ A presentation-only pass over every web screen. It applies one set of alignment 
   - No column changes.
 - **FR-TL3** The stat row is unchanged in content. Its height, padding and icon chip are made identical to the dashboard's (FR-D1).
 
-### Trace detail (TD)
-- **FR-TD1 Header.**
+### Trace detail (TD): a full-height trace workspace
+Decided by the owner on 2026-11-07 at design review. The trace detail is a focused workspace, not a long page of stacked panels. It has a compact header and two panes that fill the rest of the viewport and scroll on their own. Comments, Scores and Metadata move into tabs in the right pane. This is an established pattern in LLM-tracing tools, built here in Traceloom's own visual language. Nothing from any competitor is copied.
+- **FR-TD1 Compact header.**
   - Line one: title, status pill, and actions (Bookmark, "...") on the right.
-  - Below it, one key/value grid on a 6-column track (at 1440px): Trace ID (mono + copy), User, Session, Latency, Cost, Tokens.
-  - A second row on the same tracks holds Environment, Release and Version (when present), then Tags spanning the remaining columns.
-  - Labels are 11px uppercase muted; values are 14px. All cells in a row share one baseline, and the copy icon must not push the baseline.
+  - Line two is one row of inline metrics separated by `·`: latency, cost, tokens, user (link), session (link, when present) and environment. All values are tabular.
+  - The tags follow on the same row when they fit, and wrap otherwise.
+  - Trace ID, Release and Version (when present) move to the right pane's Metadata tab for the root, and to the "..." copy items. Nothing is dropped.
+  - The header is at most 112px tall at 1440px, including the title.
 - **FR-TD2 Tags.**
   - Tags show once: chips, each with an × for Members+, plus an inline "+ Add tag" control that becomes a 30px input when activated.
   - The separate "Edit tags:" row is removed.
   - Viewers see the chips only. Add and remove keep their existing endpoints, field names and HTMX targets, and work without JS through the same form posts.
-- **FR-TD3 Split pane.**
-  - Two columns at ≥1100px: the tree/timeline panel at 40% (min 360px), and span detail at 60%.
-  - The left panel is sticky (top 16px) and scrolls internally, with max-height `calc(100vh - 32px)`.
-  - Both panels' tops align, and their headers are 52px.
-  - The tree toolbar sits on one row: the Tree / Timeline / Graph tray on the left and "Jump to first error" (small) on the right. The keyboard hint moves into the buttons' `title` and the shortcuts dialog.
+- **FR-TD3 Workspace panes.**
+  - At ≥1100px, below the header, two panes fill the remaining viewport height (`calc(100vh - header - context bar - padding)`, min 480px): the tree pane at 40% (min 360px) and the detail pane at 60%.
+  - Each pane scrolls internally; the page itself does not scroll at 1440×900 with a normal trace.
+  - Both pane tops align, and their headers are 52px.
+  - The tree pane header holds the Tree / Timeline / Graph tray on the left and "Jump to first error" (small) on the right. The keyboard hint moves into the buttons' `title` and the shortcuts dialog.
+  - Below 1100px the panes stack (tree first, with a max height of 50vh) and the page scrolls.
 - **FR-TD4 Tree rows.**
   - Rows are 36px: type icon, name and level pill on the left.
   - Duration and cost are right-aligned in two fixed-width tabular columns, so they line up across rows.
   - An empty cost renders nothing (not "–").
-- **FR-TD5 IO viewer.**
-  - Each section (Input, Output, Metadata) has a 13px weight-600 label row with a copy button on the right.
-  - The block uses `--surface-2` with a 1px `--line` border (not a heavy grey slab), radius 10 and padding 12px.
-  - The span detail header shows Latency, Cost, Tokens and Observations (whichever apply) on the FR-TD1 grid style.
-- **FR-TD6** The Comments and Scores panels sit in a 2:1 grid, aligned at the top, each with a 52px header. Form controls follow FR-S1. The Scores form puts Name, Type and Value on one row with matched heights.
+- **FR-TD5 Detail pane.**
+  - The header shows the selected observation's type icon, name, level pill and type word on the right. Under it is one inline metrics line: latency, cost, tokens, and model when present.
+  - Below that is a tablist (`[data-tabs]`, the same keyboard behaviour as the dashboard): **Preview** (Input, Output), **Metadata** (metadata, plus trace id, release and version for the root), **Scores n**, **Comments n**.
+  - Scores and Comments stay trace-level, as today, and keep their existing fragments, forms and permissions.
+  - In Preview, each section has a 13px weight-600 label row with a copy button on the right. The block uses `--surface-2` with a 1px `--line` border, radius 10 and padding 12px. The Formatted / JSON / Markdown switch sits in the Preview tab's toolbar.
+  - Selecting a tree node keeps the active tab.
+- **FR-TD6** The Comments and Scores tab contents use FR-S1 controls. The Scores form puts Name, Type and Value on one row with matched heights, and the select text is never clipped. The separate Comments and Scores panels under the page are removed. Their content lives in the tabs only, so it is not duplicated.
 
 ### Dashboard (D)
 - **FR-D1 Stat cards.**
@@ -158,13 +163,19 @@ The mockup (`design/mockup.html`) shows the trace detail, traces list and dashbo
 - **AC-2 (FR-S3, FR-S4, FR-TL2):** Given the traces list, then the Latency and Cost cells and headers have `text-align: right`, a computed `font-variant-numeric` containing `tabular-nums`, a non-monospace font family, and a body row height of 44px ±1.
 - **AC-3 (FR-S5):** Given an errored trace row, then its background equals a non-error row's background, its latency text colour equals `--ink`, and it shows the left marker and the Error pill.
 - **AC-4 (FR-TD1, FR-TD2):**
-  - Given trace detail, then the Trace ID, User, Session, Latency, Cost and Tokens values share one top offset (±2px).
+  - Given trace detail at 1440×900, then the header (title row plus metrics row) is at most 112px tall, and the inline metrics share one top offset (±2px).
   - The text "Edit tags:" is absent.
   - Each tag appears once.
   - A Member can add and remove a tag. The existing flow test still passes.
   - A Viewer sees no × and no add control.
 - **AC-5 (FR-S7):** Given trace detail, then the breadcrumb is inside the context bar, and the page title's top is within 24px of the bar's bottom.
-- **AC-6 (FR-TD3, FR-TD4):** Given trace detail at 1440px, then the tree panel and the detail panel tops are equal (±1px), the tree panel width is 40% ±2% of the pane, and the duration cells of all tree rows share a right edge (±1px).
+- **AC-6 (FR-TD3, FR-TD4, FR-TD5):**
+  - Given trace detail at 1440×900 with the seeded trace, then the two pane tops are equal (±1px).
+  - The tree pane width is 40% ±2%.
+  - The document does not scroll vertically (`scrollHeight ≤ innerHeight + 1`), and each pane scrolls on its own.
+  - The duration cells of all tree rows share a right edge (±1px).
+  - The detail pane has the tabs Preview, Metadata, Scores and Comments with working arrow-key navigation.
+  - Adding a comment and a score from the tabs works for a Member, using the existing journey tests.
 - **AC-7 (FR-D1, FR-D2):** Given the dashboard, then all four stat cards have an icon chip and equal heights, and the two chart panels in the first row have equal heights (±1px).
 - **AC-8 (FR-D5):** Given the dashboard's top users, then the rank column's left edge is within 20px of the panel's inner left edge, and cost is right-aligned.
 - **AC-9 (FR-S6):** Given an empty project, then the Prompts and Playground empty states are horizontally centred in their panel (the left and right gaps differ by ≤ 4px) and no wider than 520px.
@@ -177,6 +188,8 @@ The mockup (`design/mockup.html`) shows the trace detail, traces list and dashbo
 - Reference image: not committed (it is a third-party sample); DESIGN.md already describes its language.
 
 ## Flagged concerns
+- [x] Trace detail layout: a full-height workspace with right-pane tabs replaces the stacked header grid and the panels below. Decided by Kunal Mugalkhod at the D-1 design review, 2026-11-07.
+- [x] Mockup extras not built: the 'Slow' filter tab, the '+x% vs previous' deltas and a sidebar reorder are out of scope, and the nav order stays as today. Decided at the D-1 review, 2026-11-07.
 - [~] ASSUMED: removing the full-row error tint and red numbers (FR-S5) is acceptable. Error rows stay findable through the marker, the pill and the Errors filter. This matches the owner's reference (a red amount only in the status pill) and calmer competitor tables.
 - [~] ASSUMED: moving the breadcrumb into the context bar (FR-S7) is a layout change, not a navigation change. The links and targets are identical.
 - [~] ASSUMED: the tags "Edit tags:" duplication is presentational. Add/remove endpoints are unchanged, so no permission change.

@@ -1,0 +1,19 @@
+/* Tree pane: toolbar and 36px rows with aligned duration and cost columns (FR-TD3, FR-TD4). */
+.tree-pane-h{gap:8px;justify-content:space-between}
+.tree-pane-h .seg{height:var(--ctl-h);padding:2px;gap:2px;flex:none}
+.tree-pane-h .seg button{height:var(--ctl-h-sm);padding:0 12px;border-radius:8px}
+.tree-pane-h .right{margin-left:auto;flex:none}
+.tree-pane .pane-body{flex:1 1 auto;min-height:0;overflow:auto}
+.tree-pane .pane-body[hidden]{display:none}
+
+.tree-pane .tree{padding:4px 0}
+.tree-pane .node{display:grid;grid-template-columns:auto minmax(0,1fr) 72px 72px;gap:8px;height:36px;margin:0 8px;padding:0 8px 0 4px;border-radius:10px;align-items:center}
+.tree-pane .node .g{height:36px}
+.tree-pane .node .num{font-family:var(--font-ui);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;font-size:13px}
+.tree-pane .node .cost{color:var(--ink-2)}
+.tree-pane .node .dur{color:var(--ink-2)}
+@container app (max-width:760px){
+  .tree-pane-h{flex-wrap:nowrap}
+  .tree-pane .node{grid-template-columns:auto minmax(0,1fr) 64px 0}
+  .tree-pane .node .cost{display:none}
+}

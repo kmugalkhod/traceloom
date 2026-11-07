@@ -1,9 +1,11 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m with context %}
 {% block title %}Session {{ session.session_id }}{% endblock %}
+{% block crumbs %}
+<nav class="crumbs" aria-label="Breadcrumb"><a href="/project/{{ project.id }}/sessions">Sessions</a>{{ m.icon("i-chev-r", "ico-sm") }}<span class="mono" aria-current="page">{{ session.session_id }}</span></nav>
+{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="/static/pages.css">
-<div class="page-h"><div class="crumbs"><a href="/project/{{ project.id }}/sessions">Sessions</a>{{ m.icon("i-chev-r", "ico-sm") }}<span class="mono">{{ session.session_id }}</span></div></div>
 <div class="th-title">
   <h1 class="mono">{{ session.session_id }}</h1>
   <span class="right row-wrap">
