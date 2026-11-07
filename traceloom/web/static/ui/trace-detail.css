@@ -30,9 +30,10 @@
 .tag-add{display:inline-flex;align-items:center;gap:6px;margin:0}
 .tag-add .tag-input{height:24px;width:92px;padding:0 8px;border:1px dashed var(--line-strong);border-radius:6px;background:transparent;font-size:12px;font-weight:500;box-shadow:none}
 .tag-add .tag-input::placeholder{color:var(--ink-2)}
-.tag-add .tag-input:focus{height:30px;width:160px;border-style:solid;background:var(--surface);font-size:13px}
+.tag-add .tag-input:focus,.tag-add .tag-input:not(:placeholder-shown){height:30px;width:160px;border-style:solid;background:var(--surface);font-size:13px}
 .tag-add .btn-sm{height:30px;display:none}
-.tag-add:focus-within .btn-sm{display:inline-flex}
+/* A typed tag keeps the field wide and Add in place, so a mouse press on Add (which blurs the input) does not move it. */
+.tag-add:focus-within .btn-sm,.tag-add:has(.tag-input:not(:placeholder-shown)) .btn-sm{display:inline-flex}
 
 /* Workspace: header, then two panes that fill the rest of the viewport and scroll on their own. */
 .split[data-trace-detail]{display:grid;grid-template-columns:minmax(360px,40%) minmax(0,1fr);gap:24px;align-items:stretch;flex:1 1 auto;min-height:480px}
