@@ -1,4 +1,4 @@
-"""Trace detail: the inline metrics sit on one baseline and a comment draft survives node selection."""
+"""Trace detail: metrics share a baseline; a comment draft survives node selection."""
 
 from __future__ import annotations
 
