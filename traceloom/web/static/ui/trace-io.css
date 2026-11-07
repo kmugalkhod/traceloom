@@ -12,7 +12,11 @@
 .tabs[data-tabs] .c2:empty{display:none}
 .dbody{flex:1 1 auto;min-height:0;overflow:auto;padding:16px}
 .dbody .tp[hidden]{display:none}
-.disc{display:contents}
+#io-pane{display:contents}
+.dpane>.disc{flex:1 1 auto;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column}
+.disc .tp[hidden]{display:none}
+.disc:not(:has(.tp:not([hidden]))){display:none}
+.dpane:has(#dt-scores[aria-selected=true],#dt-cmt[aria-selected=true]) .dbody{display:none}
 
 .io-top{display:flex;justify-content:flex-start;margin-bottom:4px}
 .io-top .seg a{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:7px;font-size:12px;font-weight:600;color:var(--ink-2)}

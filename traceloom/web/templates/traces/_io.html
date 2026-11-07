@@ -77,7 +77,5 @@
       {% include "traces/_io_block.html" %}
     {% endfor %}
   </div>
-
-  {# Scores and Comments are trace-level: the lazy fragment below renders their two tab panels. #}
-  {% include "traces/_comments.html" ignore missing %}
 </div>
+{# Scores and Comments are trace-level: their tab panels live in #trace-discussion (detail.html), outside this swapped fragment, so a draft survives selecting another node. #}

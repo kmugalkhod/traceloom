@@ -83,13 +83,21 @@
       if (panel) { panel.hidden = !on; }
     });
   }
+  // The tab counts live in the swapped header; the discussion (outside it) keeps the numbers.
+  function restoreCounts() {
+    var c = document.getElementById('disc-counts');
+    if (!c) { return; }
+    var s = document.getElementById('tabn-scores'), n = document.getElementById('tabn-comments');
+    if (s) { s.textContent = c.getAttribute('data-scores'); }
+    if (n) { n.textContent = c.getAttribute('data-comments'); }
+  }
   var keptTab = '';
   document.body.addEventListener('htmx:beforeSwap', function (e) {
     if (e.detail.target && e.detail.target.id === 'io-pane') { keptTab = selectedTabId(); }
   });
   document.body.addEventListener('htmx:afterSwap', function (e) {
     var id = e.detail.target && e.detail.target.id;
-    if (id === 'io-pane') { showTab(keptTab); } else if (id === 'trace-discussion') { showTab(selectedTabId()); }
+    if (id === 'io-pane') { restoreCounts(); showTab(keptTab); } else if (id === 'trace-discussion') { showTab(selectedTabId()); }
   });
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && e.target.matches && e.target.matches('.tag-add input')) { e.target.value = ''; e.target.blur(); }
