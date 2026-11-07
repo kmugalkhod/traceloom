@@ -86,6 +86,8 @@ def test_controls_load_on_the_real_detail_page(live_server, browser_page):  # no
     page.goto(base)
     page.get_by_role("tab", name="Comments").click()
     page.wait_for_selector("#comments")  # the lazy discussion fragment arrived
+    page.get_by_role("tab", name="Scores").click()
+    page.wait_for_selector("#scores")
     assert page.locator("#comments textarea, #scores form, #trace-actions button").count() == 0
 
     page.context.clear_cookies()
