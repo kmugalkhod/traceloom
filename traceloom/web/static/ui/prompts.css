@@ -1,10 +1,6 @@
 /* Prompts (FR-PP1, FR-PP2): centred empty state, form rhythm, 52px panel headers.
    Shared control, table and empty-state rules live in base.css. */
 
-/* the folder path shows in the page body on mobile only; desktop has it in the context bar */
-.crumbs-m{display:none}
-@container app (max-width:760px){.crumbs-m{display:block}}
-
 /* forms: label 6px above its field, 16px between fields */
 .editor .field{gap:var(--sp-3)}
 .editor .field>label,.editor .field>.lbl{display:block;line-height:20px}

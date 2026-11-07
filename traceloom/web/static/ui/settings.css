@@ -28,5 +28,6 @@
 .auth-card .label-row>label{font-size:13px;font-weight:500;color:var(--ink)}
 .auth-card .label-row>a{font-size:13px;line-height:20px}
 @container app (max-width:760px){
+  .auth-side{display:none}
   .auth-card .input,.auth-card .btn-block{height:44px}
 }

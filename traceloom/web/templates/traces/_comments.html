@@ -1,6 +1,2 @@
-{# Slot included by traces/detail.html, outside #io-pane so selecting a node never reloads it.
-   The two tab panels exist from the start (with a loading skeleton); HTMX replaces them from the route. #}
-<div id="trace-discussion" class="disc" hx-get="/project/{{ project.id }}/traces/{{ trace.id }}/discussion" hx-trigger="load" hx-swap="innerHTML">
-  <div class="tp" id="tp-scores" role="tabpanel" aria-labelledby="dt-scores" aria-busy="true" hidden><div class="skel" aria-hidden="true"></div><span class="sr">Loading scores</span></div>
-  <div class="tp" id="tp-cmt" role="tabpanel" aria-labelledby="dt-cmt" aria-busy="true" hidden><div class="skel" aria-hidden="true"></div><span class="sr">Loading comments</span></div>
-</div>
+{# Lazy slot included by traces/detail.html, outside the swapped #io-pane: loads the Scores and Comments tab panels from their route. #}
+<div id="trace-discussion" class="disc" hx-get="/project/{{ project.id }}/traces/{{ trace.id }}/discussion" hx-trigger="load" hx-swap="innerHTML"></div>

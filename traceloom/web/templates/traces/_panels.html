@@ -2,5 +2,6 @@
 {% set scores_panel = scores %}
 {% include "traces/_scores_panel.html" %}
 {% include "traces/_comments_body.html" %}
+<span hidden id="disc-counts" data-scores="{{ scores | length }}" data-comments="{{ comments | length }}"></span>
 <span class="c2" id="tabn-scores" hx-swap-oob="true">{{ scores | length }}</span>
 <span class="c2" id="tabn-comments" hx-swap-oob="true">{{ comments | length }}</span>
