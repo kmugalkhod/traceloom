@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2490" height="1210" viewBox="0 0 2490 1210">
+<style>text{font-family:Inter, Segoe UI, Helvetica, Arial, sans-serif} .n{font-size:13px;font-weight:600;fill:#0F172A;text-anchor:middle;dominant-baseline:central}} .g{font-size:12px;font-weight:700;letter-spacing:.06em;fill:#475569} .l{font-size:11px;fill:#475569;text-anchor:middle;dominant-baseline:central} .k{font-size:12px;fill:#475569;dominant-baseline:central}</style>
+<defs><filter id="sh" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#0F172A" flood-opacity=".10"/></filter>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="11" markerHeight="11" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748B"/></marker></defs>
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<text x="36" y="38" style="font-size:20px;font-weight:700;fill:#0F172A">Traceloom architecture</text>
+<text x="36" y="60" style="font-size:12px;fill:#475569">Status: proposed  ·  from ARCHITECTURE.md  ·  layout: Graphviz</text>
+<g transform="translate(36,78)">
+<rect x="321.46" y="135.0" width="896.74" height="216.0" rx="14" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.2"/>
+<rect x="314.98" y="609.0" width="1832.2199999999998" height="126.0" rx="14" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.2"/>
+<rect x="1381.5" y="417.0" width="1028.1999999999998" height="131.0" rx="14" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.2"/>
+<path d="M157.6,54.2 C204.3,80.6 269.4,125.0 304.0,183.0 C319.2,208.5 298.1,224.5 315.0,249.0 C320.9,257.6 328.7,265.0 337.2,271.4 L344.9,276.8" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M204.4,45.3 C400.9,80.7 830.5,158.1 1019.9,192.3 L1029.0,193.9" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M828.4,376.1 C885.9,361.5 961.4,342.4 1020.1,327.5 L1029.0,325.2" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M173.8,204.0 C223.5,204.0 289.6,204.0 339.2,204.0 L348.6,204.0" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M480.9,316.4 C670.8,350.6 1199.9,445.8 1391.8,480.3 L1401.0,481.9" fill="none" stroke="#64748B" stroke-width="2.8" marker-end="url(#ar)"/>
+<path d="M1198.4,225.2 C1250.2,238.8 1315.2,262.6 1361.0,303.0 C1405.6,342.4 1434.0,406.2 1449.1,448.9 L1452.1,457.7" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M1198.6,329.1 C1247.9,345.9 1310.3,370.6 1361.0,402.0 C1383.0,415.6 1404.8,434.3 1422.4,451.1 L1429.2,457.7" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M1198.6,198.8 C1268.9,191.2 1372.1,182.0 1462.5,182.0 C1462.5,182.0 1462.5,182.0 2048.7,182.0 C2132.0,182.0 2170.6,151.8 2234.7,205.0 C2307.7,265.5 2323.5,384.0 2326.5,448.5 L2326.8,457.6" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M427.6,176.7 C445.5,148.0 477.7,104.2 518.0,82.0 C605.4,33.8 640.2,48.0 740.0,48.0 C740.0,48.0 740.0,48.0 2048.7,48.0 C2132.0,48.0 2173.2,14.9 2234.7,71.0 C2290.1,121.5 2315.1,350.3 2323.4,448.3 L2324.1,457.6" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M449.7,176.8 C469.1,164.5 493.7,151.3 518.0,145.0 C880.7,50.9 989.7,110.9 1361.0,162.0 C1621.5,197.9 1727.3,137.7 1937.2,296.0 C1987.9,334.2 2018.4,403.2 2033.8,448.5 L2036.8,457.5" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M446.8,331.4 C507.4,379.1 632.2,477.3 697.8,528.8 L705.0,534.5" fill="none" stroke="#64748B" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
+<path d="M469.8,231.5 C517.2,256.7 582.7,298.3 623.0,352.0 C648.6,386.2 634.4,405.0 654.0,443.0 C669.7,473.5 692.6,504.7 710.9,527.6 L716.6,534.7" fill="none" stroke="#64748B" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
+<path d="M817.4,555.1 C971.9,543.5 1334.0,528.3 1622.2,610.0 C1649.4,617.7 1677.3,632.1 1699.8,645.7 L1707.8,650.6" fill="none" stroke="#64748B" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
+<path d="M1525.9,508.1 C1556.3,517.4 1592.8,531.1 1622.2,550.0 C1661.4,575.2 1697.6,614.9 1720.9,643.4 L1726.8,650.7" fill="none" stroke="#64748B" stroke-width="2.8" marker-end="url(#ar)"/>
+<path d="M1793.4,650.5 C1843.3,619.5 1924.8,568.8 1981.9,533.3 L1989.8,528.4" fill="none" stroke="#64748B" stroke-width="2.8" marker-end="url(#ar)"/>
+<path d="M1843.4,678.0 C1880.4,678.0 1922.7,678.0 1959.1,678.0 L1968.2,678.0" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M2090.0,650.5 C2136.6,619.5 2212.7,568.9 2266.0,533.4 L2273.7,528.2" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M2027.1,705.3 C1994.4,748.5 1924.2,832.1 1843.2,872.0 C1658.2,963.2 1584.2,958.2 1381.5,920.0 C1316.7,907.8 1302.6,894.7 1243.2,866.0 C1137.6,815.0 1113.0,797.8 1015.2,733.0 C928.6,675.6 919.5,642.3 828.0,593.0 C827.2,592.6 826.5,592.2 825.7,591.8 L817.2,587.6" fill="none" stroke="#64748B" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
+<path d="M817.5,586.6 C871.7,604.4 945.7,628.5 1006.0,648.2 L1014.8,651.0" fill="none" stroke="#64748B" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
+<path d="M1135.6,715.4 C1158.2,747.5 1197.1,795.5 1243.2,821.0 C1285.6,844.4 1338.8,855.0 1382.1,859.7 L1391.5,860.6" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M1212.6,702.9 C1353.3,728.3 1620.4,764.2 1843.2,723.0 C1887.2,714.9 1906.0,719.0 1937.2,687.0 C1965.9,657.6 1949.0,636.3 1968.2,600.0 C1980.1,577.5 1996.4,554.6 2011.0,535.7 L2016.7,528.4" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M1169.6,650.5 C1223.1,619.2 1307.1,570.9 1381.5,532.0 C1385.2,530.1 1389.0,528.1 1392.8,526.2 L1401.2,522.0" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M1186.7,715.5 C1204.8,722.6 1224.5,729.4 1243.2,734.0 C1303.2,748.9 1319.9,744.2 1381.5,749.0 C1721.0,775.5 1851.3,891.5 2147.2,723.0 C2223.3,679.7 2278.4,590.1 2306.2,536.4 L2310.5,528.1" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M422.7,710.5 C456.1,791.2 567.0,1022.0 740.0,1022.0 C740.0,1022.0 740.0,1022.0 2048.7,1022.0 C2267.1,1022.0 2314.3,664.4 2324.2,537.2 L2324.8,528.1" fill="none" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/>
+<path d="M485.2,655.5 C533.2,637.6 597.2,613.8 654.0,593.0 C654.6,592.8 655.3,592.5 656.0,592.3 L664.9,589.0" fill="none" stroke="#64748B" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/>
+<rect x="220.9" y="90.5" width="97.2" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="269.5" y="100.5" class="l">batches pk+sk</text>
+<rect x="493.1" y="87.4" width="154.8" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="570.5" y="97.4" class="l">scores, datasets, runs</text>
+<rect x="857.0" y="321.1" width="129.2" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="921.6" y="331.1" class="l">feedback pk + CORS</text>
+<rect x="227.3" y="188.0" width="84.4" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="269.5" y="198.0" class="l">pages, HTMX</text>
+<rect x="885.8" y="369.5" width="71.6" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="921.6" y="379.5" class="l">raw batch</text>
+<rect x="1259.9" y="225.0" width="84.4" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1302.1" y="235.0" class="l">score batch</text>
+<rect x="1259.9" y="329.6" width="84.4" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1302.1" y="339.6" class="l">score batch</text>
+<rect x="1696.4" y="166.0" width="103.6" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1748.2" y="176.0" class="l">datasets, runs</text>
+<rect x="1376.5" y="32.0" width="174.0" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1463.5" y="42.0" class="l">configs, queues, datasets</text>
+<rect x="1243.9" y="129.1" width="116.4" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1302.1" y="139.1" class="l">lists, analytics</text>
+<rect x="534.7" y="371.5" width="71.6" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="570.5" y="381.5" class="l">batch ref</text>
+<rect x="515.5" y="244.3" width="110.0" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="570.5" y="254.3" class="l">experiment_item</text>
+<rect x="1275.9" y="535.3" width="52.4" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1302.1" y="545.3" class="l">ingest</text>
+<rect x="1558.3" y="507.2" width="71.6" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1594.1" y="517.2" class="l">raw batch</text>
+<rect x="1863.5" y="547.5" width="84.4" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1905.7" y="557.5" class="l">merged rows</text>
+<rect x="1860.3" y="662.0" width="90.8" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1905.7" y="672.0" class="l">after commit</text>
+<rect x="2141.5" y="542.1" width="110.0" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="2196.5" y="552.1" class="l">eval_executions</text>
+<rect x="1405.3" y="904.0" width="116.4" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1463.5" y="914.0" class="l">eval_job delayed</text>
+<rect x="834.6" y="585.1" width="174.0" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="921.6" y="595.1" class="l">eval_job, experiment_item</text>
+<rect x="1234.3" y="805.0" width="135.6" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1302.1" y="815.0" class="l">judge / item prompt</text>
+<rect x="1555.1" y="725.1" width="78.0" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1594.1" y="735.1" class="l">EVAL score</text>
+<rect x="1218.3" y="527.6" width="167.6" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1302.1" y="537.6" class="l">judge, experiment traces</text>
+<rect x="1677.2" y="773.4" width="142.0" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1748.2" y="783.4" class="l">status, spend ledger</text>
+<rect x="1408.5" y="1006.0" width="110.0" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="1463.5" y="1016.0" class="l">due, stuck rows</text>
+<rect x="531.5" y="589.1" width="78.0" height="20" rx="10" fill="#FFFFFF" stroke="#E2E8F0"/><text x="570.5" y="599.1" class="l">re-enqueue</text>
+<rect x="329.46" y="142.0" width="104" height="22" rx="6" fill="#F8FAFC"/><text x="336.46" y="153.0" class="g" dominant-baseline="central">WEB PROCESS</text>
+<rect x="322.98" y="616.0" width="129" height="22" rx="6" fill="#F8FAFC"/><text x="329.98" y="627.0" class="g" dominant-baseline="central">WORKER PROCESS</text>
+<rect x="1389.5" y="424.0" width="121" height="22" rx="6" fill="#F8FAFC"/><text x="1396.5" y="435.0" class="g" dominant-baseline="central">STORAGE PORTS</text>
+<g filter="url(#sh)"><rect x="-0.010000000000005116" y="0.0" width="204" height="54" rx="27.0" fill="#F1F5F9" stroke="#64748B" stroke-width="1.6"/></g><text x="101.99" y="27.0" class="n">Instrumented app SDK</text>
+<g filter="url(#sh)"><rect x="653.98" y="371.0" width="174" height="54" rx="27.0" fill="#F1F5F9" stroke="#64748B" stroke-width="1.6"/></g><text x="740.98" y="398.0" class="n">End-user browser</text>
+<g filter="url(#sh)"><rect x="30.489999999999995" y="177.0" width="143" height="54" rx="27.0" fill="#F1F5F9" stroke="#64748B" stroke-width="1.6"/></g><text x="101.99" y="204.0" class="n">Team browser</text>
+<g filter="url(#sh)"><rect x="341.47" y="277.0" width="139" height="54" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.6"/></g><text x="410.97" y="304.0" class="n">Ingestion API</text>
+<g filter="url(#sh)"><rect x="1029.2" y="177.0" width="169" height="64" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.6"/></g><text x="1113.7" y="200.5" class="n">Scores &amp; datasets</text><text x="1113.7" y="217.5" class="n">API</text>
+<g filter="url(#sh)"><rect x="1029.2" y="277.0" width="169" height="54" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.6"/></g><text x="1113.7" y="304.0" class="n">Feedback endpoint</text>
+<g filter="url(#sh)"><rect x="348.97" y="177.0" width="124" height="54" rx="8" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.6"/></g><text x="410.97" y="204.0" class="n">Web UI HTMX</text>
+<g filter="url(#sh)"><polygon points="679.0,535.0 817.0,535.0 803.0,589.0 665.0,589.0" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.6"/></g><text x="740.98" y="562.0" class="n">Job queue</text>
+<g filter="url(#sh)"><polygon points="1667.2,651.0 1829.2,651.0 1843.2,678.0 1829.2,705.0 1667.2,705.0 1653.2,678.0" fill="#ECFDF5" stroke="#059669" stroke-width="1.6"/></g><text x="1748.2" y="678.0" class="n">Ingest processor</text>
+<g filter="url(#sh)"><polygon points="1982.2,651.0 2113.2,651.0 2127.2,678.0 2113.2,705.0 1982.2,705.0 1968.2,678.0" fill="#ECFDF5" stroke="#059669" stroke-width="1.6"/></g><text x="2047.7" y="678.0" class="n">Rule matcher</text>
+<g filter="url(#sh)"><polygon points="1029.2,651.0 1198.2,651.0 1212.2,683.0 1198.2,715.0 1029.2,715.0 1015.2,683.0" fill="#ECFDF5" stroke="#059669" stroke-width="1.6"/></g><text x="1113.7" y="674.5" class="n">Eval &amp; experiment</text><text x="1113.7" y="691.5" class="n">jobs</text>
+<g filter="url(#sh)"><polygon points="349.0,656.0 473.0,656.0 487.0,683.0 473.0,710.0 349.0,710.0 335.0,683.0" fill="#ECFDF5" stroke="#059669" stroke-width="1.6"/></g><text x="410.97" y="683.0" class="n">Sweeper</text>
+<g filter="url(#sh)"><path d="M1401.5,466.0 a62.0,8 0 0 0 124,0 v54 a62.0,8 0 0 1 -124,0 z" fill="#FFFBEB" stroke="#D97706" stroke-width="1.6"/><ellipse cx="1463.5" cy="466.0" rx="62.0" ry="8" fill="#FFFBEB" stroke="#D97706" stroke-width="1.6"/></g><text x="1463.5" y="497.0" class="n">Blob store</text>
+<g filter="url(#sh)"><path d="M1985.7,466.0 a62.0,8 0 0 0 124,0 v54 a62.0,8 0 0 1 -124,0 z" fill="#FFFBEB" stroke="#D97706" stroke-width="1.6"/><ellipse cx="2047.7" cy="466.0" rx="62.0" ry="8" fill="#FFFBEB" stroke="#D97706" stroke-width="1.6"/></g><text x="2047.7" y="497.0" class="n">Trace store</text>
+<g filter="url(#sh)"><path d="M2265.7,466.0 a62.0,8 0 0 0 124,0 v54 a62.0,8 0 0 1 -124,0 z" fill="#FFFBEB" stroke="#D97706" stroke-width="1.6"/><ellipse cx="2327.7" cy="466.0" rx="62.0" ry="8" fill="#FFFBEB" stroke="#D97706" stroke-width="1.6"/></g><text x="2327.7" y="497.0" class="n">Meta DB</text>
+<g filter="url(#sh)"><rect x="1392.0" y="836.0" width="143" height="54" rx="27.0" fill="#F1F5F9" stroke="#64748B" stroke-width="1.6"/></g><text x="1463.5" y="863.0" class="n">LLM provider</text>
+</g>
+<rect x="36" y="1132.0" width="22" height="16" rx="8" fill="#F1F5F9" stroke="#64748B" stroke-width="1.4"/><text x="66" y="1140.0" class="k">User or external system</text>
+<rect x="248.4" y="1132.0" width="22" height="16" rx="3" fill="#EFF6FF" stroke="#2563EB" stroke-width="1.4"/><text x="278.4" y="1140.0" class="k">Service / component</text>
+<rect x="433.6" y="1132.0" width="22" height="16" rx="3" fill="#ECFDF5" stroke="#059669" stroke-width="1.4"/><text x="463.6" y="1140.0" class="k">Background job</text>
+<rect x="584.8" y="1132.0" width="22" height="16" rx="3" fill="#FFFBEB" stroke="#D97706" stroke-width="1.4"/><text x="614.8" y="1140.0" class="k">Data store</text>
+<rect x="708.8" y="1132.0" width="22" height="16" rx="3" fill="#F5F3FF" stroke="#7C3AED" stroke-width="1.4"/><text x="738.8" y="1140.0" class="k">Queue / stream</text>
+<path d="M860.0,1140.0 h26" stroke="#64748B" stroke-width="1.6" marker-end="url(#ar)"/><text x="894.0" y="1140.0" class="k">Request / call</text>
+<path d="M1015.2,1140.0 h26" stroke="#64748B" stroke-width="1.6" stroke-dasharray="6 5" marker-end="url(#ar)"/><text x="1049.2" y="1140.0" class="k">Async or optional</text>
+<path d="M1190.8,1140.0 h26" stroke="#64748B" stroke-width="2.8" marker-end="url(#ar)"/><text x="1224.8" y="1140.0" class="k">Main data flow</text>
+</svg>
