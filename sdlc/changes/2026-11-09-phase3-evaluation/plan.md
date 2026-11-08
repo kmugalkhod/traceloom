@@ -60,7 +60,8 @@ This change is stacked on `team/2026-11-06-ui-polish-align` (Phase 1 + Phase 2 +
 - `adapters/lite/sql_read.py`, `sql_analytics.py`, `adapters/full/clickhouse_trace_store.py`: score filters, sorts, aggregates, distribution, trend and pairs. The traces list hides the eval and experiment environments unless they're selected.
 - `ingest/process.py`: modified. After commit, calls `evals.rules.on_ingested(container, project_id, trace_ids, observation_ids)` inside `try/except` with logging (NFR-4).
 - `ingest/sweeper.py`: modified. `set_due_jobs(source)` re-enqueues due or stuck `eval_executions` and `dataset_run_items` (both modes).
-- `ingest/schemas.py` / `merge.py`: modified. `ScoreBody` gains `queue_id`, `execution_id`, `dataset_run_id` and `channel`, with config validation (FR-S2) in the merge step via the config cache.
+- `ingest/schemas.py` / `merge.py` / `accept.py`: modified. `ScoreBody` gains `queue_id`, `execution_id`, `dataset_run_id` and `channel`; merge maps them onto `ScoreRow`. Config validation (FR-S2) runs in `accept_batch` through the config cache (`scores.configs.ConfigCache`, an optional `score_check` hook wired by `api/ingestion.py`), because a per-event error can only reach the client at accept time.
+- `ports.py` (TraceStore/ScoreRow, T-5): `ScoreRow` gains `queue_id`, `execution_id`, `channel`; `TraceStore` gains `delete_score` and `config_has_scores` (lite + ClickHouse). The ClickHouse column list for the new score fields is left to the ClickHouse schema task.
 - `scores/` (new package):
   - `configs.py`: CRUD, archive, immutable type once used, validate.
   - `service.py`: create, list, delete, source rules.

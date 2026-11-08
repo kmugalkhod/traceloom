@@ -833,6 +833,18 @@ class ClickHouseTraceStore:
     def matching_trace_ids(self, project_id: str, query: TraceQuery) -> list[str]:
         return [r["id"] for r in self._select(build_trace_ids(project_id, query, self.traces))]
 
+    def delete_score(self, project_id: str, score_id: str) -> bool:
+        if score_id not in self.get_existing(project_id, {"score": [score_id]})["score"]:
+            return False
+        sql, params = build_delete(self.scores, project_id, "id", [score_id])
+        self.client.command(sql, parameters=params)
+        return True
+
+    def config_has_scores(self, project_id: str, config_id: str) -> bool:
+        where = _project_where("config_id = {config_id:String}")
+        sql = f"SELECT 1 AS used FROM {self.scores} WHERE {where} LIMIT 1"
+        return bool(self._select((sql, {"project_id": project_id, "config_id": config_id})))
+
     def delete_traces(self, project_id: str, target: Sequence[str] | TraceQuery) -> int:
         if isinstance(target, TraceQuery):
             ids = self.matching_trace_ids(project_id, target)
