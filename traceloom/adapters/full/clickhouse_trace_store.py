@@ -62,7 +62,8 @@ OBSERVATION_COLUMNS = (
 ).split()
 SCORE_COLUMNS = (
     "project_id id trace_id observation_id session_id dataset_run_id name value string_value "
-    "data_type comment source config_id author_id timestamp environment event_ts"
+    "data_type comment source config_id author_id timestamp environment event_ts "
+    "queue_id execution_id channel"
 ).split()
 
 _TABLES: dict[str, tuple[list[str], type]] = {
