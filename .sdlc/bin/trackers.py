@@ -116,6 +116,27 @@ class Jira:
     def comment(self, ext: str, text: str) -> None:
         _http("POST", f"{self.base}/rest/api/3/issue/{ext}/comment", self.h, {"body": self.adf(text)})
 
+    @staticmethod
+    def adf_text(node) -> str:
+        """Plain text of an Atlassian Document Format body."""
+        if isinstance(node, dict):
+            if node.get("type") == "text":
+                return node.get("text", "")
+            inner = "".join(Jira.adf_text(c) for c in node.get("content") or [])
+            return inner + ("\n" if node.get("type") == "paragraph" else "")
+        if isinstance(node, list):
+            return "".join(Jira.adf_text(c) for c in node)
+        return node if isinstance(node, str) else ""
+
+    def comments(self, ext: str) -> list[dict]:
+        if not getattr(self, "_me", None):
+            self._me = (_http("GET", f"{self.base}/rest/api/3/myself", self.h) or {}).get("accountId", "")
+        r = _http("GET", f"{self.base}/rest/api/3/issue/{ext}/comment?orderBy=created&maxResults=100", self.h)
+        return [{"id": str(c.get("id")), "text": self.adf_text(c.get("body")).strip(), "ts": c.get("created", ""),
+                 "author": (c.get("author") or {}).get("displayName", ""),
+                 "mine": bool(self._me) and (c.get("author") or {}).get("accountId") == self._me}
+                for c in r.get("comments") or []]
+
     def mcp_config(self) -> dict:
         # Atlassian Rovo MCP. Token auth must be enabled by an org admin (Rovo MCP server -> Authentication).
         return {"tracker": {"type": "http", "url": "https://mcp.atlassian.com/v1/mcp",
@@ -218,12 +239,26 @@ class Linear:
         self.q("mutation($i:CommentCreateInput!){commentCreate(input:$i){success}}",
                {"i": {"issueId": ext, "body": text}})
 
+    def comments(self, ext: str) -> list[dict]:
+        if ext.startswith("project:"):
+            return []
+        d = self.q("query($id:String!){viewer{id} issue(id:$id){comments(first:100){nodes{id body createdAt "
+                   "user{id name}}}}}", {"id": ext})
+        me = (d.get("viewer") or {}).get("id")
+        return [{"id": c["id"], "text": (c.get("body") or "").strip(), "ts": c.get("createdAt", ""),
+                 "author": (c.get("user") or {}).get("name", ""), "mine": (c.get("user") or {}).get("id") == me}
+                for c in (((d.get("issue") or {}).get("comments") or {}).get("nodes") or [])]
+
     def mcp_config(self) -> dict:
         return {"tracker": {"type": "http", "url": "https://mcp.linear.app/mcp",
                             "headers": {"Authorization": "Bearer ${LINEAR_API_KEY}"}}}
 
     def mcp_env(self) -> dict:
         return {}
+
+
+ASK = ("❓ The team needs your guidance on this task: {why}\n"
+       "Reply to this issue with what to do, and the team resumes it with your answer. <!-- sdlc-ask -->")
 
 
 def make(cfg: dict):
@@ -288,6 +323,7 @@ class Sync:
                     except TrackerError as e:
                         errors.append(str(e))
         state["last_event"] = last
+        errors += self.ask_and_resume(state)
         self.b.set_meta(sync_state=state)
         seen = set(state.get("errors", []))
         for e in errors[:5]:
@@ -295,4 +331,37 @@ class Sync:
                 self.b.event(None, "sync", "sync", f"{self.t.name} sync error: {e}")
         state["errors"] = list(seen | set(errors))[-50:]
         self.b.set_meta(sync_state=state)
+        return errors
+
+    def ask_and_resume(self, state: dict) -> list[str]:
+        """An escalated task asks its question on the issue; the first human reply there resumes it with that reply
+        as the guidance — no terminal command needed."""
+        if not hasattr(self.t, "comments"):
+            return []
+        errors, asks = [], state.setdefault("asks", {})
+        escalated = set(self.b.meta().get("escalated", []))
+        for k in list(asks):
+            if k not in escalated:
+                asks.pop(k)  # resumed some other way
+        for k in sorted(escalated):
+            it = self.b.item(k)
+            if not it or not it.get("ext_key"):
+                continue
+            try:
+                if k not in asks:
+                    seen = [c["id"] for c in self.t.comments(it["ext_key"])]
+                    self.t.comment(it["ext_key"], ASK.format(why=self.b.escalation_reason(k) or it.get("note") or "see the task history"))
+                    seen += [c["id"] for c in self.t.comments(it["ext_key"])]  # our own question too
+                    asks[k] = {"seen": sorted(set(seen))}
+                    self.b.event(k, "sync", "sync", f"asked for guidance on {self.t.name}")
+                    continue
+                new = [c for c in self.t.comments(it["ext_key"]) if c["id"] not in asks[k]["seen"]
+                       and not c["mine"] and "sdlc-ask" not in c["text"] and not c["text"].startswith("[")]
+                if new:
+                    who = new[0].get("author") or "the issue"
+                    self.b.resume(k, new[0]["text"][:2000], actor=f"{self.t.name}:{who}"[:40])
+                    self.b.event(k, "sync", "sync", f"resumed from a reply on {self.t.name} by {who}")
+                    asks.pop(k)
+            except TrackerError as e:
+                errors.append(str(e))
         return errors

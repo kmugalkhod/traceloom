@@ -1,0 +1,51 @@
+# Phase 3 Evaluation: design notes (D-1)
+
+Mockup: `design/mockup.html` (one file, inline CSS/JS, only Google Fonts loaded). Open it, use the top nav to jump by section number. Tokens are the DESIGN.md v3.2 CSS variables; the new component CSS is the block headed "PHASE 3 ADDITIONS" and can be lifted into `traceloom/web/static/` as is. Theme button toggles light and dark; section 13 shows forced dark; section 12 holds the 390px frames. Skill used: impeccable (shape flow, brownfield; critique and audit applied as one check-and-fix round on the rendered sheet at 1400px and 390px frames).
+
+## Direction
+Evaluation is an Operate workflow, so it looks like the rest of Traceloom: calm white panels, hairline borders, one near-black primary per view, and status always as icon + word + tint. The new idea is that **a score always shows where it came from** (a person, a key, or a judge) through one small chip used everywhere.
+
+## Screens (mockup section)
+0 Kit (chips, statuses, banners, controls) · 1 Settings tabs · 2 Scores in lists, filter, Scores tab · 3 Queues (list, detail, review) · 4 Add to queue · 5 Datasets · 6 Import and Add to dataset · 7 Evaluators (templates, rules, rule editor, dialogs) · 8 Log · 9 Experiments · 10 Run comparison · 11 Score analytics · 12 Mobile 390 · 13 Dark.
+
+## Components added (details in DESIGN.md "Phase 3 additions")
+Score chip by source, execution/queue statuses, progress bar and meter, config-driven score input, review layout with sticky footer, dialog, drawer, toast, selection bar, filter-tray score rows, JSON editor, version rail and line diff, stepper, drop zone, rule editor pieces (target cards, mapping table, preview), judge reasoning quote, distribution card, confusion matrix, stat tiles, run comparison table with Best pill and regression cells.
+
+## Tokens
+No colour, font, radius, shadow or spacing token is new. Two derived tints are computed from existing tokens with `color-mix` (eval chip: 12% `--t-generation` over `--surface`; matrix cell: share of `--accent` over `--surface`). If the build cannot use `color-mix`, use `--accent-soft` for annotation and `--surface-2` with a violet border for eval, and four fixed matrix steps.
+
+## Interactions
+- Score filters live in the URL (`?score=name:op:value`, repeated; `sort=score:name:desc`) and in saved views. Operators: `= != > >= < <=`, `in`, `exists`, `missing`.
+- Review keys: `⌘/Ctrl+Enter` complete, `n` or `→` next (saves first when valid), `s` skip, `1-9` category on the focused score, `t`/`f` boolean, `?` help. Shortcuts pause while typing in a field.
+- Run detail polls every 2 s (HTMX `hx-trigger="every 2s"`) until status is Completed or Failed, then stops and shows the completed banner. `aria-live="polite"` on the status line only.
+- "Only regressed", threshold and sort are GET params on the compare page (`regressed=1&threshold=0&sort=delta`) so the view is linkable. The mockup's switch hides non-regressed rows as a demo.
+- Row "..." menus follow the existing `data-menu` pattern. Archive and Add-to-queue results use a toast with Undo or a link; destructive deletes use the confirm dialog with the only red button.
+
+## Accessibility
+Every chip and pill has a glyph and a word; regressed cells carry an arrow and text (`true to false`, `-0.30`); series differ by dash and glyph as well as hue. Charts are SVG with `role="img"` and an `aria-label` stating the finding, each followed by a "View as table" `details`. Progress bars are `role="progressbar"` with a text count. Category and boolean inputs are button groups with `aria-pressed`; switches are `role="switch"`. Focus rings and 36px (44px mobile) controls as in v3.2. Dialogs trap focus and return it to the opener. All user content (names, descriptions, origins, JSON, CSV cells, reasoning, errors) is shown as literal text; the mockup includes `<script>alert(1)</script>` samples where AC-13 applies.
+
+## Assumptions (no human to ask in this run)
+1. The Evaluation nav group is placed between Build and Project; Scores (analytics) is the first item.
+2. Score config "type locked" shows a notice and disables the type seg, rather than hiding it.
+3. Archive of a score config has no confirm (reversible, toast with Undo); deleting a queue or dataset has a confirm.
+4. The Scores column shows chips, not just averages: a chip per score name, value = average for numeric/boolean (the spec says averages), tinted by the source of the most recent score.
+5. Review shows "Yours until HH:MM" for the reviewer's own lock and renews silently on save.
+6. The run item list on a live run shows Capped and Failed rows inline; a failed item can be retried only by starting a new run (spec has no item retry).
+7. Rule backfill dialog states the cap (`TRACELOOM_EVAL_BACKFILL_MAX`) and estimated spend; the estimate is a rough figure (tokens x price) and labelled "about".
+8. The enable-rule confirmation needs a checkbox; this is a deliberate extra step for the egress concern decided in spec.
+9. Public feedback is included in analytics by default (a checkbox), as the spec says analytics "can include or exclude" it.
+10. At narrow widths the desktop frames in the sheet scroll sideways; the 390px frames are the mobile reference.
+11. Member view of Rules/Evaluation tabs is read-only text, not hidden: the spec allows Viewer+ to read.
+
+## Per task: what to build and where it is
+- **T-9 Settings tabs** (section 1). Two tabs after Audit log. Score configs: table (name + description, type, range/values, public feedback pill, score count, row menu Edit / Archive / Copy id), Active/Archived seg, `New score config` primary. Dialog fields change with the type (Numeric min/max; Categorical 2-20 label+value rows with Add; Boolean none); name unique among active configs; type and categories disabled with a notice when scores exist. Evaluation tab: cap card (spent, cap, remaining, resets, meter, input + Save), feedback origins (chips with remove, add input validating scheme+host only), `feedback.js` snippet with Copy and a size note (<3 KB). Admin edits; others read; writes 403; every change audited. Escape all text.
+- **T-10 Chips, inputs, Scores column, filter** (section 2). `_score_chips.html` renders `.sc` by source. Traces/sessions lists get a Scores column and column-chooser entries (inside "..."). Filter tray gets a Score section of `.frow` rows with validation by config type; active filters as chips, in the URL and saved views, sortable header. Trace Scores tab: existing scores table, `_score_input.html` per active config, free-form disclosure, delete own score. Archived configs not offered; their scores show dashed. Tree rows show a chip per observation score.
+- **T-12 Queue pages and review** (section 3). List with progress bars, detail with progress, reviewers table, items table filtered by status and reviewer, new-queue dialog, Admin-only delete confirm, review screen exactly as shown (top bar with progress, object column read-only, form column, sticky footer, shortcuts dialog), lock banner with disabled form, Queue complete state, loading, validation error. Viewers: no New/Review/menu.
+- **T-13 Add to queue** (section 4). "..." menu items on trace, observation and session detail; list selection bar; filter menu "Add all N matching to queue" with snapshot dialog, limit banner (`TRACELOOM_QUEUE_BULK_MAX`), result toast naming added and skipped counts, disabled queue option with reason when its configs are archived. Viewers: nothing.
+- **T-18 Datasets** (section 5). List (items, runs, last run status), new-dataset dialog, detail with Items | Runs | History tabs, item table with source link, item drawer (JSON editors with validity, version rail, "Save as v3"), history table and diff, empty and loading, Admin-only delete, Viewer read-only.
+- **T-19 Import and Add to dataset** (section 6). Four-step wizard with stepper; drop zone with limit error; mapping table (input required); preview of first 5 rows with per-cell warning for malformed JSON (kept as text) and `<script>` shown literally; done and error states. Add-to-dataset dialog prefilled from trace/observation with the source link, JSON validity, bulk variant.
+- **T-25 Evaluators** (section 7). Page with Templates | Rules | Log tabs. Templates: read-only built-in cards with Clone, project templates table, editor (prompt with `.var` highlights, output type, model, versions rail, save as new version). Rules: cap banner while capped, table with switch, sampling, delay, 24 h outcomes; row menu (Edit, Backfill, Delete) for Admin only; rule editor with four numbered panels and a preview; enable-confirmation dialog naming provider and model; backfill dialog with cap and estimate; empty and Member read-only states.
+- **T-26 Log and retry** (section 8). Filters (rule, status, range), table with all six statuses, row retry for failed, details drawer (score, judge trace link, cost, duration, reasoning as text, scrubbed error), capped explanation, empty state, Viewer without Retry.
+- **T-29 Experiment dialog and run detail** (section 9). New-experiment dialog (name, prompt + version/label, connection + model, variable mapping, evaluators, spend estimate), validation and cap states; run page with live progress bar and counts, four KPI stat cards, item table with Succeeded/Failed/Capped/Running/Pending, completed banner, Runs tab with compare selection. Viewers no start control.
+- **T-30 Run comparison** (section 10). Run pickers A-D (baseline first, max 4 with error), aggregate table with Best pills and deltas, item table with sticky item column and per-run output, scores, latency, cost, regression highlight and count, Only regressed switch, threshold, sort by delta, empty result for a high threshold, expand/collapse cells, 100 per page. Mobile: stacked pickers, horizontal scroll with sticky item column.
+- **T-32 Score analytics** (section 11). Source seg, score picker, distribution cards (histogram or bars, mean, median, p10, p90, n, table fallback), trend by source (solid vs dashed), compare panel (Human vs judge preset or A/B pickers; confusion matrix + agreement % + κ; scatter + Pearson/Spearman; box plot for mixed), "Not enough data" below n = 10, empty state, loading, include/exclude public feedback checkbox. Viewers can read.
