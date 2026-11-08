@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 664" width="1000" height="664" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">Traceloom architecture</title>
+  <desc id="d">Apps send traces through the SDK, integrations, OpenTelemetry or HTTP to the Traceloom web server. The server stores each raw batch, queues it, and a worker writes traces to the trace store. People use the web UI to explore traces, dashboards, prompts and the playground.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <style>
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.2; }
+      .box { fill: #f8fafc; stroke: #94a3b8; stroke-width: 1.2; }
+      .core { fill: #eef2ff; stroke: #6366f1; stroke-width: 1.5; }
+      .store { fill: #ecfdf5; stroke: #10b981; stroke-width: 1.4; }
+      .ui { fill: #fff7ed; stroke: #f97316; stroke-width: 1.4; }
+      .h { font-size: 15px; font-weight: 700; fill: #0f172a; }
+      .t { font-size: 13px; font-weight: 600; fill: #0f172a; }
+      .s { font-size: 11.5px; fill: #475569; }
+      .lbl { font-size: 11px; fill: #334155; font-weight: 600; }
+      .edge { stroke: #475569; stroke-width: 1.6; fill: none; marker-end: url(#arrow); }
+      .dash { stroke-dasharray: 5 4; }
+    </style>
+  </defs>
+
+  <rect width="1000" height="664" fill="#f1f5f9"/>
+  <text x="500" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">Traceloom architecture</text>
+
+  <!-- Left: your application -->
+  <rect class="panel" x="24" y="60" width="230" height="400" rx="12"/>
+  <text class="h" x="40" y="88">Your LLM app / agent</text>
+  <rect class="box" x="40" y="104" width="198" height="56" rx="8"/>
+  <text class="t" x="54" y="127">Python SDK</text>
+  <text class="s" x="54" y="146">@observe, spans, generations</text>
+  <rect class="box" x="40" y="172" width="198" height="56" rx="8"/>
+  <text class="t" x="54" y="195">LLM wrappers</text>
+  <text class="s" x="54" y="214">OpenAI · Anthropic</text>
+  <rect class="box" x="40" y="240" width="198" height="56" rx="8"/>
+  <text class="t" x="54" y="263">Framework callbacks</text>
+  <text class="s" x="54" y="282">LangChain · LiteLLM</text>
+  <rect class="box" x="40" y="308" width="198" height="56" rx="8"/>
+  <text class="t" x="54" y="331">OpenTelemetry</text>
+  <text class="s" x="54" y="350">OTLP/HTTP (JSON or protobuf)</text>
+  <rect class="box" x="40" y="376" width="198" height="56" rx="8"/>
+  <text class="t" x="54" y="399">Any HTTP client</text>
+  <text class="s" x="54" y="418">curl, other languages</text>
+
+  <!-- Middle: Traceloom server -->
+  <rect class="panel" x="300" y="60" width="400" height="300" rx="12"/>
+  <text class="h" x="316" y="88">Traceloom server (FastAPI)</text>
+  <rect class="core" x="316" y="104" width="180" height="76" rx="8"/>
+  <text class="t" x="330" y="128">Public API</text>
+  <text class="s" x="330" y="147">/api/public/ingestion</text>
+  <text class="s" x="330" y="163">/api/public/otel/v1/traces</text>
+  <rect class="core" x="508" y="104" width="176" height="76" rx="8"/>
+  <text class="t" x="522" y="128">Web UI</text>
+  <text class="s" x="522" y="147">Jinja templates + HTMX</text>
+  <text class="s" x="522" y="163">auth, roles, projects</text>
+  <rect class="core" x="316" y="196" width="180" height="60" rx="8"/>
+  <text class="t" x="330" y="220">Prompts API</text>
+  <text class="s" x="330" y="239">/api/public/v2/prompts</text>
+  <rect class="core" x="508" y="196" width="176" height="60" rx="8"/>
+  <text class="t" x="522" y="220">Playground</text>
+  <text class="s" x="522" y="239">runs prompts on your keys</text>
+  <rect class="core" x="316" y="272" width="368" height="72" rx="8"/>
+  <text class="t" x="330" y="296">Worker</text>
+  <text class="s" x="330" y="315">validates events · merges updates · computes cost</text>
+  <text class="s" x="330" y="331">in-process (lite) or a separate Dramatiq worker (full)</text>
+
+  <!-- Right: people -->
+  <rect class="panel" x="746" y="60" width="230" height="300" rx="12"/>
+  <text class="h" x="762" y="88">Your team (browser)</text>
+  <rect class="ui" x="762" y="104" width="198" height="44" rx="8"/>
+  <text class="t" x="776" y="131">Traces &amp; trace detail</text>
+  <rect class="ui" x="762" y="158" width="198" height="44" rx="8"/>
+  <text class="t" x="776" y="185">Sessions &amp; users</text>
+  <rect class="ui" x="762" y="212" width="198" height="44" rx="8"/>
+  <text class="t" x="776" y="239">Dashboard: cost, latency</text>
+  <rect class="ui" x="762" y="266" width="198" height="44" rx="8"/>
+  <text class="t" x="776" y="293">Prompts &amp; playground</text>
+  <text class="s" x="762" y="334">Scores, comments, bookmarks,</text>
+  <text class="s" x="762" y="349">API keys, members, webhooks</text>
+
+  <!-- Bottom: storage ports -->
+  <rect class="panel" x="300" y="424" width="676" height="222" rx="12"/>
+  <text class="h" x="316" y="632">Storage ports: lite mode (default) → full mode</text>
+  <rect class="store" x="316" y="468" width="152" height="140" rx="8"/>
+  <text class="t" x="330" y="492">BlobStore</text>
+  <text class="s" x="330" y="512">raw batches, durable</text>
+  <text class="s" x="330" y="528">before the 207 reply</text>
+  <text class="lbl" x="330" y="558">lite: local folder</text>
+  <text class="lbl" x="330" y="578">full: S3 / MinIO</text>
+  <rect class="store" x="482" y="468" width="152" height="140" rx="8"/>
+  <text class="t" x="496" y="492">Queue</text>
+  <text class="s" x="496" y="512">batch references</text>
+  <text class="s" x="496" y="528">+ sweeper replay</text>
+  <text class="lbl" x="496" y="558">lite: in-process</text>
+  <text class="lbl" x="496" y="578">full: Redis + Dramatiq</text>
+  <rect class="store" x="648" y="468" width="152" height="140" rx="8"/>
+  <text class="t" x="662" y="492">TraceStore</text>
+  <text class="s" x="662" y="512">traces, observations,</text>
+  <text class="s" x="662" y="528">scores, aggregates</text>
+  <text class="lbl" x="662" y="558">lite: SQLite/Postgres</text>
+  <text class="lbl" x="662" y="578">full: ClickHouse</text>
+  <rect class="store" x="814" y="468" width="146" height="140" rx="8"/>
+  <text class="t" x="828" y="492">MetaStore</text>
+  <text class="s" x="828" y="512">users, orgs, projects,</text>
+  <text class="s" x="828" y="528">keys, prompts, models</text>
+  <text class="lbl" x="828" y="558">SQLite (dev)</text>
+  <text class="lbl" x="828" y="578">Postgres (prod)</text>
+
+  <!-- Edges: app → API -->
+  <path class="edge" d="M238,132 C270,132 280,142 314,142"/>
+  <path class="edge" d="M238,200 C275,200 280,150 314,148"/>
+  <path class="edge" d="M238,268 C280,268 285,156 314,154"/>
+  <path class="edge" d="M238,336 C285,336 290,162 314,160"/>
+  <path class="edge" d="M238,404 C290,404 295,168 314,166"/>
+  <text class="s" x="40" y="450">Auth: HTTP Basic with project API keys</text>
+
+  <!-- API → BlobStore, then enqueue -->
+  <path class="edge" d="M316,172 H286 V392 H392 V466"/>
+  <path class="edge" d="M286,392 H558 V466"/>
+  <text class="lbl" x="398" y="386">1. store raw batch</text>
+  <text class="lbl" x="564" y="386">2. enqueue</text>
+
+  <!-- Queue → worker → TraceStore -->
+  <path class="edge" d="M610,466 V346"/>
+  <text class="lbl" x="604" y="412" text-anchor="end">3. consume</text>
+  <path class="edge" d="M670,346 V466"/>
+  <text class="lbl" x="676" y="412">4. write</text>
+
+  <!-- browser → UI; UI reads TraceStore -->
+  <path class="edge" d="M760,126 L686,140"/>
+  <path class="edge dash" d="M686,150 H694 V440 H760 V466"/>
+  <text class="lbl" x="708" y="300" transform="rotate(-90 708 300)">read queries</text>
+</svg>
