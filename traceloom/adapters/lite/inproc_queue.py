@@ -193,7 +193,8 @@ class InProcQueue:
     # --- internals ----------------------------------------------------------------------------
 
     def _waiting(self) -> int:
-        return len(self._items) + len(self._delayed) + sum(len(lane.items) for lane in self._lanes.values())
+        lanes = sum(len(lane.items) for lane in self._lanes.values())
+        return len(self._items) + len(self._delayed) + lanes
 
     def _handle(self, item: Mapping[str, Any]) -> None:
         try:

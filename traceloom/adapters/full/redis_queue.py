@@ -87,7 +87,9 @@ class RedisQueue:
         self._registry.register(INGEST, handler)
         self._running = True
         self._worker = dramatiq.Worker(
-            self.broker, queues={self.queue_name, self.eval_queue_name}, worker_threads=self._threads
+            self.broker,
+            queues={self.queue_name, self.eval_queue_name},
+            worker_threads=self._threads,
         )
         self._worker.start()
 
