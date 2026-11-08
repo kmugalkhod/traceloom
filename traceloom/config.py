@@ -64,6 +64,27 @@ class Settings(BaseSettings):
         120, validation_alias="TRACELOOM_PROVIDER_TIMEOUT_SECONDS"
     )
 
+    # Phase 3: evaluation
+    rate_feedback: str = Field("60/minute", validation_alias="TRACELOOM_RATE_FEEDBACK")
+    queue_bulk_max: int = Field(5000, validation_alias="TRACELOOM_QUEUE_BULK_MAX")
+    annotation_lock_minutes: int = Field(10, validation_alias="TRACELOOM_ANNOTATION_LOCK_MINUTES")
+    eval_daily_cost_cap_usd: float = Field(
+        10.0, validation_alias="TRACELOOM_EVAL_DAILY_COST_CAP_USD"
+    )
+    eval_max_attempts: int = Field(3, validation_alias="TRACELOOM_EVAL_MAX_ATTEMPTS")
+    eval_environment: str = Field("traceloom-eval", validation_alias="TRACELOOM_EVAL_ENVIRONMENT")
+    experiment_environment: str = Field(
+        "traceloom-experiment", validation_alias="TRACELOOM_EXPERIMENT_ENVIRONMENT"
+    )
+    eval_backfill_max: int = Field(1000, validation_alias="TRACELOOM_EVAL_BACKFILL_MAX")
+    eval_concurrency: int = Field(4, validation_alias="TRACELOOM_EVAL_CONCURRENCY")
+    dataset_import_max_rows: int = Field(
+        10000, validation_alias="TRACELOOM_DATASET_IMPORT_MAX_ROWS"
+    )
+    eval_rule_cache_seconds: int = Field(10, validation_alias="TRACELOOM_EVAL_RULE_CACHE_SECONDS")
+    eval_stuck_seconds: int = Field(600, validation_alias="TRACELOOM_EVAL_STUCK_SECONDS")
+    eval_sweep_batch: int = Field(200, validation_alias="TRACELOOM_EVAL_SWEEP_BATCH")
+
     # Full mode: Redis, S3, ClickHouse
     redis_url: str = Field("redis://localhost:6379/0", validation_alias="REDIS_URL")
     s3_endpoint_url: str = Field("", validation_alias="S3_ENDPOINT_URL")
