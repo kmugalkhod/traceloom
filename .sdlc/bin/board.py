@@ -261,6 +261,13 @@ class Board:
             for t in ("events", "messages", "agents", "items", "meta"):
                 c.execute(f"DELETE FROM {t}")
 
+    def escalation_reason(self, key: str) -> str:
+        """Why a task was escalated to a human (from its history: the reason is written as the status note)."""
+        for e in reversed(self.events(item_key=key, limit=200)):
+            if "ESCALATED to a human:" in (e.get("text") or ""):
+                return e["text"].split("ESCALATED to a human:", 1)[1].strip()
+        return ""
+
     def resume(self, key: str, text: str, actor: str = "human") -> None:
         """Human sends an escalated task back to the team with guidance; counters start over."""
         it = self.item(key) or {}
@@ -312,6 +319,39 @@ def take_identity(argv: list[str]) -> list[str]:
     return out
 
 
+def take_evidence(b: "Board", agent: str, key: str, paths: list) -> tuple[list, str]:
+    """A QA PASS must point at proof written during this check. Each file must exist, be non-empty and be newer
+    than the start of the QA assignment; it is copied next to the board (.sdlc/state/evidence/<key>/) with its
+    hash, so the proof survives the worktree."""
+    import hashlib
+    import shutil
+    import time
+    if not paths:
+        return [], ("a PASS needs proof: add --evidence <file> [<file> ...] — e.g. the saved curl response "
+                    "(curl ... -o evidence-api.txt), the test log (pytest ... > evidence-tests.txt) or a screenshot "
+                    "written during this check")
+    job = ((b.meta().get("tl") or {}).get("jobs") or {}).get(agent) or {}
+    started = float(job.get("started") or 0)
+    dest = Path(b.path).parent / "evidence" / key
+    out = []
+    for i, p in enumerate(paths, 1):
+        f = Path(p)
+        if not f.is_file():
+            return [], f"evidence not found: {p}"
+        st = f.stat()
+        if st.st_size == 0:
+            return [], f"evidence is empty: {p}"
+        if started and st.st_mtime < started - 5:
+            return [], (f"{p} was written before this QA check started "
+                        f"({time.strftime('%H:%M', time.localtime(st.st_mtime))}); save fresh proof now")
+        dest.mkdir(parents=True, exist_ok=True)
+        target = dest / f"{int(time.time())}-{i:02d}-{f.name}"
+        shutil.copy2(f, target)
+        out.append({"file": f.name, "copy": str(target), "bytes": st.st_size,
+                    "sha256": hashlib.sha256(target.read_bytes()).hexdigest()[:16]})
+    return out, ""
+
+
 def main() -> None:
     sys.argv[1:] = take_identity(sys.argv[1:])
     ap = argparse.ArgumentParser(prog="board", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -320,6 +360,9 @@ def main() -> None:
     s = sub.add_parser("task"); s.add_argument("key")
     for name in ("comment", "submit", "qa-pass", "qa-fail", "blocked"):
         s = sub.add_parser(name); s.add_argument("key"); s.add_argument("text")
+        if name == "qa-pass":
+            s.add_argument("--evidence", nargs="+", default=[], metavar="FILE",
+                           help="proof written during this check: saved curl output, test log, screenshot")
     s = sub.add_parser("design-ready"); s.add_argument("key"); s.add_argument("text")
     s = sub.add_parser("design-approve"); s.add_argument("key"); s.add_argument("text", nargs="?", default="")
     s = sub.add_parser("design-changes"); s.add_argument("key"); s.add_argument("text")
@@ -373,7 +416,13 @@ def main() -> None:
         guard(human or role == "qa", "only a QA agent can pass or fail a task")
         guard(it["status"] == "in_qa", f"{a.key} is {it['status']}, not in QA")
         if a.cmd == "qa-pass":
-            b.event(a.key, agent, "qa", f"PASS: {a.text}")
+            ev = []
+            if not human:
+                ev, problem = take_evidence(b, agent, a.key, a.evidence)
+                guard(not problem, problem)
+            if ev:
+                b.event(a.key, agent, "evidence", json.dumps(ev))
+            b.event(a.key, agent, "qa", f"PASS: {a.text}" + (f" · 📎 {', '.join(e['file'] for e in ev)}" if ev else ""))
             b.update(a.key, agent, qa_by=f"pass:{agent}")  # the orchestrator merges, then marks it done
             print(f"{a.key} passed QA — the lead merges it now")
         else:
