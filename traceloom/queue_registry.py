@@ -10,6 +10,11 @@ from typing import Any
 
 INGEST = "ingest"
 WEBHOOK_DELIVERY = "webhook_delivery"
+EVAL_JOB = "eval_job"
+EXPERIMENT_ITEM = "experiment_item"
+# Judge and experiment work runs on its own lane/queue so a slow LLM call never holds up ingest.
+EVAL_TYPES = frozenset({EVAL_JOB, EXPERIMENT_ITEM})
+EVAL_LANE = "eval"
 
 Handler = Callable[[Mapping[str, Any]], None]
 

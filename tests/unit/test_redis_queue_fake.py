@@ -143,3 +143,22 @@ def test_cache_roundtrip_ttl_and_delete(redis_client):
     assert 0 < redis_client.pttl("traceloom:cache:t") <= 30_000
     cache.delete("k")
     assert cache.get("k") is None
+
+
+def test_eval_messages_use_their_own_queue_without_retries(broker, queue):
+    assert queue.process_eval.queue_name == "traceloom-eval"
+    assert queue.process_eval.options["max_retries"] == 0
+    seen = []
+    queue.start(seen.append)
+    queue.register("eval_job", seen.append)
+    queue.enqueue({"type": "eval_job", "id": "e1"})
+    broker.join(queue.eval_queue_name, fail_fast=False, timeout=10_000)
+    queue._worker.join()
+    assert seen == [{"type": "eval_job", "id": "e1"}]
+
+
+def test_delay_is_passed_to_dramatiq(broker, queue):
+    queue.enqueue({"n": 1}, delay_seconds=30)
+    (raw,) = list(broker.queues[f"{queue.queue_name}.DQ"].queue)
+    message = dramatiq.Message.decode(raw)
+    assert message.options["eta"] > message.message_timestamp + 25_000

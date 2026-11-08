@@ -413,7 +413,12 @@ class BlobStore(Protocol):
 
 @runtime_checkable
 class Queue(Protocol):
-    def enqueue(self, message: Mapping[str, Any]) -> None: ...
+    def enqueue(self, message: Mapping[str, Any], delay_seconds: float = 0) -> None:
+        """Deliver `message` to its handler, not before `delay_seconds` have passed.
+
+        Message types: none (an ingest batch), `webhook_delivery`, `eval_job`, `experiment_item`.
+        Delivery is at-least-once; a message lost to a crash is re-sent by the sweeper."""
+        ...
 
     def start(self, handler: Callable[[Mapping[str, Any]], None]) -> None:
         """Begin consuming messages with `handler`."""

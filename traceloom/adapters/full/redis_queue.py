@@ -4,6 +4,10 @@
 process, so the web container only enqueues and the worker container consumes. A handler that
 raises is retried with backoff; the raw batch also stays pending in the blob store, so the
 sweeper can replay it if retries run out.
+
+Eval messages (`eval_job`, `experiment_item`) go to a separate `traceloom-eval` queue and actor
+with `max_retries=0`: the execution row owns retries and backoff. `delay_seconds` maps to
+Dramatiq's `delay` option.
 """
 
 from __future__ import annotations
@@ -12,7 +16,7 @@ import logging
 from collections.abc import Mapping
 from typing import Any
 
-from traceloom.queue_registry import INGEST, Handler, HandlerRegistry
+from traceloom.queue_registry import EVAL_TYPES, INGEST, Handler, HandlerRegistry
 
 log = logging.getLogger("traceloom.queue")
 
@@ -23,6 +27,7 @@ class RedisQueue:
         redis_url: str = "redis://localhost:6379/0",
         *,
         queue_name: str = "traceloom-ingest",
+        eval_queue_name: str = "traceloom-eval",
         broker: Any = None,
         worker_threads: int = 4,
         max_retries: int = 3,
@@ -35,6 +40,7 @@ class RedisQueue:
             broker = RedisBroker(url=redis_url)
         self.broker = broker
         self.queue_name = queue_name
+        self.eval_queue_name = eval_queue_name
         self._threads = worker_threads
         self._registry = HandlerRegistry()
         self._running = False
@@ -48,14 +54,25 @@ class RedisQueue:
             min_backoff=1000,
             max_backoff=60_000,
         )
+        self.process_eval = dramatiq.actor(
+            self._dispatch,
+            actor_name="process_eval",
+            queue_name=eval_queue_name,
+            broker=broker,
+            max_retries=0,
+        )
 
     def _dispatch(self, message: dict[str, Any]) -> None:
         if not self._running:
             raise RuntimeError("queue consumer has no handler")
         self._registry.dispatch(message)
 
-    def enqueue(self, message: Mapping[str, Any]) -> None:
-        self.process_batch.send(dict(message))
+    def enqueue(self, message: Mapping[str, Any], delay_seconds: float = 0) -> None:
+        actor = self.process_eval if message.get("type") in EVAL_TYPES else self.process_batch
+        if delay_seconds > 0:
+            actor.send_with_options(args=(dict(message),), delay=int(delay_seconds * 1000))
+        else:
+            actor.send(dict(message))
 
     def register(self, message_type: str, handler: Handler) -> None:
         """Route messages of `message_type` to `handler` (start() registers the ingest one)."""
@@ -70,7 +87,7 @@ class RedisQueue:
         self._registry.register(INGEST, handler)
         self._running = True
         self._worker = dramatiq.Worker(
-            self.broker, queues={self.queue_name}, worker_threads=self._threads
+            self.broker, queues={self.queue_name, self.eval_queue_name}, worker_threads=self._threads
         )
         self._worker.start()
 
