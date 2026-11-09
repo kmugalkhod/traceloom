@@ -65,3 +65,10 @@ dialog.drawer footer .l{margin-right:auto;color:var(--ink-3);font-size:12px}
   .fgrid{grid-template-columns:1fr}
   dialog.drawer .dialog{border-radius:0}
 }
+/* trace-list selection for bulk add */
+.bulk-cell,.bulk-head{width:36px;padding-right:0}
+.rowsel{background:var(--accent-soft)}
+.selbar{display:flex;align-items:center;gap:12px;padding:8px 8px 8px 16px;border-radius:12px;background:var(--accent-solid);color:var(--on-accent);font-weight:600;font-size:13px}
+.selbar .btn{background:transparent;border-color:color-mix(in srgb,var(--on-accent) 40%,transparent);color:var(--on-accent);box-shadow:none}
+.selbar .btn.solid{background:var(--on-accent);color:var(--accent-solid);border-color:var(--on-accent)}
+.selbar[hidden]{display:none}

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Import into {{ dataset.name }}{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Datasets", "href": base | replace("/" ~ dataset.id, "")}, {"label": dataset.name, "href": base}, {"label": "Import"}]) }}{% endblock %}
+{% block content %}
+{{ m.page_header("Import into " ~ dataset.name, (("%d rows · %d columns" | format(table.records | length, table.columns | length)) if table else "Upload a CSV, JSON or JSONL file.")) }}
+
+<ol class="steps" aria-label="Import steps" style="list-style:none;padding:0;margin:0">
+  {% for label in steps %}{% set n = loop.index %}
+  <li class="s {{ 'done' if n < step else 'cur' if n == step else '' }}"{% if n == step %} aria-current="step"{% endif %}><i>{% if n < step %}{{ m.icon("i-check") }}{% else %}{{ n }}{% endif %}</i>{{ label }}</li>
+  {% if not loop.last %}<li class="ln" aria-hidden="true"></li>{% endif %}
+  {% endfor %}
+</ol>
+
+{% if step == 1 %}
+  {% if error %}<div class="banner err" role="alert">{{ m.icon("i-error") }}<div><b>{{ error }}</b></div></div>{% endif %}
+  <form method="post" action="{{ base }}/import" enctype="multipart/form-data" class="panel" data-import-drop>
+    {{ m.csrf() }}
+    <div class="panel-b">
+      <div class="drop" data-drop-zone>
+        <span class="tile">{{ m.icon("i-arrow") }}</span>
+        <b>Drop a CSV, JSON or JSONL file</b>
+        <span class="hint">or</span>
+        <label class="btn" for="import-file">Choose file</label>
+        <input id="import-file" class="sr" type="file" name="file" accept=".csv,.json,.jsonl,.ndjson" required>
+        <span class="hint" data-file-name aria-live="polite"></span>
+        <span class="hint">Up to {{ "{:,}".format(max_rows) }} rows. JSON files need objects with input, expected_output and metadata keys.</span>
+      </div>
+    </div>
+    <noscript><div class="panel-b"><div class="banner warn">{{ m.icon("i-warn") }}<div>Uploading a file needs JavaScript, because the form token is sent in a header.</div></div></div></noscript>
+    <div class="panel-b row"><a class="btn" href="{{ base }}">Cancel</a><button type="submit" class="btn btn-primary">Upload</button></div>
+  </form>
+
+{% elif step == 2 %}
+  {% if error %}<div class="banner err" role="alert">{{ m.icon("i-error") }}<div><b>{{ error }}</b></div></div>{% endif %}
+  <form method="post" action="{{ base }}/import/{{ token }}/preview" class="stack">
+    {{ m.csrf() }}
+    <div class="panel mapt"><div class="panel-h"><h2>Map columns</h2><span class="u muted">Required: map one column to input</span></div>
+      <div class="panel-b flush"><table class="tbl"><thead><tr><th>Column</th><th>Sample</th><th>Use as</th></tr></thead><tbody>
+        {% for column in table.columns %}{% set idx = loop.index0 %}{% set v = sample.get(column) %}
+        <tr><td><b>{{ column }}</b></td>
+          <td class="mono-sm" style="max-width:260px"><div class="trunc">{{ v if v is string else compact(v) }}</div></td>
+          <td><select class="select" name="use_{{ idx }}" aria-label="Use {{ column }} as">
+            {% for u in use_options %}<option value="{{ u }}"{% if uses[idx] == u %} selected{% endif %}>{{ u }}</option>{% endfor %}
+          </select></td></tr>
+        {% endfor %}
+      </tbody></table></div></div>
+    <div class="row"><a class="btn" href="{{ base }}/import">Back</a><span class="grow"></span><button type="submit" class="btn btn-primary">Preview</button></div>
+  </form>
+
+{% elif step == 3 %}
+  {% if preview.error_count %}<div class="banner err" role="alert">{{ m.icon("i-error") }}<div><b>{{ preview.error_count }} row{{ "" if preview.error_count == 1 else "s" }} cannot be imported</b> and will be skipped. Fix the file and upload again, or continue.</div></div>{% endif %}
+  {% if preview.warning_count %}<div class="banner warn">{{ m.icon("i-warn") }}<div><b>{{ preview.warning_count }} cell{{ "" if preview.warning_count == 1 else "s" }} {{ "is" if preview.warning_count == 1 else "are" }} not valid JSON and will be imported as text.</b> The preview marks them.</div></div>{% endif %}
+  <div class="panel"><div class="panel-h"><h2>Preview <span class="u muted">first {{ preview.rows | length }} of {{ preview.total }} rows</span></h2></div>
+    <div class="panel-b flush" style="overflow-x:auto"><table class="tbl"><thead><tr><th>#</th>
+      <th>input <span class="muted">from {{ mapping.input }}</span></th>
+      <th>expected_output{% if mapping.expected_output %} <span class="muted">from {{ mapping.expected_output }}</span>{% endif %}</th>
+      <th>metadata{% if mapping.metadata %} <span class="muted">from {{ mapping.metadata | join(", ") }}</span>{% endif %}</th></tr></thead><tbody>
+      {% for row in preview.rows %}
+      <tr><td class="num">{{ row.number }}</td>
+        <td{% if row.warnings or row.errors %} class="wcell"{% endif %}>{% if row.input is string %}{{ row.input }}{% else %}<span class="mono-sm">{{ compact(row.input) }}</span>{% endif %}
+          {% for w in row.warnings %}<div class="cell-w">{{ m.icon("i-warn") }}{{ w }}</div>{% endfor %}
+          {% for e in row.errors %}<div class="cell-w" style="color:var(--err)">{{ m.icon("i-error") }}{{ e }}</div>{% endfor %}</td>
+        <td>{% if row.expected_output is none %}<span class="muted">empty</span>{% elif row.expected_output is string %}{{ row.expected_output }}{% else %}<span class="mono-sm">{{ compact(row.expected_output) }}</span>{% endif %}</td>
+        <td class="mono-sm">{{ compact(row.metadata) if row.metadata else "" }}</td></tr>
+      {% endfor %}
+    </tbody></table></div></div>
+  <form method="post" action="{{ base }}/import/{{ token }}/run" class="row">
+    {{ m.csrf() }}
+    {% for i, u in uses.items() %}<input type="hidden" name="use_{{ i }}" value="{{ u }}">{% endfor %}
+    <a class="btn" href="{{ base }}/import/{{ token }}">Back</a>
+    <span class="grow"></span>
+    <span class="muted" style="font-size:12px">{{ preview.error_count }} rows have errors · {{ preview.warning_count }} warning{{ "" if preview.warning_count == 1 else "s" }}</span>
+    <button type="submit" class="btn btn-primary">Import {{ preview.total - preview.error_count }} items</button>
+  </form>
+
+{% else %}
+  <div class="banner ok" role="status">{{ m.icon("i-check") }}<div><b>Imported {{ result.created }} item{{ "" if result.created == 1 else "s" }} into {{ dataset.name }}.</b>
+    {% if result.warnings %}{{ result.warnings | length }} row{{ "" if result.warnings | length == 1 else "s" }} had cells kept as text. {% endif %}Dataset version is now {{ version | date("%b %-d, %H:%M:%S") }}.</div>
+    <a class="btn btn-sm" href="{{ base }}">View items</a></div>
+  {% if result.skipped %}
+  <div class="banner err" role="alert">{{ m.icon("i-error") }}<div><b>{{ result.skipped | length }} row{{ "" if result.skipped | length == 1 else "s" }} could not be imported.</b>
+    {% for r in result.skipped[:10] %}Row {{ r.number }}: {{ r.errors | join(" ") }} {% endfor %}</div></div>
+  {% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}<script src="/static/dataset_import.js" defer></script>{% endblock %}

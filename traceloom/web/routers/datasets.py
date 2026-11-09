@@ -34,6 +34,7 @@ NOTES = {
     "saved": "Item saved as a new version.",
     "added": "Item added.",
     "archived": "Item archived. Runs started earlier still read it.",
+    "traceadded": "Added to this dataset with a link to its source.",
 }
 
 
@@ -110,6 +111,14 @@ def _change(version: ItemView) -> tuple[str, str]:
     return "Edited", "lab"
 
 
+def _bulk_notice(bulk: tuple[int, int] | None) -> str:
+    if not bulk:
+        return ""
+    added, skipped = bulk
+    text = f"Added {added} trace{'' if added == 1 else 's'} as items, each with a source link."
+    return text + (f" {skipped} could not be added (no input or not found)." if skipped else "")
+
+
 def render_detail(
     request: Request,
     db: Session,
@@ -124,6 +133,7 @@ def render_detail(
     notice: str = "",
     error: FormError | None = None,
     delete_error: str = "",
+    bulk: tuple[int, int] | None = None,
     http_status: int = 200,
 ):
     project, actor = access.project, actor_of(access)
@@ -140,7 +150,7 @@ def render_detail(
         "counts": {"items": len(active), "archived": len(archived)},
         "can_write": actor.can(Perm.DATASETS_WRITE),
         "can_delete": actor.can(Perm.DATASETS_DELETE),
-        "notice": NOTES.get(notice, ""),
+        "notice": NOTES.get(notice, "") or _bulk_notice(bulk),
         "error": error,
         "delete_error": delete_error,
         "compact": compact,
@@ -298,6 +308,8 @@ def dataset_detail(
     page: int = 1,
     item: str = "",
     notice: str = "",
+    added: int = 0,
+    skipped: int = 0,
     access: Access = Depends(require(Perm.EVAL_READ)),
     db: Session = Depends(get_db),
 ):
@@ -313,6 +325,7 @@ def dataset_detail(
         page=max(page, 1),
         open_item=item,
         notice=notice,
+        bulk=(added, skipped) if notice == "bulk" else None,
     )
 
 

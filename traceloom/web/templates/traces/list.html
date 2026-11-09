@@ -74,6 +74,14 @@
   <div class="stat"><div class="top">p95 latency<span class="chipi warn">{{ m.icon("i-clock", "ico-sm") }}</span></div><b>{{ stats.latency_p95_ms | latency }}</b><span class="sub">p50 {{ stats.latency_p50_ms | latency }}</span></div>
 </div>
 
+{% if can("datasets:write") %}
+<div class="selbar" data-bulk-add="/project/{{ project.id }}/datasets/add" role="region" aria-label="Selected traces" hidden>
+  <span data-bulk-count>0 selected</span><span class="grow"></span>
+  <button type="button" class="btn btn-sm" data-bulk-clear>Clear</button>
+  <a class="btn btn-sm solid" data-bulk-go href="#" hx-boost="false">{{ m.icon("i-folder", "ico-sm") }}Add to dataset</a>
+</div>
+<script src="/static/dataset_import.js" defer></script>
+{% endif %}
 <div class="panel" data-tl>
   <form id="filters" method="get" action="{{ state.base_path }}">
     {% if state.params.get("sort") %}<input type="hidden" name="sort" value="{{ state.params.get('sort') }}">{% endif %}
