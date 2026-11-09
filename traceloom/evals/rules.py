@@ -54,7 +54,7 @@ class RuleSnapshot:
     template_version_id: str  # the pinned version, or the latest one when the rule follows it
 
 
-def _resolve_version_id(db: Session, rule: EvalRule) -> str | None:
+def resolve_version_id(db: Session, rule: EvalRule) -> str | None:
     query = select(EvalTemplateVersion.id).where(
         EvalTemplateVersion.template_id == rule.template_id
     )
@@ -74,7 +74,7 @@ def load_rules(container: Container, project_id: str) -> list[RuleSnapshot]:
         for rule in db.scalars(
             select(EvalRule).where(EvalRule.project_id == project_id, EvalRule.enabled.is_(True))
         ):
-            version_id = _resolve_version_id(db, rule)
+            version_id = resolve_version_id(db, rule)
             if version_id is None:
                 continue  # a template without versions cannot run
             rules.append(
