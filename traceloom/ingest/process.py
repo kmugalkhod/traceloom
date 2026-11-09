@@ -10,7 +10,7 @@ from typing import Any
 from traceloom.container import Container
 from traceloom.cost.pricing import apply_cost
 from traceloom.ingest.accept import processed_key
-from traceloom.ingest.merge import Existing, merge_events, needed_ids
+from traceloom.ingest.merge import Existing, MergeResult, merge_events, needed_ids
 from traceloom.ingest.schemas import EventError, ParsedEvent, parse_event
 from traceloom.ports import BlobNotFound
 
@@ -52,4 +52,21 @@ def process_message(container: Container, message: Mapping[str, Any]) -> None:
             list(merged.scores.values()),
         )
         store.refresh_trace_aggregates(project_id, merged.trace_ids)
+        _match_eval_rules(container, project_id, merged)
     blobs.move(blob_key, processed_key(blob_key))
+
+
+def _match_eval_rules(container: Container, project_id: str, merged: MergeResult) -> None:
+    """Create judge jobs for the committed rows. Evaluation never fails ingestion (NFR-4): an
+    error is logged and the batch still completes; replaying the batch is safe."""
+    try:
+        from traceloom.evals import rules
+
+        rules.on_ingested(
+            container,
+            project_id,
+            list(merged.traces.values()),
+            list(merged.observations.values()),
+        )
+    except Exception:
+        log.exception("eval rule matching failed for project %s", project_id)
