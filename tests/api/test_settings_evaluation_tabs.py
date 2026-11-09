@@ -188,8 +188,6 @@ def test_configs_are_project_scoped(client, login, world, db, make_org, make_pro
     assert db.get(ScoreConfig, theirs.id).archived_at is None
 # --- evaluation tab ---------------------------------------------------------------------
 
-# --- evaluation tab --------------------------------------------------------------------------------
-
 
 def test_admin_saves_the_cap_and_it_is_audited(client, login, world, db):
     as_role(client, login, world, Role.ADMIN)
