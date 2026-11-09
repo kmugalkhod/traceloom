@@ -26,14 +26,14 @@
 
 {% block content %}
 <div class="rvtop">
-  <a class="btn btn-ghost btn-sm" href="{{ back }}"><span style="display:inline-flex;transform:scaleX(-1)">{{ m.icon("i-chev-r") }}</span>Back to queue</a>
+  <a class="btn btn-ghost btn-sm" href="{{ back }}"><span class="q-flip">{{ m.icon("i-chev-r") }}</span>Back to queue</a>
   <b>{{ queue.name }}</b>
   {% set thin = true %}{% set label = stats.percent ~ "% done" %}{% include "queues/_progress.html" %}
   <span class="muted num">Item {{ position }} of {{ stats.total }} · {{ stats.pending }} left</span>
   <button class="btn btn-icon btn-sm" type="button" aria-label="Keyboard shortcuts" data-dialog-open="review-help">{{ m.icon("i-kbd") }}</button>
 </div>
 
-<div class="stack" style="margin-top:12px">
+<div class="stack q-mt-12">
   {% if notice == "no-other" %}{{ m.banner("info", "There is no other item available right now. This one is still yours.") }}{% endif %}
   {% if opened.state == "locked" %}
   <div class="banner info" role="status">{{ m.icon("i-lock") }}<div><b>Locked by {{ lock.who }} until {{ lock.until }} UTC.</b> You can read this item, not score it. <a href="/project/{{ project.id }}/queues/{{ queue.id }}/review">Next available item</a></div></div>
@@ -47,13 +47,13 @@
       data-base="{{ back }}/review/{{ item.id }}" data-renew-seconds="{{ [lock_minutes * 60 // 3, 30] | max }}">
 {{ m.csrf() }}
 <input type="hidden" name="duration_ms" value="" data-duration>
-<div class="rv" style="margin-top:12px">
+<div class="rv q-mt-12">
   <div class="obj">
     {% if view.missing %}
     <div class="panel">{% call m.empty_state("i-info", "This item is no longer available", "The " ~ item.object_type ~ " was deleted or has not arrived yet. You can skip it.") %}{% endcall %}</div>
     {% else %}
-    <div class="row" style="flex-wrap:wrap">
-      <h1 style="font-size:20px">{{ view.title }}</h1>
+    <div class="row q-wrap">
+      <h1 class="q-h1">{{ view.title }}</h1>
       {% if view.level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif view.level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% elif view.level %}<span class="pill ok">{{ m.icon("i-check") }}OK</span>{% endif %}
       {% if view.id %}<span class="mono muted">{{ view.id }}</span>{% endif %}
       {% for f in view.facts %}<span class="muted">·</span><span class="num muted">{{ f }}</span>{% endfor %}
@@ -62,16 +62,16 @@
     <div class="stackf">
       {% if view.kind == "session" %}
         {% for t in view.traces %}
-        <div class="panel"><div class="panel-h"><h2>{{ t.name }}</h2><span class="muted right" style="font-size:12px">read-only</span></div><div class="panel-b ro">
+        <div class="panel"><div class="panel-h"><h2>{{ t.name }}</h2><span class="muted right q-s12">read-only</span></div><div class="panel-b ro">
           {% for title, rendered in t.sections %}{% include "traces/_io_block.html" %}{% endfor %}</div></div>
         {% endfor %}
         {% if view.more %}<p class="hint">{{ view.more }} more traces in this session. Open the session to see them.</p>{% endif %}
       {% else %}
-        <div class="panel"><div class="panel-h"><h2>Input and output</h2><span class="muted right" style="font-size:12px">read-only</span></div><div class="panel-b ro">
+        <div class="panel"><div class="panel-h"><h2>Input and output</h2><span class="muted right q-s12">read-only</span></div><div class="panel-b ro">
           {% for title, rendered in view.sections %}{% include "traces/_io_block.html" %}{% endfor %}</div></div>
         <div class="panel"><div class="panel-h"><h2>Steps <span class="muted">{{ view.steps | length }}</span></h2></div>
           <ul class="qtree" role="tree" aria-label="Steps, read-only">
-            {% for s in view.steps %}<li role="treeitem" class="{{ 'sel' if s.selected }}"><span class="nm"><span class="ind" style="width:{{ s.depth * 16 }}px"></span><span class="ty ty-{{ s.type }}" title="{{ s.type }}">{{ m.icon("i-" ~ s.type if s.type in icon_types else "i-span") }}</span><span class="t">{{ s.name }}</span></span><span class="num dim">{{ s.duration }}</span><span class="num">{{ s.cost }}</span></li>
+            {% for s in view.steps %}<li role="treeitem" class="{{ 'sel' if s.selected }}"><span class="nm"><span class="ind qd{{ [s.depth, 12] | min }}"></span><span class="ty ty-{{ s.type }}" title="{{ s.type }}">{{ m.icon("i-" ~ s.type if s.type in icon_types else "i-span") }}</span><span class="t">{{ s.name }}</span></span><span class="num dim">{{ s.duration }}</span><span class="num">{{ s.cost }}</span></li>
             {% else %}<li class="hint">This trace has no observations.</li>{% endfor %}
           </ul></div>
       {% endif %}
@@ -88,7 +88,7 @@
           <textarea class="textarea" name="comment" aria-label="Comment" rows="3" maxlength="5000"{{ " disabled aria-disabled=true" if not can_review }}>{{ comment }}</textarea></div>
       </div></div></section>
     {% if view.scores %}
-    <section class="panel"><div class="panel-b stackf"><div class="sect" style="padding:0">Already scored on this {{ item.object_type }}</div>
+    <section class="panel"><div class="panel-b stackf"><div class="sect q-nopad">Already scored on this {{ item.object_type }}</div>
       <div class="scs">{% for s in view.scores %}<span class="sc {{ chip_class(s) }}"><span class="n">{{ s.name }}:</span> <b>{{ score_text(s) }}</b></span>{% endfor %}</div>
       {% for s in view.scores if s.comment %}<div class="q-comment">{{ s.comment }}</div>{% endfor %}
     </div></section>

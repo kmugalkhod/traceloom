@@ -30,9 +30,9 @@
     {% endif %}
     {% set label = stats.percent ~ "% of items reviewed" %}{% include "queues/_progress.html" %}
     <div class="progl">
-      <span><i style="background:var(--ok)"></i>{{ stats.completed }} completed</span>
-      <span><i style="background:var(--warn-bar)"></i>{{ stats.skipped }} skipped</span>
-      <span><i style="background:var(--sunken);border:1px solid var(--line-strong)"></i>{{ stats.pending }} pending</span>
+      <span><i class="q-sw-ok"></i>{{ stats.completed }} completed</span>
+      <span><i class="q-sw-skip"></i>{{ stats.skipped }} skipped</span>
+      <span><i class="q-sw-pend"></i>{{ stats.pending }} pending</span>
     </div>
   </div></section>
 
@@ -57,7 +57,7 @@
     </div>
     <form method="get" class="inline-form">
       {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
-      <select class="select" name="reviewer" aria-label="Reviewer" onchange="this.form.submit()">
+      <select class="select" name="reviewer" aria-label="Reviewer" data-autosubmit>
         <option value="">All reviewers</option>
         {% for uid, name in reviewers %}<option value="{{ uid }}"{{ " selected" if uid == reviewer }}>{{ name }}</option>{% endfor %}
       </select>
@@ -124,3 +124,4 @@
 </dialog>
 {% endif %}
 {% endblock %}
+{% block scripts %}<script src="/static/queue_review.js" defer></script>{% endblock %}

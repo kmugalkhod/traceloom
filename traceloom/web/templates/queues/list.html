@@ -18,7 +18,7 @@
   {% else %}
   <div class="panel"><div class="rack">
     <table class="tbl tbl-flat cardrows">
-      <thead><tr><th>Queue</th><th>Score configs</th><th style="width:240px">Progress</th><th class="r">Pending</th><th>Last activity</th><th class="menu"><span class="sr">Actions</span></th></tr></thead>
+      <thead><tr><th>Queue</th><th>Score configs</th><th class="q-th-bar">Progress</th><th class="r">Pending</th><th>Last activity</th><th class="menu"><span class="sr">Actions</span></th></tr></thead>
       <tbody>
       {% for r in rows %}
         {% set q = r.queue %}{% set stats = r.stats %}{% set bar = r.bar %}
@@ -27,7 +27,7 @@
           <td class="m-show"><span class="scs">{% for c in r.configs %}<span class="chip">{{ c.name }}</span>{% endfor %}</span></td>
           <td class="m-show">
             {% set thin = true %}{% set label = q.name ~ " " ~ stats.percent ~ "% done" %}{% include "queues/_progress.html" %}
-            <div class="progl" style="margin-top:6px">
+            <div class="progl q-mt-6">
               {% if stats.complete %}<span class="pill ok">{{ m.icon("i-check") }}Queue complete</span>
               {% else %}<span>{{ stats.completed }} of {{ stats.total }} reviewed{% if stats.skipped %} · {{ stats.skipped }} skipped{% endif %}</span>{% endif %}
             </div>

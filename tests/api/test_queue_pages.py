@@ -602,9 +602,6 @@ def test_other_scores_on_the_object_are_listed(client, login, world, db, contain
     )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="QA T-12: CSP default-src 'self' blocks inline style/onchange"
-)
 def test_qa_queue_pages_use_no_inline_style_or_handlers(client, login, world, db, container, queue):
     # default-src 'self' blocks style="" and on*= attributes: progress bars render empty and the
     # reviewer filter select never submits.
@@ -616,3 +613,39 @@ def test_qa_queue_pages_use_no_inline_style_or_handlers(client, login, world, db
         html = client.get(url(world, path), headers=HTML).text
         assert not re.search(r'<[^>]+\sstyle="width', html)
         assert not re.search(r"\son(change|click|submit)=", html)
+
+
+def test_progress_bars_and_filters_work_under_the_csp(
+    client, login, world, db, container, queue, config
+):
+    """The app CSP is default-src 'self': no style="" and no on*= attributes. Progress fill comes
+    from width classes, and the reviewer select is wired by the static script."""
+    import re
+
+    fill(db, world, container, queue, 4)
+    member = Actor.for_user(world.users[Role.MEMBER], Role.MEMBER)
+    for _ in range(2):
+        item = claim.claim_next(db, world.project, member, queue.id, container.settings)
+        claim.complete(
+            db, container.trace_store, world.project, member, queue.id, item.id, {config.id: 1}
+        )
+        db.commit()
+    skipped = claim.claim_next(db, world.project, member, queue.id, container.settings)
+    claim.skip(db, world.project, member, queue.id, skipped.id)
+    db.commit()
+    as_(client, login, world, Role.MEMBER)
+    start = client.get(url(world, f"/{queue.id}/review"), headers=HTML, follow_redirects=False)
+    review = client.get(start.headers["location"], headers=HTML).text
+    pages = [
+        client.get(url(world), headers=HTML).text,
+        client.get(url(world, f"/{queue.id}"), headers=HTML).text,
+        review,
+    ]
+    for html in pages:
+        assert not re.search(r"<[^>]+\sstyle=", html)
+        assert not re.search(r"\son[a-z]+=", html)
+    assert '<i class="d w50"></i><i class="s w25"></i>' in pages[1]
+    assert "data-autosubmit" in pages[1] and "/static/queue_review.js" in pages[1]
+    assert "data-autosubmit" in client.get("/static/queue_review.js").text
+    css = client.get("/static/ui/queues.css").text
+    assert ".w50{width:50%}" in css and ".w100{width:100%}" in css and ".qd2{width:32px}" in css

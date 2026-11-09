@@ -4,13 +4,13 @@
 {% block ctx_m %}{% endblock %}
 {% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Annotation queues", "href": "/project/" ~ project.id ~ "/queues"}, {"label": queue.name, "href": back}, {"label": "Review"}]) }}{% endblock %}
 {% block content %}
-<div class="panel" style="margin-top:16px">
+<div class="panel q-mt-16">
   <div class="empty">
     {% if stats.complete %}
-    <span class="tile" style="background:var(--ok-bg);color:var(--ok)">{{ m.icon("i-check") }}</span>
+    <span class="tile q-tile-ok">{{ m.icon("i-check") }}</span>
     <h2>Queue complete</h2>
     <p>All {{ stats.total }} items in {{ queue.name }} are reviewed.{% if stats.skipped %} {{ stats.skipped }} were skipped.{% endif %}</p>
-    {% if mine %}<div class="progl" style="justify-content:center"><span>You: {{ mine.completed }} completed{% if mine.median_ms is not none %} · median {{ (mine.median_ms / 1000) | round | int }} s{% endif %}</span></div>{% endif %}
+    {% if mine %}<div class="progl q-center"><span>You: {{ mine.completed }} completed{% if mine.median_ms is not none %} · median {{ (mine.median_ms / 1000) | round | int }} s{% endif %}</span></div>{% endif %}
     {% else %}
     <span class="tile">{{ m.icon("i-clock") }}</span>
     <h2>Nothing to review right now</h2>

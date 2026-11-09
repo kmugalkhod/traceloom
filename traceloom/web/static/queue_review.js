@@ -8,6 +8,11 @@
     return m ? decodeURIComponent(m[1]) : '';
   }
 
+  // Filters that submit on change (inline handlers are blocked by the app's CSP).
+  Array.prototype.forEach.call(document.querySelectorAll('select[data-autosubmit]'), function (sel) {
+    sel.addEventListener('change', function () { if (sel.form) { sel.form.submit(); } });
+  });
+
   var form = document.querySelector('[data-review]');
   if (!form) { return; }
   var mine = form.getAttribute('data-mine') === 'true';
