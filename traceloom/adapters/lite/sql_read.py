@@ -214,6 +214,9 @@ def score_to_row(s: Score) -> ScoreRow:
         author_id=s.author_id,
         environment=s.environment,
         event_ts=s.event_ts,
+        queue_id=s.queue_id,
+        execution_id=s.execution_id,
+        channel=s.channel,
     )
 
 

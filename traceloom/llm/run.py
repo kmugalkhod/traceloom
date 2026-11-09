@@ -58,6 +58,9 @@ class RunSpec:
     prompt_name: str | None = None
     prompt_version: int | None = None
     secrets: Sequence[str] = ()  # extra values to scrub from error text
+    environment: str = ENVIRONMENT  # of the recorded trace (judge runs use their own)
+    trace_name: str = "playground run"
+    generation_name: str = "playground"
 
 
 class Run:
@@ -211,7 +214,7 @@ class Run:
         body: dict[str, Any] = {
             "id": obs_id,
             "traceId": trace_id,
-            "name": "playground",
+            "name": spec.generation_name,
             "model": spec.model,
             "modelParameters": spec.params,
             "input": messages,
@@ -219,7 +222,7 @@ class Run:
             "startTime": started.isoformat(),
             "endTime": now.isoformat(),
             "usageDetails": self._usage_details(usage, extra),
-            "environment": ENVIRONMENT,
+            "environment": spec.environment,
         }
         if errors:
             body.update(level="ERROR", statusMessage=errors[0])
@@ -234,8 +237,8 @@ class Run:
                 "timestamp": started.isoformat(),
                 "body": {
                     "id": trace_id,
-                    "name": "playground run",
-                    "environment": ENVIRONMENT,
+                    "name": spec.trace_name,
+                    "environment": spec.environment,
                     "input": messages,
                     "output": output,
                 },
