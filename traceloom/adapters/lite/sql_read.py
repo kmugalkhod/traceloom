@@ -343,6 +343,17 @@ class SqlReadMixin:
             next_cursor = encode_cursor(sort_value, last.id)
         return Page(items=items, next_cursor=next_cursor)
 
+    def score_counts(self, project_id: str, config_ids: Sequence[str]) -> dict[str, int]:
+        if not config_ids:
+            return {}
+        stmt = (
+            select(Score.config_id, func.count())
+            .where(Score.project_id == project_id, Score.config_id.in_(list(config_ids)))
+            .group_by(Score.config_id)
+        )
+        with self.session_factory() as session:
+            return {config_id: int(n) for config_id, n in session.execute(stmt)}
+
     def list_scores(self, project_id: str, query: ScoreQuery) -> Page[ScoreRow]:
         limit = max(1, min(query.limit, MAX_PAGE_SIZE))
         where = [Score.project_id == project_id]

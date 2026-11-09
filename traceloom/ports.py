@@ -466,6 +466,10 @@ class TraceStore(Protocol):
         """Whether any score of the project references the score config."""
         ...
 
+    def score_counts(self, project_id: str, config_ids: Sequence[str]) -> dict[str, int]:
+        """How many scores of the project reference each score config (absent: none)."""
+        ...
+
     def list_scores(self, project_id: str, query: ScoreQuery) -> Page[ScoreRow]:
         """The project's scores matching the query, newest first (limit capped at 200)."""
         ...

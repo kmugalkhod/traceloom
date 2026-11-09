@@ -1,0 +1,93 @@
+{% extends "settings/base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Score configs{% endblock %}
+
+{% block settings_body %}
+<div class="stack">
+  {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
+  {% if error and error.scope == "page" %}{{ m.banner("err", error.message) }}{% endif %}
+  <p class="hint">Configs define what a score may be, so annotators and judges stay consistent.</p>
+
+  {% if not rows and active_count == 0 and archived_count == 0 %}
+  <div class="panel">
+    {% call m.empty_state("i-check", "No score configs yet", "A config fixes the type, range or categories of a score so people and judges rate things the same way.") %}
+      {% if can_edit %}<div class="acts"><button type="button" class="btn btn-primary" data-dialog-open="new-config">{{ m.icon("i-plus") }}New score config</button></div>{% endif %}
+    {% endcall %}
+  </div>
+  {% else %}
+  <form class="toolbar" method="get" action="{{ base }}">
+    <div class="seg" role="group" aria-label="Show">
+      <button type="submit" name="show" value="active" aria-pressed="{{ 'true' if show == 'active' else 'false' }}">Active <span class="c">{{ active_count }}</span></button>
+      <button type="submit" name="show" value="archived" aria-pressed="{{ 'true' if show == 'archived' else 'false' }}">Archived <span class="c">{{ archived_count }}</span></button>
+    </div>
+    <span class="grow"></span>
+    {% if can_edit %}<button type="button" class="btn btn-primary" data-dialog-open="new-config">{{ m.icon("i-plus") }}New score config</button>{% endif %}
+  </form>
+  <div class="panel"><div class="rack">
+    {% if rows %}
+    <table class="tbl cardrows">
+      <thead><tr><th>Name</th><th>Type</th><th>Range or values</th><th>Public feedback</th><th class="r">Scores</th>{% if can_edit %}<th class="r menu"><span class="sr">Actions</span></th>{% endif %}</tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr{% if show == "archived" %} class="is-dim"{% endif %}>
+          <td class="c-name m-show"><div class="two"><b>{{ row.config.name }}</b><small>{{ row.config.description or "No description" }}</small></div></td>
+          <td class="m-show">{{ row.type_label }}</td>
+          <td class="m-show">{% if row.chips %}<span class="scs">{% for c in row.chips %}<span class="chip">{{ c }}</span>{% endfor %}</span>{% else %}<span class="num" style="text-align:left">{{ row.shape }}</span>{% endif %}</td>
+          <td class="m-show">{% if row.config.public_feedback %}<span class="pill ok">{{ m.icon("i-check") }}On</span>{% else %}<span class="muted">Off</span>{% endif %}</td>
+          <td class="num r m-show">{{ "{:,}".format(row.scores) }}</td>
+          {% if can_edit %}
+          <td class="r menu m-show">
+            <div class="menu-wrap">
+              <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="More actions for {{ row.config.name }}" aria-haspopup="true" aria-expanded="false" data-menu-toggle="cfg-menu-{{ row.config.id }}">{{ m.icon("i-more-h") }}</button>
+              <div class="pop pop-right" id="cfg-menu-{{ row.config.id }}" data-menu hidden role="menu" aria-label="Config actions">
+                <button type="button" class="item" role="menuitem" data-dialog-open="edit-{{ row.config.id }}">{{ m.icon("i-pencil", "ico-sm") }}Edit</button>
+                <form method="post" action="{{ base }}/{{ row.config.id }}/{{ 'unarchive' if show == 'archived' else 'archive' }}">{{ m.csrf() }}
+                  <button class="item" type="submit" role="menuitem">{{ m.icon("i-folder", "ico-sm") }}{{ "Unarchive" if show == "archived" else "Archive" }}</button></form>
+                <button type="button" class="item" role="menuitem" data-copy="{{ row.config.id }}">{{ m.icon("i-copy", "ico-sm") }}Copy config id</button>
+              </div>
+            </div>
+          </td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="panel-b"><p class="hint">{{ "No archived configs." if show == "archived" else "No active configs. Unarchive one or create a new config." }}</p></div>
+    {% endif %}
+  </div></div>
+  {% if not can_edit %}<div><span class="rolebar">{{ m.icon("i-eye", "ico-sm") }}Read-only: Admins edit score configs</span></div>{% endif %}
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block dialogs %}
+{% if can_edit %}
+{% set new_err = error if error and error.scope == "new" else none %}
+<dialog class="dlg" id="new-config" aria-label="New score config"{% if new_err %} data-autoopen{% endif %}>
+  <div class="dialog">
+    {{ m.dialog_head("New score config") }}
+    <form method="post" action="{{ base }}">
+      {{ m.csrf() }}
+      {% with prefix = "nc", vals = (new_err.values if new_err else blank), locked = false, used = 0, err = (new_err.message if new_err else "") %}{% include "settings/_score_config_form.html" %}{% endwith %}
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">Create config</button></footer>
+    </form>
+  </div>
+</dialog>
+{% for row in rows %}
+{% set edit_err = error if error and error.scope == row.config.id else none %}
+<dialog class="dlg" id="edit-{{ row.config.id }}" aria-label="Edit score config"{% if edit_err %} data-autoopen{% endif %}>
+  <div class="dialog">
+    {{ m.dialog_head("Edit " ~ row.config.name) }}
+    <form method="post" action="{{ base }}/{{ row.config.id }}">
+      {{ m.csrf() }}
+      {% with prefix = "ec-" ~ row.config.id, vals = (edit_err.values if edit_err else row.values), locked = row.scores > 0, used = row.scores, err = (edit_err.message if edit_err else "") %}{% include "settings/_score_config_form.html" %}{% endwith %}
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">Save changes</button></footer>
+    </form>
+  </div>
+</dialog>
+{% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}{% if can_edit %}<script src="/static/settings_scores.js" defer></script>{% endif %}{% endblock %}

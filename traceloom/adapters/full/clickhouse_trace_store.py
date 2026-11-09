@@ -1054,6 +1054,17 @@ class ClickHouseTraceStore:
         sql = f"SELECT 1 AS used FROM {self.scores} WHERE {where} LIMIT 1"
         return bool(self._select((sql, {"project_id": project_id, "config_id": config_id})))
 
+    def score_counts(self, project_id: str, config_ids: Sequence[str]) -> dict[str, int]:
+        if not config_ids:
+            return {}
+        where = _project_where("config_id IN {ids:Array(String)}")
+        sql = (
+            f"SELECT config_id, count() AS n FROM {self.scores} FINAL WHERE {where}"
+            " GROUP BY config_id"
+        )
+        rows = self._select((sql, {"project_id": project_id, "ids": list(config_ids)}))
+        return {r["config_id"]: int(r["n"]) for r in rows}
+
     def list_scores(self, project_id: str, query: ScoreQuery) -> Page[ScoreRow]:
         sql, params, limit = build_list_scores(project_id, query, self.scores)
         records = self._select((sql, params))

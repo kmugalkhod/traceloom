@@ -180,6 +180,18 @@ def test_distribution_and_trend(read_store):
     ] != []
 
 
+def test_score_counts_per_config(read_store, seed):
+    seed(
+        P,
+        "cfg",
+        scores=[sc("k1", "quality", 1.0, config_id="c1"), sc("k2", "ok", 1.0, config_id="c1")],
+    )
+    seed(P, "cfg2", scores=[sc("k3", "ok", 0.0, config_id="c2")])
+    assert read_store.score_counts(P, ["c1", "c2", "c3"]) == {"c1": 2, "c2": 1}
+    assert read_store.score_counts(P, []) == {}
+    assert read_store.score_counts("other-project", ["c1"]) == {}
+
+
 def test_pairs_match_on_the_trace(read_store):
     pairs = read_store.score_pairs(P, ScoreSelector("quality"), ScoreSelector("ok"), ScoreRange())
     by_trace = {}
