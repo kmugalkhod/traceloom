@@ -30,8 +30,7 @@ def test_each_save_creates_a_new_immutable_version(db, pid):
 
 
 def test_builtins_are_seeded_once_listed_and_read_only(db, pid):
-    assert tpl.seed_builtins(db) == 6
-    assert tpl.seed_builtins(db) == 0  # idempotent
+    assert tpl.seed_builtins(db) == 0  # startup already seeded them; running again is a no-op
     db.commit()
     views = tpl.list_templates(db, pid)
     assert {v.template.name for v in views} == {
@@ -51,7 +50,6 @@ def test_builtins_are_seeded_once_listed_and_read_only(db, pid):
 
 
 def test_a_builtin_can_be_cloned_and_the_clone_edited(db, pid):
-    tpl.seed_builtins(db)
     builtin = db.scalar(select(EvalTemplate).where(EvalTemplate.name == "toxicity"))
     copy = tpl.clone(db, pid, builtin.id, created_by="u1")
     assert copy.template.project_id == pid and not copy.builtin
@@ -67,7 +65,7 @@ def test_templates_are_project_scoped(db, pid, make_org, make_project):
     other = make_project(make_org())
     mine = tpl.create_template(db, pid, "mine", "x {{input}}", SCHEMA)
     db.commit()
-    assert [v.template.name for v in tpl.list_templates(db, other.id)] == []
+    assert [v.template.name for v in tpl.list_templates(db, other.id) if not v.builtin] == []
     with pytest.raises(TemplateNotFound):
         tpl.get_template(db, other.id, mine.template.id)
     with pytest.raises(TemplateNotFound):
@@ -99,7 +97,8 @@ def test_prompt_and_name_are_validated(db, pid):
         tpl.create_template(db, pid, "n", "  ", SCHEMA)
     with pytest.raises(TemplateError, match="name is required"):
         tpl.create_template(db, pid, " ", "x", SCHEMA)
-    assert db.scalar(select(EvalTemplateVersion)) is None
+    assert db.scalar(select(EvalTemplateVersion).where(EvalTemplateVersion.prompt == "")) is None
+    assert db.query(EvalTemplate).filter_by(project_id=pid).count() == 0  # nothing half-saved
 
 
 def test_the_starter_file_is_valid_and_original():
