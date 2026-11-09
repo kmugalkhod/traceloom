@@ -79,6 +79,7 @@ This change is stacked on `team/2026-11-06-ui-polish-align` (Phase 1 + Phase 2 +
   - `runner.py`: the `eval_job` handler (re-check filter, compile, provider call with schema, parse/validate, score via `accept_batch`, judge trace via `accept_batch`, retries with backoff, capped/skipped/failed states, error scrubbing).
   - `backfill.py`.
   - `runner.py` (T-23) reuses the playground `Run` engine for the call, cost and judge trace (`RunSpec` gained `environment`, `trace_name`, `generation_name`); ingest sets `source=EVAL` when a score has an `execution_id`, and the lite store now reads `queue_id`, `execution_id` and `channel` back. `retry_execution` re-queues failed or capped jobs for T-26.
+  - `web/routers/eval_log.py` (T-26): the log (filters rule/status/range, `?open=<id>` details panel, no JS); Retry is a POST for Member+ (`eval:templates_write`) that calls `runner.retry_execution` and audits `eval.execution.retry`.
   - `rule_service.py` (T-25): rule validation, audited writes, enable confirmation, preview and 24 h outcomes for the Evaluators pages.
 - `datasets/` (new package):
   - `service.py`: datasets, items, versions, archive, add-from-trace.
