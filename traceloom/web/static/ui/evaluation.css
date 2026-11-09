@@ -25,11 +25,10 @@
 .cat-row[hidden]{display:none}
 .switch-row{display:flex;gap:12px;align-items:flex-start}
 .switch-cb{appearance:none;width:36px;height:20px;border-radius:10px;background:var(--field-line);position:relative;flex:none;border:0;cursor:pointer;margin:2px 0 0;transition:background .15s}
-.switch-cb::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s ease-out}
+.switch-cb::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--surface);transition:left .15s ease-out}
 .switch-cb:checked{background:var(--accent-solid)}
-.switch-cb:checked::after{left:18px}
+.switch-cb:checked::after{left:18px;background:var(--on-accent)}
 .switch-cb:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-:root[data-theme=dark] .switch-cb:checked::after{background:#111214}
 /* cost cap */
 .kvl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 24px}
 .kvl .k{font-size:11px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-bottom:4px}
