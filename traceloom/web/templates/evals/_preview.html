@@ -1,0 +1,11 @@
+{% if error %}<span class="field-error" role="alert">{{ error }}</span>
+{% elif not preview.trace_id %}
+<p class="hint">No recent trace matches this rule yet, so there is nothing to preview. Ingest a matching trace, or loosen the filter.</p>
+{% else %}
+<div class="prev">
+  <div class="row"><b class="mono-sm">{{ preview.trace_id }}</b><span class="ev-s1 muted">{{ "most recent match" if skip == 0 else "match " ~ (skip + 1) }}</span></div>
+  <div class="io-b">{% for name in variables %}<b>{{ name }}</b>  {% if name in preview.errors %}<span class="miss">{{ preview.errors[name] }}</span>{% else %}{{ preview.values[name] | truncate(300) }}{% endif %}
+{% endfor %}</div>
+</div>
+{% if preview.found > skip + 1 %}<button class="btn" type="button" data-preview-next="{{ skip + 1 }}">Preview with another trace</button>{% elif skip > 0 %}<button class="btn" type="button" data-preview-next="0">Back to the most recent</button>{% endif %}
+{% endif %}

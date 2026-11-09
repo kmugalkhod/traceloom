@@ -29,8 +29,8 @@ BUILD_NAV = (
 )
 EVAL_NAV = (
     ("scores", "Scores", "i-check", "scores/analytics"),
-    ("queues", "Annotation queues", "i-users", "queues"),
-    ("evaluators", "Evaluators", "i-flask", "evaluators"),
+    ("queues", "Annotation queues", "i-sessions", "queues"),
+    ("evaluators", "Evaluators", "i-flask", "evals"),
     ("datasets", "Datasets", "i-folder", "datasets"),
 )
 # Phone bottom bar: four destinations and a "More" sheet holding the rest.

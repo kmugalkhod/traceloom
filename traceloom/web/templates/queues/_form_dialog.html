@@ -1,0 +1,29 @@
+{# New / edit queue dialog. Expects: dlg_id, title, action, submit, form, form_configs, error. #}
+<dialog class="dlg" id="{{ dlg_id }}" aria-label="{{ title }}"{% if error %} data-autoopen{% endif %}>
+  <div class="dialog">
+    {{ m.dialog_head(title) }}
+    <form method="post" action="{{ action }}">
+      {{ m.csrf() }}
+      <div class="body">
+        <div class="field">
+          <label for="{{ dlg_id }}-name">Name</label>
+          <input class="input" id="{{ dlg_id }}-name" name="name" value="{{ form.name }}" maxlength="200" required{% if error %} aria-invalid="true" aria-describedby="{{ dlg_id }}-err"{% endif %}>
+          {% if error %}<span class="field-error" id="{{ dlg_id }}-err" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ error }}</span></span>{% endif %}
+        </div>
+        <div class="field"><label for="{{ dlg_id }}-desc">Description <span class="muted">optional</span></label>
+          <textarea class="textarea" id="{{ dlg_id }}-desc" name="description" rows="2" maxlength="2000">{{ form.description }}</textarea></div>
+        <fieldset class="field"><legend class="lbl">Score configs <span class="muted">reviewers fill one input per config</span></legend>
+          <div class="stack-s">
+            {% for c in form_configs %}
+            <label class="check"><input type="checkbox" name="config_id" value="{{ c.id }}"{{ " checked" if c.checked }}><span>{{ c.name }} <span class="muted">{{ c.type }}{{ ", archived" if c.archived }}</span></span></label>
+            {% else %}
+            <p class="hint">There are no score configs yet. <a href="/project/{{ project.id }}/settings/scores">Create one</a> first.</p>
+            {% endfor %}
+          </div>
+          <span class="hint">Archived configs are not listed for new queues. Choose at least one.</span>
+        </fieldset>
+      </div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">{{ submit }}</button></footer>
+    </form>
+  </div>
+</dialog>

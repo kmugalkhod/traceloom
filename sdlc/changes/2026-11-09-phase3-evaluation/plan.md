@@ -33,6 +33,7 @@ This change is stacked on `team/2026-11-06-ui-polish-align` (Phase 1 + Phase 2 +
 - `db/models.py` and `db/migrations/versions/0003_evaluation.py`: new.
   - All spec *Data* tables, plus `eval_spend_daily(project_id, day, spent_usd, reserved_usd)` (ADR-0014).
   - `eval_executions.estimated_cost`.
+  - `eval_rules.name`, `connection_id` and `model` (T-25): rules show a name, and a built-in template names no model, so the rule chooses one.
   - `dataset_run_items.output/latency_ms/cost/estimated_cost`.
   - `scores.queue_id/execution_id/channel` and the index `(project_id, name, timestamp)`.
   - A data migration sets `source='ANNOTATION'` where `author_id IS NOT NULL`.
@@ -77,6 +78,7 @@ This change is stacked on `team/2026-11-06-ui-polish-align` (Phase 1 + Phase 2 +
   - `spend.py`: ledger reserve, settle and release, and the pre-call estimate (ADR-0014).
   - `runner.py`: the `eval_job` handler (re-check filter, compile, provider call with schema, parse/validate, score via `accept_batch`, judge trace via `accept_batch`, retries with backoff, capped/skipped/failed states, error scrubbing).
   - `backfill.py`.
+  - `rule_service.py` (T-25): rule validation, audited writes, enable confirmation, preview and 24 h outcomes for the Evaluators pages.
 - `datasets/` (new package):
   - `service.py`: datasets, items, versions, archive, add-from-trace.
   - `importer.py`: CSV/JSON/JSONL, mapping, preview, limits.
