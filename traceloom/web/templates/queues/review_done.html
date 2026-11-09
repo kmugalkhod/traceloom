@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Review · {{ queue.name }}{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Annotation queues", "href": "/project/" ~ project.id ~ "/queues"}, {"label": queue.name, "href": back}, {"label": "Review"}]) }}{% endblock %}
+{% block content %}
+<div class="panel q-mt-16">
+  <div class="empty">
+    {% if stats.complete %}
+    <span class="tile q-tile-ok">{{ m.icon("i-check") }}</span>
+    <h2>Queue complete</h2>
+    <p>All {{ stats.total }} items in {{ queue.name }} are reviewed.{% if stats.skipped %} {{ stats.skipped }} were skipped.{% endif %}</p>
+    {% if mine %}<div class="progl q-center"><span>You: {{ mine.completed }} completed{% if mine.median_ms is not none %} · median {{ (mine.median_ms / 1000) | round | int }} s{% endif %}</span></div>{% endif %}
+    {% else %}
+    <span class="tile">{{ m.icon("i-clock") }}</span>
+    <h2>Nothing to review right now</h2>
+    <p>{% if stats.total == 0 %}This queue has no items yet. Add traces from a list page.{% else %}The {{ stats.pending }} pending item{{ "" if stats.pending == 1 else "s" }} {{ "is" if stats.pending == 1 else "are" }} held by other reviewers{% if stats.skipped %}, and {{ stats.skipped }} {{ "was" if stats.skipped == 1 else "were" }} skipped (reopen from the queue page){% endif %}. Try again in a few minutes.{% endif %}</p>
+    {% endif %}
+    <div class="acts"><a class="btn btn-primary" href="{{ back }}">Back to queue</a></div>
+  </div>
+</div>
+{% endblock %}
