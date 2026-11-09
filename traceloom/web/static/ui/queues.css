@@ -4,7 +4,7 @@
 .pill.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line)}
 .pill.err{background:var(--err-bg);color:var(--err);border-color:var(--err-line)}
 .pill.capd{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
-.pill.skip{background:var(--surface-2);color:var(--ink-2);border-style:dashed}
+.pill.skipped{background:var(--surface-2);color:var(--ink-2);border-style:dashed}
 .pill.pend{background:var(--surface);color:var(--ink-2)}
 .two{display:flex;flex-direction:column;gap:1px;min-width:0;line-height:1.25}
 .two small{font-size:12px;color:var(--ink-3)}
