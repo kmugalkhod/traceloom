@@ -14,7 +14,12 @@ from traceloom.llm import providers
 from traceloom.llm.providers import DoneDelta, TextDelta
 from traceloom.main import create_app
 
-pytest_plugins = ["tests.factories", "tests.factories_scores", "tests.contract.stores"]
+pytest_plugins = [
+    "tests.factories",
+    "tests.factories_scores",
+    "tests.factories_eval",
+    "tests.contract.stores",
+]
 
 # Outside dev Settings requires an encryption key; tests share a fixed throwaway one.
 TEST_ENCRYPTION_KEY = "dHJhY2Vsb29tLXRlc3Qta2V5LW5vdC1mb3ItcHJvZCE="

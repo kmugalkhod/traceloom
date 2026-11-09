@@ -470,3 +470,5 @@ __all__ = [
     "Webhook",
     "WebhookDelivery",
 ]
+
+from traceloom.db import models_eval as _models_eval  # noqa: E402,F401  (registers the tables)

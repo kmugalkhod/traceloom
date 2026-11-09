@@ -1,5 +1,5 @@
 import inspect
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 from alembic.autogenerate import compare_metadata
@@ -8,7 +8,7 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from traceloom import ports
-from traceloom.db import models
+from traceloom.db import models, models_eval
 from traceloom.db.base import Base
 from traceloom.db.session import make_engine, upgrade_to_head
 
@@ -130,6 +130,23 @@ def _rows():
         models.AnnotationItem(
             id="ai1", queue_id="aq1", project_id="p1", object_type="trace", object_id="t1"
         ),
+        models_eval.EvalTemplate(id="et1", project_id="p1", name="relevance"),
+        models_eval.EvalTemplateVersion(
+            id="etv1", template_id="et1", version=1, prompt="Rate {{output}}"
+        ),
+        models_eval.EvalRule(
+            id="er1", project_id="p1", template_id="et1", target="trace", score_name="relevance"
+        ),
+        models_eval.EvalExecution(
+            id="ex1",
+            project_id="p1",
+            rule_id="er1",
+            template_version_id="etv1",
+            object_type="trace",
+            object_id="t1",
+        ),
+        models_eval.ProjectEvalSettings(project_id="p1", daily_cost_cap_usd=5.0),
+        models_eval.EvalSpendDaily(project_id="p1", day=date(2026, 11, 9)),
     ]
 
 
