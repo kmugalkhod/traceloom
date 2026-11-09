@@ -166,3 +166,48 @@ def test_list_page_and_search(client, as_role, world, db, dataset):
     assert "qa" in client.get(url(world)).text
     page = client.get(url(world, f"/{dataset.id}?q=needle")).text
     assert "needle here" in page and "hay" not in page
+
+
+INLINE = re.compile(r"\sstyle\s*=|\son[a-z]+\s*=", re.I)
+
+
+@pytest.mark.parametrize("role", [Role.VIEWER, Role.MEMBER, Role.ADMIN])
+def test_dataset_pages_have_no_inline_style_or_handlers(
+    client, as_role, world, db, dataset, container, role
+):
+    """The CSP (default-src 'self') blocks inline style and on*= handlers."""
+    from tests.helpers_web import seed_trace
+
+    view = add_item(db, world, dataset, input={"q": 1}, expected_output="a")
+    runs.create_run(db, world.project, member_actor(world), dataset, name="r")
+    db.commit()
+    seed_trace(container, world.project.id, "t-inline", input="x", output="y")
+    as_role(role)
+    base = url(world, f"/{dataset.id}")
+    pages = [
+        url(world),
+        base,
+        f"{base}?tab=runs",
+        f"{base}?tab=history",
+        f"{base}?status=archived",
+        f"{base}?item={view.id}",
+    ]
+    if role is not Role.VIEWER:
+        pid = world.project.id
+        pages += [
+            f"{base}/import",
+            f"/project/{pid}/datasets/add?trace_id=t-inline",
+            f"/project/{pid}/datasets/add?trace_id=t-inline&trace_id=t-inline2",
+            f"/project/{pid}/traces/t-inline",
+            f"/project/{pid}/traces",
+        ]
+    for path in pages:
+        r = client.get(path, headers=HTML)
+        assert r.status_code in (200,), (path, r.status_code)
+        assert INLINE.search(r.text) is None, path
+    if role is not Role.VIEWER:
+        fragment = client.get(
+            f"/project/{world.project.id}/datasets/add?trace_id=t-inline",
+            headers={"HX-Request": "true"},
+        )
+        assert INLINE.search(fragment.text) is None

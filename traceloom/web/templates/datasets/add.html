@@ -5,7 +5,7 @@
 {% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Datasets", "href": action | replace("/add", "")}, {"label": "Add to dataset"}]) }}{% endblock %}
 {% block content %}
 {{ m.page_header("Add to dataset", "Save " ~ ("these traces" if bulk else "this " ~ ("observation" if observation_id else "trace")) ~ " as dataset items.") }}
-<form class="panel" method="post" action="{{ action }}" style="max-width:760px">
+<form class="panel mw-760" method="post" action="{{ action }}">
   {{ m.csrf() }}
   <div class="panel-b stack">{% include "datasets/_add_form.html" %}
     <div class="row"><a class="btn" href="{{ trace_url }}{{ trace_ids[0] | urlencode }}">Cancel</a><button type="submit" class="btn btn-primary">{{ "Add items" if bulk else "Add item" }}</button></div></div>

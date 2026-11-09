@@ -23,8 +23,8 @@
     <div class="field"><label for="ad-expected_output">Expected output <span class="muted">from its output, edit if wrong</span></label>
       <div class="jed{% if error.startswith('Expected') %} bad{% endif %}"><textarea id="ad-expected_output" name="expected_output" spellcheck="false">{{ vals.get("expected_output", "") }}</textarea></div></div>
   </div>
-  <details{% if error.startswith('Metadata') %} open{% endif %}><summary class="btn btn-ghost btn-sm" style="width:max-content;cursor:pointer">Metadata (JSON)</summary>
-    <div class="jed{% if error.startswith('Metadata') %} bad{% endif %}" style="margin-top:8px"><textarea id="ad-metadata" name="metadata" aria-label="Metadata (JSON)" spellcheck="false">{{ vals.get("metadata", "") }}</textarea></div></details>
+  <details{% if error.startswith('Metadata') %} open{% endif %}><summary class="btn btn-ghost btn-sm summ-btn">Metadata (JSON)</summary>
+    <div class="jed{% if error.startswith('Metadata') %} bad{% endif %} mt-8"><textarea id="ad-metadata" name="metadata" aria-label="Metadata (JSON)" spellcheck="false">{{ vals.get("metadata", "") }}</textarea></div></details>
   <div class="srcl">{{ m.icon("i-link", "ico-sm") }}Saved with a link to <a href="{{ trace_url }}{{ trace_ids[0] | urlencode }}">{{ trace_ids[0][:12] }}</a>{% if observation_id %} · <span class="mono-sm">{{ observation_id[:12] }}</span>{% endif %}</div>
   {% endwith %}
 {% endif %}

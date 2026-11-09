@@ -6,7 +6,7 @@
 {% block content %}
 {{ m.page_header("Import into " ~ dataset.name, (("%d rows · %d columns" | format(table.records | length, table.columns | length)) if table else "Upload a CSV, JSON or JSONL file.")) }}
 
-<ol class="steps" aria-label="Import steps" style="list-style:none;padding:0;margin:0">
+<ol class="steps steps-list" aria-label="Import steps">
   {% for label in steps %}{% set n = loop.index %}
   <li class="s {{ 'done' if n < step else 'cur' if n == step else '' }}"{% if n == step %} aria-current="step"{% endif %}><i>{% if n < step %}{{ m.icon("i-check") }}{% else %}{{ n }}{% endif %}</i>{{ label }}</li>
   {% if not loop.last %}<li class="ln" aria-hidden="true"></li>{% endif %}
@@ -40,7 +40,7 @@
       <div class="panel-b flush"><table class="tbl"><thead><tr><th>Column</th><th>Sample</th><th>Use as</th></tr></thead><tbody>
         {% for column in table.columns %}{% set idx = loop.index0 %}{% set v = sample.get(column) %}
         <tr><td><b>{{ column }}</b></td>
-          <td class="mono-sm" style="max-width:260px"><div class="trunc">{{ v if v is string else compact(v) }}</div></td>
+          <td class="mono-sm mw-260"><div class="trunc">{{ v if v is string else compact(v) }}</div></td>
           <td><select class="select" name="use_{{ idx }}" aria-label="Use {{ column }} as">
             {% for u in use_options %}<option value="{{ u }}"{% if uses[idx] == u %} selected{% endif %}>{{ u }}</option>{% endfor %}
           </select></td></tr>
@@ -53,7 +53,7 @@
   {% if preview.error_count %}<div class="banner err" role="alert">{{ m.icon("i-error") }}<div><b>{{ preview.error_count }} row{{ "" if preview.error_count == 1 else "s" }} cannot be imported</b> and will be skipped. Fix the file and upload again, or continue.</div></div>{% endif %}
   {% if preview.warning_count %}<div class="banner warn">{{ m.icon("i-warn") }}<div><b>{{ preview.warning_count }} cell{{ "" if preview.warning_count == 1 else "s" }} {{ "is" if preview.warning_count == 1 else "are" }} not valid JSON and will be imported as text.</b> The preview marks them.</div></div>{% endif %}
   <div class="panel"><div class="panel-h"><h2>Preview <span class="u muted">first {{ preview.rows | length }} of {{ preview.total }} rows</span></h2></div>
-    <div class="panel-b flush" style="overflow-x:auto"><table class="tbl"><thead><tr><th>#</th>
+    <div class="panel-b flush ox-auto"><table class="tbl"><thead><tr><th>#</th>
       <th>input <span class="muted">from {{ mapping.input }}</span></th>
       <th>expected_output{% if mapping.expected_output %} <span class="muted">from {{ mapping.expected_output }}</span>{% endif %}</th>
       <th>metadata{% if mapping.metadata %} <span class="muted">from {{ mapping.metadata | join(", ") }}</span>{% endif %}</th></tr></thead><tbody>
@@ -61,7 +61,7 @@
       <tr><td class="num">{{ row.number }}</td>
         <td{% if row.warnings or row.errors %} class="wcell"{% endif %}>{% if row.input is string %}{{ row.input }}{% else %}<span class="mono-sm">{{ compact(row.input) }}</span>{% endif %}
           {% for w in row.warnings %}<div class="cell-w">{{ m.icon("i-warn") }}{{ w }}</div>{% endfor %}
-          {% for e in row.errors %}<div class="cell-w" style="color:var(--err)">{{ m.icon("i-error") }}{{ e }}</div>{% endfor %}</td>
+          {% for e in row.errors %}<div class="cell-w err-text">{{ m.icon("i-error") }}{{ e }}</div>{% endfor %}</td>
         <td>{% if row.expected_output is none %}<span class="muted">empty</span>{% elif row.expected_output is string %}{{ row.expected_output }}{% else %}<span class="mono-sm">{{ compact(row.expected_output) }}</span>{% endif %}</td>
         <td class="mono-sm">{{ compact(row.metadata) if row.metadata else "" }}</td></tr>
       {% endfor %}
@@ -71,7 +71,7 @@
     {% for i, u in uses.items() %}<input type="hidden" name="use_{{ i }}" value="{{ u }}">{% endfor %}
     <a class="btn" href="{{ base }}/import/{{ token }}">Back</a>
     <span class="grow"></span>
-    <span class="muted" style="font-size:12px">{{ preview.error_count }} rows have errors · {{ preview.warning_count }} warning{{ "" if preview.warning_count == 1 else "s" }}</span>
+    <span class="muted small">{{ preview.error_count }} rows have errors · {{ preview.warning_count }} warning{{ "" if preview.warning_count == 1 else "s" }}</span>
     <button type="submit" class="btn btn-primary">Import {{ preview.total - preview.error_count }} items</button>
   </form>
 

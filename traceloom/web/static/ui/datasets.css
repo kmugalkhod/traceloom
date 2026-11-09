@@ -72,3 +72,15 @@ dialog.drawer footer .l{margin-right:auto;color:var(--ink-3);font-size:12px}
 .selbar .btn{background:transparent;border-color:color-mix(in srgb,var(--on-accent) 40%,transparent);color:var(--on-accent);box-shadow:none}
 .selbar .btn.solid{background:var(--on-accent);color:var(--accent-solid);border-color:var(--on-accent)}
 .selbar[hidden]{display:none}
+/* layout helpers (the CSP blocks inline style) */
+.mw-280{max-width:280px}
+.mw-260{max-width:260px}
+.mw-760{max-width:760px}
+.mt-8{margin-top:8px}
+.ml-4{margin-left:4px}
+.summ-btn{width:max-content;cursor:pointer}
+dialog .dialog footer.foot-flat{border-top:0;padding-top:0;justify-content:flex-start}
+.steps-list{list-style:none;padding:0;margin:0}
+.ox-auto{overflow-x:auto}
+.err-text{color:var(--err)}
+.small{font-size:12px}

@@ -66,8 +66,8 @@
           {% if error %}<span class="field-error" id="dne" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ error }}</span></span>{% endif %}
         </div>
         <div class="field"><label for="dd">Description <span class="muted">optional</span></label><textarea id="dd" class="textarea" name="description" rows="2">{{ values.description }}</textarea></div>
-        <details><summary class="btn btn-ghost btn-sm" style="width:max-content;cursor:pointer">Metadata (JSON)</summary>
-          <div class="jed" style="margin-top:8px"><textarea name="metadata" aria-label="Metadata (JSON)" spellcheck="false" placeholder="{}">{{ values.metadata }}</textarea></div></details>
+        <details><summary class="btn btn-ghost btn-sm summ-btn">Metadata (JSON)</summary>
+          <div class="jed mt-8"><textarea name="metadata" aria-label="Metadata (JSON)" spellcheck="false" placeholder="{}">{{ values.metadata }}</textarea></div></details>
       </div>
       <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">Create dataset</button></footer>
     </form>

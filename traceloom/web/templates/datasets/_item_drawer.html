@@ -23,7 +23,7 @@
         <div class="field"><label>Versions</label>
           <div class="ver">
             {% for v, who in drawer.versions %}
-            <div class="v{% if loop.first %} cur{% endif %}"><b>v{{ v.version }}{% if loop.first %} <span class="pill lab" style="margin-left:4px">Current</span>{% endif %}{% if v.status == "archived" %} <span class="pill skip">Archived</span>{% endif %}</b>
+            <div class="v{% if loop.first %} cur{% endif %}"><b>v{{ v.version }}{% if loop.first %} <span class="pill lab ml-4">Current</span>{% endif %}{% if v.status == "archived" %} <span class="pill skip">Archived</span>{% endif %}</b>
               <div class="m">{{ who }}{% if who %} · {% endif %}{{ v.created_at | date("%b %-d, %H:%M") }}</div></div>
             {% endfor %}
           </div>
@@ -37,7 +37,7 @@
     </form>
     {% if editable %}
     <form method="post" action="{{ base }}/items/{{ it.id }}/archive" data-confirm="Archive this item? Runs started earlier still read it.">{{ m.csrf() }}
-      <footer style="border-top:0;padding-top:0;justify-content:flex-start"><button type="submit" class="btn btn-ghost">{{ m.icon("i-trash", "ico-sm") }}Archive item</button></footer>
+      <footer class="foot-flat"><button type="submit" class="btn btn-ghost">{{ m.icon("i-trash", "ico-sm") }}Archive item</button></footer>
     </form>
     {% endif %}
   </div>
