@@ -121,8 +121,169 @@ def upgrade() -> None:
     # Scores written from the UI (they carry an author) are ANNOTATION; the rest stay API.
     op.execute("UPDATE scores SET source = 'ANNOTATION' WHERE author_id IS NOT NULL")
 
+    op.create_table(
+        "datasets",
+        sa.Column("id", sa.String(32), nullable=False),
+        sa.Column("project_id", sa.String(32), nullable=False),
+        sa.Column("name", sa.String(200), nullable=False),
+        sa.Column("description", sa.Text(), nullable=False),
+        sa.Column("metadata", sa.JSON(), nullable=False),
+        sa.Column("created_by", sa.String(64), nullable=True),
+        sa.Column("created_at", _utc(), nullable=False),
+        sa.Column("updated_at", _utc(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["project_id"],
+            ["projects.id"],
+            name=op.f("fk_datasets_project_id_projects"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_datasets")),
+        sa.UniqueConstraint("project_id", "name", name=op.f("uq_datasets_project_name")),
+    )
+
+    op.create_table(
+        "dataset_items",
+        sa.Column("id", sa.String(32), nullable=False),
+        sa.Column("dataset_id", sa.String(32), nullable=False),
+        sa.Column("project_id", sa.String(32), nullable=False),
+        sa.Column("current_version", sa.Integer(), nullable=False),
+        sa.Column("status", sa.String(16), nullable=False),
+        sa.Column("source_trace_id", sa.String(200), nullable=True),
+        sa.Column("source_observation_id", sa.String(200), nullable=True),
+        sa.Column("created_at", _utc(), nullable=False),
+        sa.Column("updated_at", _utc(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["dataset_id"],
+            ["datasets.id"],
+            name=op.f("fk_dataset_items_dataset_id_datasets"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["project_id"],
+            ["projects.id"],
+            name=op.f("fk_dataset_items_project_id_projects"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_dataset_items")),
+    )
+    with op.batch_alter_table("dataset_items", schema=None) as batch_op:
+        batch_op.create_index(
+            "ix_dataset_items_dataset_status", ["dataset_id", "status"], unique=False
+        )
+
+    op.create_table(
+        "dataset_item_versions",
+        sa.Column("item_id", sa.String(32), nullable=False),
+        sa.Column("version", sa.Integer(), nullable=False),
+        sa.Column("project_id", sa.String(32), nullable=False),
+        sa.Column("input", sa.JSON(), nullable=True),
+        sa.Column("expected_output", sa.JSON(), nullable=True),
+        sa.Column("metadata", sa.JSON(), nullable=True),
+        sa.Column("status", sa.String(16), nullable=False),
+        sa.Column("actor", sa.String(64), nullable=True),
+        sa.Column("created_at", _utc(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["item_id"],
+            ["dataset_items.id"],
+            name=op.f("fk_dataset_item_versions_item_id_dataset_items"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["project_id"],
+            ["projects.id"],
+            name=op.f("fk_dataset_item_versions_project_id_projects"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("item_id", "version", name=op.f("pk_dataset_item_versions")),
+    )
+    with op.batch_alter_table("dataset_item_versions", schema=None) as batch_op:
+        batch_op.create_index(
+            "ix_dataset_item_versions_project_created",
+            ["project_id", "created_at"],
+            unique=False,
+        )
+
+    op.create_table(
+        "dataset_runs",
+        sa.Column("id", sa.String(32), nullable=False),
+        sa.Column("dataset_id", sa.String(32), nullable=False),
+        sa.Column("project_id", sa.String(32), nullable=False),
+        sa.Column("name", sa.String(200), nullable=False),
+        sa.Column("description", sa.Text(), nullable=False),
+        sa.Column("metadata", sa.JSON(), nullable=False),
+        sa.Column("dataset_version", _utc(), nullable=False),
+        sa.Column("config", sa.JSON(), nullable=False),
+        sa.Column("status", sa.String(16), nullable=False),
+        sa.Column("created_by", sa.String(64), nullable=True),
+        sa.Column("created_at", _utc(), nullable=False),
+        sa.Column("finished_at", _utc(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["dataset_id"],
+            ["datasets.id"],
+            name=op.f("fk_dataset_runs_dataset_id_datasets"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["project_id"],
+            ["projects.id"],
+            name=op.f("fk_dataset_runs_project_id_projects"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_dataset_runs")),
+        sa.UniqueConstraint("dataset_id", "name", name=op.f("uq_dataset_runs_dataset_name")),
+    )
+
+    op.create_table(
+        "dataset_run_items",
+        sa.Column("id", sa.String(32), nullable=False),
+        sa.Column("run_id", sa.String(32), nullable=False),
+        sa.Column("project_id", sa.String(32), nullable=False),
+        sa.Column("item_id", sa.String(32), nullable=False),
+        sa.Column("item_version", sa.Integer(), nullable=False),
+        sa.Column("trace_id", sa.String(200), nullable=True),
+        sa.Column("observation_id", sa.String(200), nullable=True),
+        sa.Column("status", sa.String(16), nullable=False),
+        sa.Column("run_after", _utc(), nullable=True),
+        sa.Column("error", sa.Text(), nullable=True),
+        sa.Column("output", sa.JSON(), nullable=True),
+        sa.Column("latency_ms", sa.Float(), nullable=True),
+        sa.Column("cost", sa.Float(), nullable=True),
+        sa.Column("estimated_cost", sa.Float(), nullable=True),
+        sa.Column("created_at", _utc(), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["run_id"],
+            ["dataset_runs.id"],
+            name=op.f("fk_dataset_run_items_run_id_dataset_runs"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["project_id"],
+            ["projects.id"],
+            name=op.f("fk_dataset_run_items_project_id_projects"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["item_id"],
+            ["dataset_items.id"],
+            name=op.f("fk_dataset_run_items_item_id_dataset_items"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_dataset_run_items")),
+    )
+    with op.batch_alter_table("dataset_run_items", schema=None) as batch_op:
+        batch_op.create_index("ix_dataset_run_items_run", ["run_id"], unique=False)
+        batch_op.create_index(
+            "ix_dataset_run_items_status_run_after", ["status", "run_after"], unique=False
+        )
+
 
 def downgrade() -> None:
+    op.drop_table("dataset_run_items")
+    op.drop_table("dataset_runs")
+    op.drop_table("dataset_item_versions")
+    op.drop_table("dataset_items")
+    op.drop_table("datasets")
+
     with op.batch_alter_table("scores", schema=None) as batch_op:
         batch_op.drop_index("ix_scores_project_name_timestamp")
         batch_op.drop_column("channel")
