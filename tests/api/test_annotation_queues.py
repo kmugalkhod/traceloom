@@ -279,3 +279,18 @@ def test_queue_is_complete_when_nothing_is_left(container, db, world, member, qu
     db.commit()
     stats = queues.stats(db, world.project, member, queue.id)
     assert stats.complete and stats.percent == 100
+
+
+def test_items_are_reviewed_in_the_order_they_were_added(container, db, world, member, queue):
+    ids = [f"t{i:02d}" for i in reversed(range(12))]  # not alphabetical
+    queues.add_items(
+        db, world.project, member, queue.id, [ItemRef("trace", i) for i in ids], container.settings
+    )
+    db.commit()
+    order = []
+    for _ in ids:
+        item = claim.claim_next(db, world.project, member, queue.id, container.settings)
+        claim.skip(db, world.project, member, queue.id, item.id)
+        db.commit()
+        order.append(item.object_id)
+    assert order == ids

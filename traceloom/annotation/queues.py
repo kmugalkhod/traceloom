@@ -10,7 +10,7 @@ from __future__ import annotations
 import statistics
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, select
@@ -293,7 +293,7 @@ def add_items(
     chosen = list(unique.values())[:limit]
     capped = len(unique) > limit or (offered is not None and offered > limit)
     added, now = 0, utcnow()
-    for ref in chosen:
+    for n, ref in enumerate(chosen):
         trace_id = ref.trace_id or (ref.object_id if ref.object_type == "trace" else None)
         result = db.execute(
             _insert_ignore(db).values(
@@ -304,7 +304,7 @@ def add_items(
                 object_id=ref.object_id,
                 trace_id=trace_id,
                 status="pending",
-                created_at=now,
+                created_at=now + timedelta(microseconds=n),  # keeps the order they were added
             )
         )
         added += result.rowcount or 0
