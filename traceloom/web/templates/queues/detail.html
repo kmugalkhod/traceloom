@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ queue.name }}{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Annotation queues", "href": "/project/" ~ project.id ~ "/queues"}, {"label": queue.name}]) }}{% endblock %}
+{% block content %}
+{% call m.page_header(queue.name, (queue.description ~ " " if queue.description else "") ~ "Scores: " ~ (configs | map(attribute="name") | join(", ")) ~ ".") %}
+  {% if can_write and stats.pending %}<a class="btn btn-primary" href="/project/{{ project.id }}/queues/{{ queue.id }}/review">{{ m.icon("i-play") }}Start reviewing</a>{% endif %}
+  {% if can_write or can_delete %}
+  <div class="menu-wrap">
+    <button type="button" class="btn btn-icon" aria-label="More actions: edit queue{{ ', delete queue' if can_delete }}" aria-haspopup="true" aria-expanded="false" data-menu-toggle="q-detail-menu">{{ m.icon("i-more-h") }}</button>
+    <div class="pop pop-right" id="q-detail-menu" data-menu hidden role="menu" aria-label="Queue actions">
+      {% if can_write %}<button type="button" class="item" role="menuitem" data-dialog-open="edit-queue">{{ m.icon("i-pencil", "ico-sm") }}Edit queue</button>{% endif %}
+      <button type="button" class="item" role="menuitem" data-copy="{{ queue.id }}">{{ m.icon("i-copy", "ico-sm") }}Copy queue id</button>
+      {% if can_delete %}<div class="sep"></div>
+      <button type="button" class="item danger" role="menuitem" data-dialog-open="delete-queue">{{ m.icon("i-trash", "ico-sm") }}Delete queue…</button>{% endif %}
+    </div>
+  </div>
+  {% endif %}
+{% endcall %}
+<div class="stack">
+  {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
+  {% if banner %}{{ m.banner("err", banner) }}{% endif %}
+
+  <section class="panel" aria-label="Progress"><div class="panel-b stackf">
+    {% if stats.complete %}
+    <div class="row"><span class="pill ok">{{ m.icon("i-check") }}Queue complete</span><span class="muted">All {{ stats.total }} items are reviewed.</span></div>
+    {% else %}
+    <div class="row"><span class="q-big">{{ stats.percent }}%</span><span class="muted">{{ stats.completed }} of {{ stats.total }} reviewed</span></div>
+    {% endif %}
+    {% set label = stats.percent ~ "% of items reviewed" %}{% include "queues/_progress.html" %}
+    <div class="progl">
+      <span><i style="background:var(--ok)"></i>{{ stats.completed }} completed</span>
+      <span><i style="background:var(--warn-bar)"></i>{{ stats.skipped }} skipped</span>
+      <span><i style="background:var(--sunken);border:1px solid var(--line-strong)"></i>{{ stats.pending }} pending</span>
+    </div>
+  </div></section>
+
+  <section class="panel" aria-label="Reviewers"><div class="panel-h"><h2>Reviewers</h2></div>
+    {% if stats.reviewers %}
+    <div class="rack"><table class="tbl tbl-flat">
+      <thead><tr><th>Reviewer</th><th class="r">Completed</th><th class="r">Median time</th><th>Last activity</th></tr></thead>
+      <tbody>{% for r in stats.reviewers %}
+        <tr><td>{{ r.name }}</td><td class="num r">{{ r.completed }}</td>
+          <td class="num r">{% if r.median_ms is not none %}{{ (r.median_ms / 1000) | round | int }} s{% else %}<span class="muted">-</span>{% endif %}</td>
+          <td>{% if r.last_activity %}{{ r.last_activity | ago }}{% else %}<span class="muted">No activity yet</span>{% endif %}</td></tr>
+      {% endfor %}</tbody>
+    </table></div>
+    {% else %}<div class="panel-b"><p class="hint">Nobody has completed an item yet.</p></div>{% endif %}
+  </section>
+
+  <div class="q-bar">
+    <div class="seg" role="group" aria-label="Status">
+      {% for key, label in [("", "All")] + status_labels.items() | list %}
+      <a href="?{{ 'status=' ~ key ~ '&' if key }}{{ 'reviewer=' ~ reviewer if reviewer }}" aria-pressed="{{ 'true' if status_filter == key else 'false' }}">{{ label }} <span class="cnt">{{ stats.total if not key else stats[key] }}</span></a>
+      {% endfor %}
+    </div>
+    <form method="get" class="inline-form">
+      {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+      <select class="select" name="reviewer" aria-label="Reviewer" onchange="this.form.submit()">
+        <option value="">All reviewers</option>
+        {% for uid, name in reviewers %}<option value="{{ uid }}"{{ " selected" if uid == reviewer }}>{{ name }}</option>{% endfor %}
+      </select>
+      <noscript><button class="btn btn-sm" type="submit">Filter</button></noscript>
+    </form>
+  </div>
+
+  {% if not items %}
+  <div class="panel">{% call m.empty_state("i-sessions", "No items here", "Nothing matches these filters. Add traces from a list page to fill the queue.") %}{% endcall %}</div>
+  {% else %}
+  <div class="panel"><div class="rack">
+    <table class="tbl tbl-flat cardrows">
+      <thead><tr><th>Item</th><th>Type</th><th>Status</th><th>Reviewer</th><th class="r">Time</th><th class="menu"><span class="sr">Actions</span></th></tr></thead>
+      <tbody>
+      {% for r in items %}
+        {% set i = r.item %}
+        {% set locked = i.status == "pending" and i.locked_by and i.locked_until and i.locked_until > now_utc %}
+        <tr>
+          <td class="c-name m-show"><div class="cell2"><b>{{ r.title }}</b>{% if r.small %}<span class="mono">{{ r.small }}</span>{% endif %}</div></td>
+          <td class="m-show">{{ i.object_type | capitalize }}</td>
+          <td class="m-show">
+            {% if i.status == "completed" %}<span class="pill ok">{{ m.icon("i-check") }}Completed</span>
+            {% elif i.status == "skipped" %}<span class="pill skip">Skipped</span>
+            {% elif locked %}<span class="pill capd">{{ m.icon("i-lock") }}Locked</span>
+            {% else %}<span class="pill pend">{{ m.icon("i-clock") }}Pending</span>{% endif %}
+          </td>
+          <td class="m-show">{% if r.who %}{{ r.who }}{% if locked %} until {{ i.locked_until | date("%H:%M") }} UTC{% endif %}{% else %}<span class="muted">-</span>{% endif %}</td>
+          <td class="num r m-show">{% if i.duration_ms is not none %}{{ (i.duration_ms / 1000) | round | int }} s{% else %}<span class="muted">-</span>{% endif %}</td>
+          <td class="menu m-show">
+            {% if i.status == "skipped" and can_write %}
+            <form method="post" action="/project/{{ project.id }}/queues/{{ queue.id }}/items/{{ i.id }}/reopen" class="inline-form">{{ m.csrf() }}<button class="btn btn-ghost btn-sm" type="submit">Reopen</button></form>
+            {% else %}<a class="btn btn-ghost btn-sm" href="/project/{{ project.id }}/queues/{{ queue.id }}/review?item={{ i.id }}">{{ "Open" if i.status == "pending" and can_write and not locked else "View" }}</a>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% if pages > 1 %}
+  <nav class="pager" aria-label="Pages">
+    {% if page > 1 %}<a class="btn btn-sm" href="?page={{ page - 1 }}{{ '&status=' ~ status_filter if status_filter }}{{ '&reviewer=' ~ reviewer if reviewer }}">Previous</a>{% endif %}
+    <span class="muted">Page {{ page }} of {{ pages }} · {{ total }} items</span>
+    {% if page < pages %}<a class="btn btn-sm" href="?page={{ page + 1 }}{{ '&status=' ~ status_filter if status_filter }}{{ '&reviewer=' ~ reviewer if reviewer }}">Next</a>{% endif %}
+  </nav>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}
+{% block dialogs %}
+{% if can_write %}
+{% set dlg_id = "edit-queue" %}{% set title = "Edit queue" %}{% set action = "/project/" ~ project.id ~ "/queues/" ~ queue.id ~ "/edit" %}{% set submit = "Save changes" %}
+{% include "queues/_form_dialog.html" %}
+{% endif %}
+{% if can_delete %}
+<dialog class="dlg" id="delete-queue" aria-label="Delete queue">
+  <div class="dialog">
+    {{ m.dialog_head("Delete " ~ queue.name ~ "?") }}
+    <form method="post" action="/project/{{ project.id }}/queues/{{ queue.id }}/delete">
+      {{ m.csrf() }}
+      <div class="body"><p>This removes the queue and its {{ stats.total }} items. The scores already written stay on their traces.</p></div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-danger">Delete queue</button></footer>
+    </form>
+  </div>
+</dialog>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Annotation queues{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Annotation queues"}]) }}{% endblock %}
+{% block content %}
+{% call m.page_header("Annotation queues", "Work through traces, observations and sessions one at a time and score them.") %}
+  {% if can_write %}<button type="button" class="btn btn-primary" data-dialog-open="new-queue">{{ m.icon("i-plus") }}New queue</button>{% endif %}
+{% endcall %}
+<div class="stack">
+  {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
+  {% if not rows %}
+  <div class="panel">
+    {% call m.empty_state("i-sessions", "No annotation queues yet", "Create a queue, then add traces from any list or from a filter. People review them one by one with the keyboard.") %}
+      {% if can_write %}<div class="acts"><button type="button" class="btn btn-primary" data-dialog-open="new-queue">{{ m.icon("i-plus") }}New queue</button></div>{% endif %}
+    {% endcall %}
+  </div>
+  {% else %}
+  <div class="panel"><div class="rack">
+    <table class="tbl tbl-flat cardrows">
+      <thead><tr><th>Queue</th><th>Score configs</th><th style="width:240px">Progress</th><th class="r">Pending</th><th>Last activity</th><th class="menu"><span class="sr">Actions</span></th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        {% set q = r.queue %}{% set stats = r.stats %}{% set bar = r.bar %}
+        <tr>
+          <td class="c-name m-show"><div class="cell2"><b><a href="/project/{{ project.id }}/queues/{{ q.id }}">{{ q.name }}</a></b><span>{{ q.description or "No description" }}</span></div></td>
+          <td class="m-show"><span class="scs">{% for c in r.configs %}<span class="chip">{{ c.name }}</span>{% endfor %}</span></td>
+          <td class="m-show">
+            {% set thin = true %}{% set label = q.name ~ " " ~ stats.percent ~ "% done" %}{% include "queues/_progress.html" %}
+            <div class="progl" style="margin-top:6px">
+              {% if stats.complete %}<span class="pill ok">{{ m.icon("i-check") }}Queue complete</span>
+              {% else %}<span>{{ stats.completed }} of {{ stats.total }} reviewed{% if stats.skipped %} · {{ stats.skipped }} skipped{% endif %}</span>{% endif %}
+            </div>
+          </td>
+          <td class="num r m-show">{{ stats.pending }}</td>
+          <td class="m-show">{% if r.activity %}{{ r.activity[0] }}, {{ r.activity[1] | ago }}{% else %}<span class="muted">No activity yet</span>{% endif %}</td>
+          <td class="menu m-show">
+            <div class="hbtn">
+              {% if can_write and stats.pending %}<a class="btn btn-sm" href="/project/{{ project.id }}/queues/{{ q.id }}/review">{{ m.icon("i-play", "ico-sm") }}Review</a>{% endif %}
+              {% if can_write or can_delete %}
+              <div class="menu-wrap">
+                <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="More actions for {{ q.name }}" aria-haspopup="true" aria-expanded="false" data-menu-toggle="q-menu-{{ q.id }}">{{ m.icon("i-more-h") }}</button>
+                <div class="pop pop-right" id="q-menu-{{ q.id }}" data-menu hidden role="menu" aria-label="Queue actions">
+                  <a class="item" role="menuitem" href="/project/{{ project.id }}/queues/{{ q.id }}">{{ m.icon("i-eye", "ico-sm") }}Open queue</a>
+                  <button type="button" class="item" role="menuitem" data-copy="{{ q.id }}">{{ m.icon("i-copy", "ico-sm") }}Copy queue id</button>
+                  {% if can_delete %}<div class="sep"></div>
+                  <form method="post" action="/project/{{ project.id }}/queues/{{ q.id }}/delete" data-confirm="Delete {{ q.name }}? This removes the queue and its {{ stats.total }} items. The scores already written stay on their traces.">{{ m.csrf() }}
+                    <button class="item danger" type="submit" role="menuitem">{{ m.icon("i-trash", "ico-sm") }}Delete queue…</button></form>{% endif %}
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% endif %}
+</div>
+{% endblock %}
+{% block dialogs %}
+{% if can_write %}
+{% set dlg_id = "new-queue" %}{% set title = "New annotation queue" %}{% set action = "/project/" ~ project.id ~ "/queues" %}{% set submit = "Create queue" %}
+{% include "queues/_form_dialog.html" %}
+{% endif %}
+{% endblock %}

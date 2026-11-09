@@ -86,14 +86,17 @@ def claim_next(
     queue_id: str,
     settings: Settings,
     now: datetime | None = None,
+    exclude: str | None = None,
 ) -> AnnotationItem | None:
     """Atomically lock the oldest pending item available to this reviewer; None when there is none.
-    An item the reviewer already holds is returned first, so reloading never strands it."""
+    An item the reviewer already holds is returned first, so reloading never strands it.
+    `exclude` is an item to pass over (the one being moved on from)."""
     _require_review(actor)
     queue = get_queue(db, project, actor, queue_id)
     now = now or utcnow()
     until = _lock_for(settings, now)
     bind = db.get_bind().dialect.name
+    skipped_over = [AnnotationItem.id != exclude] if exclude else []
     for _ in range(CLAIM_RETRIES):
         candidate = (
             select(AnnotationItem.id)
@@ -102,6 +105,7 @@ def claim_next(
                 AnnotationItem.project_id == project.id,
                 AnnotationItem.status == "pending",
                 _free_for(actor.id, now),
+                *skipped_over,
             )
             .order_by(
                 (AnnotationItem.locked_by == actor.id).desc(),
@@ -116,6 +120,7 @@ def claim_next(
             update(AnnotationItem)
             .where(
                 AnnotationItem.id == candidate.scalar_subquery(),
+                *skipped_over,
                 AnnotationItem.status == "pending",
                 _free_for(actor.id, now),
             )

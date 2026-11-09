@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Review · {{ queue.name }}{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Annotation queues", "href": "/project/" ~ project.id ~ "/queues"}, {"label": queue.name, "href": back}, {"label": "Review"}]) }}{% endblock %}
+
+{% macro score_input(inp, editable) %}
+<div class="sin" data-score="{{ inp.id }}">
+  <div class="nm"><span>{{ inp.name }}{% if inp.archived %} <span class="muted">(archived)</span>{% endif %}</span><small>{{ inp.hint }}</small></div>
+  {% if inp.type == "NUMERIC" %}
+    <input class="input" name="score_{{ inp.id }}" value="{{ inp.value }}" inputmode="decimal" autocomplete="off" aria-label="{{ inp.name }}"{{ " disabled aria-disabled=true" if not editable }}>
+  {% elif inp.type == "BOOLEAN" %}
+    <input type="hidden" name="score_{{ inp.id }}" value="{{ inp.value }}" data-value>
+    <div class="bool" role="group" aria-label="{{ inp.name }}" data-bool>
+      <button type="button" data-v="true" aria-pressed="{{ 'true' if inp.value in ('true', '1') else 'false' }}"{{ " disabled" if not editable }}>{{ m.icon("i-check", "ico-sm") }}True</button>
+      <button type="button" data-v="false" aria-pressed="{{ 'true' if inp.value in ('false', '0') else 'false' }}"{{ " disabled" if not editable }}>False</button>
+    </div>
+  {% else %}
+    <input type="hidden" name="score_{{ inp.id }}" value="{{ inp.value }}" data-value>
+    <div class="cats" role="group" aria-label="{{ inp.name }}" data-cats>
+      {% for label in inp.labels %}<button type="button" data-v="{{ label }}" aria-pressed="{{ 'true' if inp.value == label else 'false' }}"{{ " disabled" if not editable }}>{{ label }}{% if loop.index <= 9 %} <kbd>{{ loop.index }}</kbd>{% endif %}</button>{% endfor %}
+    </div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="rvtop">
+  <a class="btn btn-ghost btn-sm" href="{{ back }}"><span style="display:inline-flex;transform:scaleX(-1)">{{ m.icon("i-chev-r") }}</span>Back to queue</a>
+  <b>{{ queue.name }}</b>
+  {% set thin = true %}{% set label = stats.percent ~ "% done" %}{% include "queues/_progress.html" %}
+  <span class="muted num">Item {{ position }} of {{ stats.total }} · {{ stats.pending }} left</span>
+  <button class="btn btn-icon btn-sm" type="button" aria-label="Keyboard shortcuts" data-dialog-open="review-help">{{ m.icon("i-kbd") }}</button>
+</div>
+
+<div class="stack" style="margin-top:12px">
+  {% if notice == "no-other" %}{{ m.banner("info", "There is no other item available right now. This one is still yours.") }}{% endif %}
+  {% if opened.state == "locked" %}
+  <div class="banner info" role="status">{{ m.icon("i-lock") }}<div><b>Locked by {{ lock.who }} until {{ lock.until }} UTC.</b> You can read this item, not score it. <a href="/project/{{ project.id }}/queues/{{ queue.id }}/review">Next available item</a></div></div>
+  {% elif opened.state == "closed" %}
+  <div class="banner info" role="status">{{ m.icon("i-check" if item.status == "completed" else "i-info") }}<div>{% if item.status == "completed" %}<b>Completed{% if done_by %} by {{ done_by }}{% endif %}.</b> This item is read-only.{% else %}<b>Skipped.</b> Reopen it from the queue page to score it.{% endif %}</div></div>
+  {% endif %}
+  {% if error %}<div class="banner err" role="alert">{{ m.icon("i-error") }}<div>{{ error }} Nothing was saved and the item is still yours.</div></div>{% endif %}
+</div>
+
+<form method="post" id="review-form" data-review data-item="{{ item.id }}" data-mine="{{ 'true' if can_review else 'false' }}"
+      data-base="{{ back }}/review/{{ item.id }}" data-renew-seconds="{{ [lock_minutes * 60 // 3, 30] | max }}">
+{{ m.csrf() }}
+<input type="hidden" name="duration_ms" value="" data-duration>
+<div class="rv" style="margin-top:12px">
+  <div class="obj">
+    {% if view.missing %}
+    <div class="panel">{% call m.empty_state("i-info", "This item is no longer available", "The " ~ item.object_type ~ " was deleted or has not arrived yet. You can skip it.") %}{% endcall %}</div>
+    {% else %}
+    <div class="row" style="flex-wrap:wrap">
+      <h1 style="font-size:20px">{{ view.title }}</h1>
+      {% if view.level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif view.level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% elif view.level %}<span class="pill ok">{{ m.icon("i-check") }}OK</span>{% endif %}
+      {% if view.id %}<span class="mono muted">{{ view.id }}</span>{% endif %}
+      {% for f in view.facts %}<span class="muted">·</span><span class="num muted">{{ f }}</span>{% endfor %}
+      <a class="btn btn-ghost btn-sm right" href="{{ view.open_url }}">{{ m.icon("i-link") }}Open {{ item.object_type }}</a>
+    </div>
+    <div class="stackf">
+      {% if view.kind == "session" %}
+        {% for t in view.traces %}
+        <div class="panel"><div class="panel-h"><h2>{{ t.name }}</h2><span class="muted right" style="font-size:12px">read-only</span></div><div class="panel-b ro">
+          {% for title, rendered in t.sections %}{% include "traces/_io_block.html" %}{% endfor %}</div></div>
+        {% endfor %}
+        {% if view.more %}<p class="hint">{{ view.more }} more traces in this session. Open the session to see them.</p>{% endif %}
+      {% else %}
+        <div class="panel"><div class="panel-h"><h2>Input and output</h2><span class="muted right" style="font-size:12px">read-only</span></div><div class="panel-b ro">
+          {% for title, rendered in view.sections %}{% include "traces/_io_block.html" %}{% endfor %}</div></div>
+        <div class="panel"><div class="panel-h"><h2>Steps <span class="muted">{{ view.steps | length }}</span></h2></div>
+          <ul class="qtree" role="tree" aria-label="Steps, read-only">
+            {% for s in view.steps %}<li role="treeitem" class="{{ 'sel' if s.selected }}"><span class="nm"><span class="ind" style="width:{{ s.depth * 16 }}px"></span><span class="ty ty-{{ s.type }}" title="{{ s.type }}">{{ m.icon("i-" ~ s.type if s.type in icon_types else "i-span") }}</span><span class="t">{{ s.name }}</span></span><span class="num dim">{{ s.duration }}</span><span class="num">{{ s.cost }}</span></li>
+            {% else %}<li class="hint">This trace has no observations.</li>{% endfor %}
+          </ul></div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="side2">
+    <section class="panel" aria-label="Score this item"><div class="panel-h"><h2>{{ "Your scores" if can_review else "Scores" }}</h2>
+      {% if can_review %}<span class="pill right" data-lock-label>{{ m.icon("i-lock") }}Yours until {{ lock.until }} UTC</span>{% endif %}</div>
+      <div class="panel-b"><div class="sform">
+        {% for inp in inputs %}{{ score_input(inp, can_review) }}{% endfor %}
+        <div class="sin"><div class="nm"><span>Comment</span><small>optional</small></div>
+          <textarea class="textarea" name="comment" aria-label="Comment" rows="3" maxlength="5000"{{ " disabled aria-disabled=true" if not can_review }}>{{ comment }}</textarea></div>
+      </div></div></section>
+    {% if view.scores %}
+    <section class="panel"><div class="panel-b stackf"><div class="sect" style="padding:0">Already scored on this {{ item.object_type }}</div>
+      <div class="scs">{% for s in view.scores %}<span class="sc {{ chip_class(s) }}"><span class="n">{{ s.name }}:</span> <b>{{ score_text(s) }}</b></span>{% endfor %}</div>
+      {% for s in view.scores if s.comment %}<div class="q-comment">{{ s.comment }}</div>{% endfor %}
+    </div></section>
+    {% endif %}
+  </div>
+</div>
+
+<div class="rvfoot">
+  {% if can_review %}
+  <div class="hints"><span><kbd>⌘</kbd><kbd>↵</kbd> complete</span><span><kbd>s</kbd> skip</span><span><kbd>n</kbd> or <kbd>→</kbd> next</span><span><kbd>?</kbd> help</span></div>
+  <div class="acts">
+    <button class="btn" type="submit" formaction="{{ back }}/review/{{ item.id }}/skip" data-act="skip">Skip <kbd>s</kbd></button>
+    <button class="btn" type="submit" formaction="{{ back }}/review/{{ item.id }}/next" data-act="next">Next <kbd>n</kbd></button>
+    <button class="btn btn-primary" type="submit" formaction="{{ back }}/review/{{ item.id }}/complete" data-act="complete">Complete <kbd>⌘↵</kbd></button>
+  </div>
+  {% else %}
+  <div class="hints"><span>Skip and Complete are not offered</span></div>
+  <div class="acts"><button class="btn" type="button" disabled>Skip</button><button class="btn btn-primary" type="button" disabled>Complete</button></div>
+  {% endif %}
+</div>
+</form>
+{% endblock %}
+
+{% block dialogs %}
+<dialog class="dlg" id="review-help" aria-label="Review shortcuts">
+  <div class="dialog">
+    {{ m.dialog_head("Review shortcuts") }}
+    <div class="body"><table class="kbtable">
+      <tr><td><kbd>⌘</kbd> <kbd>↵</kbd></td><td>Save scores and complete the item</td></tr>
+      <tr><td><kbd>n</kbd> or <kbd>→</kbd></td><td>Next item (saves first if every score is filled in)</td></tr>
+      <tr><td><kbd>s</kbd></td><td>Skip the item</td></tr>
+      <tr><td><kbd>1</kbd> to <kbd>9</kbd></td><td>Pick a category on the focused score</td></tr>
+      <tr><td><kbd>t</kbd> <kbd>f</kbd></td><td>True or false on the focused score</td></tr>
+      <tr><td><kbd>?</kbd></td><td>This help</td></tr>
+    </table></div>
+    <footer><span class="q-note">Shortcuts pause while you type in a field. Ctrl replaces ⌘ off macOS.</span></footer>
+  </div>
+</dialog>
+{% endblock %}
+{% block scripts %}<script src="/static/queue_review.js" defer></script>{% endblock %}

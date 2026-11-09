@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="/static/ui/prompts.css">
 <link rel="stylesheet" href="/static/ui/playground.css">
 <link rel="stylesheet" href="/static/ui/settings.css">
+<link rel="stylesheet" href="/static/ui/queues.css">
 <script src="/static/app.js"></script>
 </head>
 <body hx-boost="false">
@@ -55,6 +56,12 @@
       {% for item in build_nav %}
         <a href="{{ item.href }}" data-nav="{{ item.key }}"{% if item.current %} aria-current="page"{% endif %}>{{ m.icon(item.icon) }}{{ item.label }}</a>
       {% endfor %}
+      {% if eval_nav %}
+      <div class="cap">Evaluation</div>
+      {% for item in eval_nav %}
+        <a href="{{ item.href }}" data-nav="{{ item.key }}"{% if item.current %} aria-current="page"{% endif %}>{{ m.icon(item.icon) }}{{ item.label }}</a>
+      {% endfor %}
+      {% endif %}
       <div class="cap">Project</div>
       <a href="{{ settings.href }}" data-nav="settings"{% if settings.current %} aria-current="page"{% endif %}>{{ m.icon("i-settings") }}Settings</a>
       <button type="button" class="nav-btn" data-help-open>{{ m.icon("i-kbd") }}Shortcuts<kbd class="right">?</kbd></button>

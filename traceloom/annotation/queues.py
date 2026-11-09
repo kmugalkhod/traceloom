@@ -384,6 +384,34 @@ def list_items(
     return list(items), total
 
 
+def position(db: Session, item: AnnotationItem) -> int:
+    """1-based place of the item in its queue's order (oldest first)."""
+    earlier = db.scalar(
+        select(func.count())
+        .select_from(AnnotationItem)
+        .where(
+            AnnotationItem.queue_id == item.queue_id,
+            (AnnotationItem.created_at < item.created_at)
+            | ((AnnotationItem.created_at == item.created_at) & (AnnotationItem.id <= item.id)),
+        )
+    )
+    return earlier or 1
+
+
+def last_activity(db: Session, queue_id: str) -> tuple[str, datetime] | None:
+    """Who completed an item last and when, for the queue list."""
+    row = db.execute(
+        select(AnnotationItem.completed_by, AnnotationItem.completed_at)
+        .where(AnnotationItem.queue_id == queue_id, AnnotationItem.status == "completed")
+        .order_by(AnnotationItem.completed_at.desc())
+        .limit(1)
+    ).first()
+    if row is None or row[1] is None:
+        return None
+    user = db.get(User, row[0]) if row[0] else None
+    return ((user.name or user.email) if user else "Former member", row[1])
+
+
 # --- Stats -------------------------------------------------------------------------------------
 
 

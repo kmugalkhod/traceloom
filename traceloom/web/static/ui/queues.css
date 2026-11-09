@@ -1,0 +1,66 @@
+/* Evaluation > Annotation queues (T-12). Lifted from the approved Phase 3 mockup (section 3); tokens only. */
+.pill{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;background:var(--surface-2);color:var(--ink-2);border:1px solid var(--line);white-space:nowrap}
+.pill .ico{width:12px;height:12px}
+.pill.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line)}
+.pill.err{background:var(--err-bg);color:var(--err);border-color:var(--err-line)}
+.pill.capd{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+.pill.skip{background:var(--surface-2);color:var(--ink-2);border-style:dashed}
+.pill.pend{background:var(--surface);color:var(--ink-2)}
+.two{display:flex;flex-direction:column;gap:1px;min-width:0;line-height:1.25}
+.two small{font-size:12px;color:var(--ink-3)}
+.stackf{display:flex;flex-direction:column;gap:16px}
+.prog{display:flex;height:8px;border-radius:999px;overflow:hidden;background:var(--sunken);gap:2px}
+.prog i{display:block;height:100%}
+.prog .d{background:var(--ok)}.prog .s{background:var(--warn-bar)}
+.prog.thin{height:6px}
+.progl{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.progl span{display:inline-flex;align-items:center;gap:6px}.progl i{width:8px;height:8px;border-radius:50%}
+.q-big{font-size:28px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.q-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.q-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.q-bar .select{width:auto;min-width:180px}
+.sc{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2);max-width:100%}
+.sc b{font-weight:600;color:var(--ink)}
+.sc.ann{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.sc.eval{background:color-mix(in srgb,var(--t-generation) 12%,var(--surface));border-color:color-mix(in srgb,var(--t-generation) 30%,var(--surface));color:var(--t-generation)}
+.scs{display:flex;flex-wrap:wrap;gap:4px}
+.sect{font-size:11px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);padding-top:8px}
+/* review screen */
+.rv{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:24px;align-items:start}
+.rv .obj{display:flex;flex-direction:column;gap:16px;min-width:0}
+.rv .side2{position:sticky;top:16px;display:flex;flex-direction:column;gap:16px}
+.rvtop{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.rvtop .prog{flex:1;min-width:120px}
+.rvfoot{position:sticky;bottom:0;display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh-pop);flex-wrap:wrap;margin-top:16px}
+.rvfoot .hints{display:flex;gap:16px;color:var(--ink-3);font-size:12px;flex-wrap:wrap}
+.rvfoot .hints span{display:inline-flex;gap:6px;align-items:center}
+.rvfoot .acts{margin-left:auto;display:flex;gap:8px}
+.ro .io-b{opacity:.92}
+.qtree{list-style:none;margin:0;padding:4px 0}
+.qtree li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;min-height:32px;padding:0 16px}
+.qtree li.sel{background:var(--accent-soft)}
+.qtree .nm{display:flex;align-items:center;gap:6px;min-width:0}
+.qtree .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qtree .ind{display:inline-block;width:16px;flex:none}
+.sform{display:flex;flex-direction:column}
+.sin{display:flex;flex-direction:column;gap:8px;padding:16px 0;border-bottom:1px solid var(--line)}
+.sin:last-child{border-bottom:0}
+.sin .nm{font-weight:600;font-size:14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.sin .nm small{font-weight:400;color:var(--ink-3);font-size:12px}
+.bool{display:inline-flex;gap:4px;padding:2px;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);width:max-content}
+.bool button{height:30px;min-width:64px;border:0;border-radius:8px;background:transparent;font-weight:600;font-size:13px;color:var(--ink-2);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.bool button[aria-pressed=true]{background:var(--accent-solid);color:var(--on-accent)}
+.bool button:hover:not([aria-pressed=true]):not(:disabled){background:var(--surface-2)}
+.cats{display:flex;flex-wrap:wrap;gap:6px}
+.cats button{height:32px;padding:0 12px;border:1px solid var(--field-line);border-radius:10px;background:var(--surface);font-weight:600;font-size:13px;color:var(--ink-2);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.cats button[aria-pressed=true]{background:var(--accent-solid);color:var(--on-accent);border-color:var(--accent-solid)}
+.cats button:hover:not([aria-pressed=true]):not(:disabled){background:var(--surface-2)}
+.bool button:disabled,.cats button:disabled{opacity:.5;cursor:not-allowed}
+kbd{font-family:var(--font-mono);font-size:11px;min-width:18px;height:18px;padding:0 5px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:4px;background:var(--surface);color:var(--ink-2);font-weight:500}
+.btn-primary kbd,.bool button[aria-pressed=true] kbd,.cats button[aria-pressed=true] kbd{background:transparent;color:inherit;border-color:currentColor}
+.kbtable{width:100%;border-collapse:collapse}
+.kbtable td{padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.kbtable td:first-child{width:130px}
+.q-note{font-size:12px;color:var(--ink-3)}
+.q-comment{padding:8px 12px;border-left:3px solid var(--line-strong);background:var(--surface-2);border-radius:0 8px 8px 0;font-size:13px;white-space:pre-wrap;word-break:break-word}
+@media (max-width:1100px){.rv{grid-template-columns:1fr}.rv .side2{position:static}.q-grid{grid-template-columns:1fr}.rvfoot .hints{display:none}.rvfoot .acts{flex:1}.rvfoot .acts .btn{flex:1}.bool button,.cats button{height:44px}}

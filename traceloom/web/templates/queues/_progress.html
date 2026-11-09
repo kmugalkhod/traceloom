@@ -1,0 +1,2 @@
+{# A progress bar: expects `stats` and `bar` in scope; `label` names it for assistive tech. #}
+<div class="prog{{ ' thin' if thin }}" role="progressbar" aria-valuenow="{{ stats.percent }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ label }}"><i class="d" style="width:{{ '%.1f' | format(bar.d) }}%"></i><i class="s" style="width:{{ '%.1f' | format(bar.s) }}%"></i></div>
