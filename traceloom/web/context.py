@@ -27,9 +27,10 @@ BUILD_NAV = (
     ("prompts", "Prompts", "i-prompt", "prompts"),
     ("playground", "Playground", "i-play", "playground"),
 )
+EVAL_NAV = (("evaluators", "Evaluators", "i-flask", "evals"),)
 # Phone bottom bar: four destinations and a "More" sheet holding the rest.
 BOTTOM_NAV = ("traces", "prompts", "playground", "dashboard")
-MORE_NAV = ("sessions", "users")
+MORE_NAV = ("sessions", "users", "evaluators")
 
 
 def initials(text: str) -> str:
@@ -70,7 +71,8 @@ class Shell:
             }
 
         everything = {
-            key: link(key, label, icon, path) for key, label, icon, path in NAV + BUILD_NAV
+            key: link(key, label, icon, path)
+            for key, label, icon, path in NAV + BUILD_NAV + EVAL_NAV
         }
         return {
             "shell": True,
@@ -90,6 +92,9 @@ class Shell:
             "active": self.active,
             "nav": [link(*item) for item in NAV],
             "build_nav": [link(*item) for item in BUILD_NAV],
+            "eval_nav": [link(*item) for item in EVAL_NAV]
+            if can(self.role, Perm.EVAL_READ)
+            else [],
             "bottom_nav": [everything[key] for key in BOTTOM_NAV],
             "more_nav": [everything[key] for key in MORE_NAV],
             "settings": {

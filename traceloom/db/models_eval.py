@@ -64,8 +64,12 @@ class EvalRule(Base):
     __tablename__ = "eval_rules"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(200), default="")
     template_id: Mapped[str] = mapped_column(ForeignKey("eval_templates.id"))
     template_version: Mapped[int | None] = mapped_column(Integer)  # None: follow the latest
+    # Model for this rule when the template version names none (built-ins never do).
+    connection_id: Mapped[str | None] = mapped_column(String(32))
+    model: Mapped[str | None] = mapped_column(String(200))
     target: Mapped[str] = mapped_column(String(16))  # trace | observation
     target_name: Mapped[str | None] = mapped_column(String(500))
     target_type: Mapped[str | None] = mapped_column(String(32))  # GENERATION, SPAN, EVENT, ...

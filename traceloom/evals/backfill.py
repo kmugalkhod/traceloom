@@ -29,7 +29,7 @@ class BackfillResult:
     capped: bool  # stopped at the cap; more matches may remain
 
 
-def _query(rule: RuleSnapshot, from_time: datetime | None, to_time: datetime | None, cursor):
+def rule_query(rule: RuleSnapshot, from_time: datetime | None, to_time: datetime | None, cursor):
     f = rule.filter
     return TraceQuery(
         name=f.get("name") if rule.target == "trace" else None,
@@ -65,7 +65,7 @@ def backfill(
         )
         if row is None:
             raise RuleNotFound(rule_id)
-        version_id = rules._resolve_version_id(db, row)
+        version_id = rules.resolve_version_id(db, row)
         if version_id is None:
             return BackfillResult(0, False)
         snapshot = RuleSnapshot(
@@ -82,7 +82,7 @@ def backfill(
     limit, created, cursor = container.settings.eval_backfill_max, 0, None
     store = container.trace_store
     while True:
-        page = store.list_traces(project_id, _query(snapshot, from_time, to_time, cursor))
+        page = store.list_traces(project_id, rule_query(snapshot, from_time, to_time, cursor))
         for trace in page.items:
             if snapshot.target == OBSERVATION:
                 detail = store.get_trace(project_id, trace.id)
