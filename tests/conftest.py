@@ -18,6 +18,7 @@ pytest_plugins = [
     "tests.factories",
     "tests.factories_scores",
     "tests.factories_datasets",
+    "tests.factories_eval",
     "tests.contract.stores",
 ]
 

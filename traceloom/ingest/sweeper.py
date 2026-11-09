@@ -25,13 +25,17 @@ class Sweeper:
         min_age_seconds: float,
         interval_seconds: float,
         due_deliveries: Callable[[], Iterable[Mapping[str, Any]]] | None = None,
+        due_jobs: Callable[[], Iterable[Mapping[str, Any]]] | None = None,
     ) -> None:
         """`due_deliveries` returns the queue messages of webhook deliveries due for (re)delivery,
-        read from the DB. It is only wired in lite mode; Redis keeps its own retry schedule."""
+        read from the DB. It is only wired in lite mode; Redis keeps its own retry schedule.
+        `due_jobs` returns ready-to-send messages (`eval_job`, `experiment_item`) for judge and
+        experiment rows that are due or stuck; the rows are the source of truth in both modes."""
         self._blobs = blobs
         self._queue = queue
         self._min_age = min_age_seconds
         self._due_deliveries = due_deliveries
+        self._due_jobs = due_jobs
         self._interval = max(1.0, interval_seconds)
         self._recent: dict[str, float] = {}  # blob key -> monotonic time it was last enqueued
         self._stop = threading.Event()
@@ -53,10 +57,24 @@ class Sweeper:
             enqueued += 1
         if enqueued:
             log.info("sweeper re-enqueued %d pending batch(es)", enqueued)
-        return enqueued + self._replay_deliveries()
+        return enqueued + self._replay_deliveries() + self._replay_jobs()
 
     def set_due_deliveries(self, source: Callable[[], Iterable[Mapping[str, Any]]]) -> None:
         self._due_deliveries = source
+
+    def set_due_jobs(self, source: Callable[[], Iterable[Mapping[str, Any]]]) -> None:
+        self._due_jobs = source
+
+    def _replay_jobs(self) -> int:
+        if self._due_jobs is None:
+            return 0
+        count = 0
+        for message in self._due_jobs():
+            self._queue.enqueue(message)
+            count += 1
+        if count:
+            log.info("sweeper re-enqueued %d eval/experiment job(s)", count)
+        return count
 
     def _replay_deliveries(self) -> int:
         if self._due_deliveries is None:

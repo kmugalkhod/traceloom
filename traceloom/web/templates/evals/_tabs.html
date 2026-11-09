@@ -1,0 +1,5 @@
+<nav class="ptabs" aria-label="Evaluators">
+  {% for tab in evals_tabs %}
+    <a href="{{ tab.href }}"{% if tab.current %} aria-current="page"{% endif %}>{{ tab.label }}{% if tab.count is not none %} <span class="c2">{{ tab.count }}</span>{% endif %}</a>
+  {% endfor %}
+</nav>

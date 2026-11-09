@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ view.template.name if view else "New template" }}{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Evaluators", "href": "/project/" ~ project.id ~ "/evals/templates"}, {"label": view.template.name if view else "New template"}]) }}{% endblock %}
+{% block content %}
+{% set action = "/project/" ~ project.id ~ "/evals/templates" ~ ("/" ~ view.template.id if view else "") %}
+<div class="page-h">
+  <div class="grow">
+    <h1>{{ view.template.name if view else "New template" }}{% if view %} <span class="pill lab" style="vertical-align:middle">v{{ (shown or view.latest).version }}</span>{% if builtin %} <span class="pill builtin" style="vertical-align:middle">Built-in</span>{% endif %}{% endif %}</h1>
+    <p class="sub">
+      {% if builtin %}Built-in templates are read-only. Clone it to change the wording, then choose a model.
+      {% elif shown %}You are viewing an older version. <a href="/project/{{ project.id }}/evals/templates/{{ view.template.id }}">Back to the current version</a>.
+      {% elif view and editable %}Saving creates v{{ view.latest.version + 1 }}. Rules that follow the latest version pick it up; rules pinned to an older one do not.
+      {% elif view %}You can read this template. Members and above can edit it.
+      {% else %}Write the judge prompt and choose what it returns. Each save creates a new immutable version.{% endif %}
+    </p>
+  </div>
+  <div class="row-wrap">
+    <a class="btn" href="/project/{{ project.id }}/evals/templates">{{ "Cancel" if editable or not view else "Back" }}</a>
+    {% if editable %}<button class="btn btn-primary" type="submit" form="editor-form">{{ "Save as v" ~ (view.latest.version + 1) if view else "Create template" }}</button>{% endif %}
+    {% if view and can_clone and not editable and not shown %}
+    <form method="post" action="/project/{{ project.id }}/evals/templates/{{ view.template.id }}/clone" class="inline-form">{{ m.csrf() }}
+      <button class="btn btn-primary" type="submit">{{ m.icon("i-copy") }}Clone to edit</button></form>
+    {% endif %}
+  </div>
+</div>
+{% if error %}<div style="margin-top:12px">{{ m.banner("err", error) }}</div>{% endif %}
+
+{% set ro = not editable %}
+<form id="editor-form" method="post" action="{{ action }}" data-template-editor>
+{{ m.csrf() }}
+<div class="form2" style="margin-top:16px">
+  <div class="stackf">
+    {% if not view %}
+    <section class="panel"><div class="panel-b">{{ m.field("tname", "Name", name="name", value=form.name, required=True) }}</div></section>
+    {% endif %}
+    <section class="panel"><div class="panel-h"><h2>Prompt</h2><span class="muted right" style="font-size:12px">use {{ "{{variables}}" }}</span></div><div class="panel-b stackf">
+      <textarea class="textarea ev-ta{{ ' ev-ro' if ro }}" name="prompt" id="prompt" aria-label="Judge prompt" data-prompt{{ " readonly" if ro }}>{{ form.prompt }}</textarea>
+      <div class="vars" aria-live="polite"><span class="hint" style="margin-right:4px">Variables found:</span><span data-vars>{% for v in variables %}<span class="chip var">{{ "{{" }}{{ v }}{{ "}}" }}</span> {% else %}<span class="hint">none yet</span>{% endfor %}</span></div>
+    </div></section>
+    <section class="panel"><div class="panel-h"><h2>Output</h2></div><div class="panel-b stackf">
+      <div class="field"><span class="lbl">Score type</span>
+        <div class="seg radios" role="radiogroup" aria-label="Score type">
+          {% for key, label in [("numeric", "Numeric"), ("categorical", "Categorical"), ("boolean", "Boolean")] %}
+          <input type="radio" name="type" id="ty-{{ key }}" value="{{ key }}"{{ " checked" if form.type == key }}{{ " disabled" if ro }} data-score-type><label for="ty-{{ key }}">{{ label }}</label>
+          {% endfor %}
+        </div>
+        {% if ro %}<input type="hidden" name="type" value="{{ form.type }}">{% endif %}
+      </div>
+      <div class="fgrid" data-for-type="numeric"{{ " hidden" if form.type != "numeric" }}>
+        <div class="field"><label for="tmin">Minimum</label><input class="input num" style="text-align:left" id="tmin" name="min" value="{{ form.min }}"{{ " readonly" if ro }}></div>
+        <div class="field"><label for="tmax">Maximum</label><input class="input num" style="text-align:left" id="tmax" name="max" value="{{ form.max }}"{{ " readonly" if ro }}></div>
+      </div>
+      <div class="field" data-for-type="categorical"{{ " hidden" if form.type != "categorical" }}>
+        <label for="tcats">Categories <span class="muted">one per line, 2 or more</span></label>
+        <textarea class="textarea" id="tcats" name="categories" rows="4"{{ " readonly" if ro }}>{{ form.categories }}</textarea>
+      </div>
+      <div class="field"><span class="lbl">reasoning</span><div class="ev-static">Always included: a short string explaining the score</div></div>
+    </div></section>
+  </div>
+  <div class="stackf">
+    <section class="panel"><div class="panel-h"><h2>Model</h2></div><div class="panel-b stackf">
+      {% if ro %}
+        <p>{% if form.model %}<span class="mono-sm">{{ form.model }}</span>{% else %}<span class="muted">Chosen in each rule</span>{% endif %}</p>
+      {% else %}
+      <div class="field"><label for="mconn">Connection</label>
+        <select class="select" id="mconn" name="connection_id" data-conn>
+          <option value="">Choose in each rule</option>
+          {% for c in connections %}<option value="{{ c.id }}"{{ " selected" if c.id == form.connection_id }} data-models="{{ c.models | tojson | forceescape }}">{{ c.name }}</option>{% endfor %}
+        </select></div>
+      <div class="field"><label for="mmodel">Model</label>
+        <input class="input mono" id="mmodel" name="model" value="{{ form.model }}" list="model-options" autocomplete="off" data-model>
+        <datalist id="model-options">{% for c in connections %}{% for name in c.models %}<option value="{{ name }}">{% endfor %}{% endfor %}</datalist></div>
+      <div class="fgrid">
+        <div class="field"><label for="mtemp">Temperature</label><input class="input num" style="text-align:left" id="mtemp" name="temperature" value="{{ form.temperature }}"></div>
+        <div class="field"><label for="mtok">Max tokens</label><input class="input num" style="text-align:left" id="mtok" name="max_tokens" value="{{ form.max_tokens }}"></div>
+      </div>
+      <span class="hint">Built-ins need a model chosen when a rule uses them.</span>
+      {% endif %}
+    </div></section>
+    {% if view %}
+    <section class="panel"><div class="panel-h"><h2>Versions</h2></div><div class="panel-b"><div class="ver">
+      {% for r in rail %}
+      <div class="v{{ ' cur' if loop.first }}"><b>v{{ r.v.version }}{% if loop.first %} <span class="pill lab">Current</span>{% endif %}</b>
+        <div class="m">{% if r.by %}{{ r.by }} · {% endif %}{{ r.v.created_at | date }}{% if not loop.first or shown %} <a href="/project/{{ project.id }}/evals/templates/{{ view.template.id }}?v={{ r.v.version }}">View</a>{% endif %}</div></div>
+      {% endfor %}
+    </div></div></section>
+    {% endif %}
+  </div>
+</div>
+</form>
+{% endblock %}
+{% block scripts %}<script src="/static/rule_editor.js" defer></script>{% endblock %}
