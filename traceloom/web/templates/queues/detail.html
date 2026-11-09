@@ -80,7 +80,7 @@
           <td class="m-show">{{ i.object_type | capitalize }}</td>
           <td class="m-show">
             {% if i.status == "completed" %}<span class="pill ok">{{ m.icon("i-check") }}Completed</span>
-            {% elif i.status == "skipped" %}<span class="pill skip">Skipped</span>
+            {% elif i.status == "skipped" %}<span class="pill skipped">Skipped</span>
             {% elif locked %}<span class="pill capd">{{ m.icon("i-lock") }}Locked</span>
             {% else %}<span class="pill pend">{{ m.icon("i-clock") }}Pending</span>{% endif %}
           </td>
