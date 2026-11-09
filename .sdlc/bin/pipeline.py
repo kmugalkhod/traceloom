@@ -28,7 +28,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sdlc_core import architecture_problem, audit, changes, find_root, git, header_field, load_config, portable_cmd, utcnow  # noqa: E402
+from sdlc_core import architecture_problem, audit, changes, find_root, git, header_field, load_config, portable_cmd, utcnow, yolo  # noqa: E402
 import merge_gate  # noqa: E402
 
 STAGES = ["spec", "plan", "build", "review", "assess"]
@@ -152,7 +152,13 @@ def run(root: Path, cfg: dict, change: Path, a) -> None:
             if not a.dry_run:
                 set_status(spec, "accepted", "gatekeeper")
         elif stage == "plan":
-            if problem := architecture_problem(root):
+            if (problem := architecture_problem(root)) and yolo(root) and \
+                    (header_field(root / "sdlc" / "ARCHITECTURE.md", "Status") or "") == "proposed":
+                import team  # YOLO: the human switched approvals off on the board
+                who = team.yolo_by(root)
+                team.approve_architecture(root, cfg, change, who, team.YOLO_NOTE.format(who=who))
+                problem = architecture_problem(root)
+            if problem:
                 raise Escalate(problem)
             claude(f"/sdlc:plan {rel} --headless", cfg["models"]["plan"], READ_ONLY + ["Write", "Edit"] + SAFE_BASH,
                    root, dry=a.dry_run)
