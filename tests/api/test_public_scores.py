@@ -182,3 +182,20 @@ def test_writes_are_rate_limited(settings, client, auth, monkeypatch, container)
     monkeypatch.setattr(container.settings, "rate_ingest", "2/minute", raising=False)
     codes = [post(client, auth, value=1).status_code for _ in range(3)]
     assert codes == [201, 201, 429]
+
+
+def test_get_filters_accept_snake_case_and_camel_case(client, container, world, make_key):
+    """QA T-6: ?trace_id= (as documented in the spec) must filter, not be ignored."""
+    from tests.api.test_ingestion import auth
+
+    _, public, secret = make_key(world.project)
+    headers = auth(public, secret)
+    for trace_id in ("tr-a", "tr-b"):
+        body = {"traceId": trace_id, "name": "q", "value": 1}
+        assert client.post("/api/public/scores", json=body, headers=headers).status_code == 201
+    container.queue.drain()
+    for param in ("trace_id", "traceId"):
+        got = client.get(f"/api/public/scores?{param}=tr-a", headers=headers).json()["data"]
+        assert [s["traceId"] for s in got] == ["tr-a"], param
+        none = client.get(f"/api/public/scores?{param}=nope", headers=headers).json()["data"]
+        assert none == [], param

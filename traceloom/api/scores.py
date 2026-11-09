@@ -177,6 +177,13 @@ def list_scores(
 ):
     if source is not None and source not in service.SOURCES:
         raise HTTPException(400, f"source must be one of {', '.join(service.SOURCES)}.")
+    # Both spellings filter: the spec documents snake_case, the SDK and ingest use camelCase.
+    params = request.query_params
+    trace_id = trace_id or params.get("trace_id")
+    observation_id = observation_id or params.get("observation_id")
+    session_id = session_id or params.get("session_id")
+    config_id = config_id or params.get("config_id")
+    dataset_run_id = dataset_run_id or params.get("dataset_run_id")
     query = ScoreQuery(
         trace_id=trace_id,
         observation_id=observation_id,
