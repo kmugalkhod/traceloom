@@ -21,6 +21,7 @@ from traceloom.ports import (
     InvalidCursor,
     ObservationRow,
     Page,
+    ScoreQuery,
     ScoreRow,
     TraceDetail,
     TraceQuery,
@@ -214,6 +215,9 @@ def score_to_row(s: Score) -> ScoreRow:
         author_id=s.author_id,
         environment=s.environment,
         event_ts=s.event_ts,
+        queue_id=s.queue_id,
+        execution_id=s.execution_id,
+        channel=s.channel,
     )
 
 
@@ -260,6 +264,44 @@ class SqlReadMixin:
             sort_value = last.timestamp if query.sort == "timestamp" else _sort_value(last, query)
             next_cursor = encode_cursor(sort_value, last.id)
         return Page(items=items, next_cursor=next_cursor)
+
+    def list_scores(self, project_id: str, query: ScoreQuery) -> Page[ScoreRow]:
+        limit = max(1, min(query.limit, MAX_PAGE_SIZE))
+        where = [Score.project_id == project_id]
+        for column, value in (
+            (Score.trace_id, query.trace_id),
+            (Score.observation_id, query.observation_id),
+            (Score.session_id, query.session_id),
+            (Score.name, query.name),
+            (Score.source, query.source),
+            (Score.config_id, query.config_id),
+            (Score.dataset_run_id, query.dataset_run_id),
+        ):
+            if value is not None:
+                where.append(column == value)
+        if query.from_time:
+            where.append(Score.timestamp >= query.from_time)
+        if query.to_time:
+            where.append(Score.timestamp <= query.to_time)
+        if query.cursor:
+            value, row_id = decode_cursor(query.cursor)
+            if not isinstance(value, datetime):
+                raise InvalidCursor("cursor does not match the sort")
+            where.append(
+                or_(Score.timestamp < value, and_(Score.timestamp == value, Score.id > row_id))
+            )
+        stmt = (
+            select(Score)
+            .where(*where)
+            .order_by(Score.timestamp.desc(), Score.id.asc())
+            .limit(limit + 1)
+        )
+        with self.session_factory() as session:
+            rows = list(session.scalars(stmt))
+        more = len(rows) > limit
+        rows = rows[:limit]
+        next_cursor = encode_cursor(rows[-1].timestamp, rows[-1].id) if more else None
+        return Page(items=[score_to_row(r) for r in rows], next_cursor=next_cursor)
 
     def trace_stats(self, project_id: str, query: TraceQuery) -> TraceStats:
         where = trace_filter_clauses(project_id, query)

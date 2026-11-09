@@ -90,6 +90,23 @@ class TraceQuery:
 
 
 @dataclass(frozen=True)
+class ScoreQuery:
+    """Filters for `list_scores`; results are newest first."""
+
+    trace_id: str | None = None
+    observation_id: str | None = None
+    session_id: str | None = None
+    name: str | None = None
+    source: str | None = None
+    config_id: str | None = None
+    dataset_run_id: str | None = None
+    from_time: datetime | None = None
+    to_time: datetime | None = None
+    cursor: str | None = None
+    limit: int = 50
+
+
+@dataclass(frozen=True)
 class SessionQuery:
     environment: str | None = None
     from_time: datetime | None = None
@@ -338,6 +355,10 @@ class TraceStore(Protocol):
 
     def config_has_scores(self, project_id: str, config_id: str) -> bool:
         """Whether any score of the project references the score config."""
+        ...
+
+    def list_scores(self, project_id: str, query: ScoreQuery) -> Page[ScoreRow]:
+        """The project's scores matching the query, newest first (limit capped at 200)."""
         ...
 
     def refresh_trace_aggregates(self, project_id: str, trace_ids: Sequence[str]) -> None: ...

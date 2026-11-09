@@ -27,6 +27,7 @@ from traceloom.ports import (
     PromptGeneration,
     PromptMetrics,
     PromptMetricsQuery,
+    ScoreQuery,
     ScoreRow,
     SessionDetail,
     SessionQuery,
@@ -360,6 +361,46 @@ def build_observations(project_id: str, trace_ids: Sequence[str], table: str = "
 
 def build_scores(project_id: str, trace_ids: Sequence[str], table: str = "scores"):
     return _by_ids(table, SCORE_COLUMNS, "trace_id", trace_ids, project_id, "timestamp, id")
+
+
+def build_list_scores(project_id: str, query: ScoreQuery, table: str = "scores"):
+    """Newest first, `limit + 1` rows so the caller can tell whether another page follows."""
+    where = ["project_id = {project_id:String}"]
+    params: dict[str, Any] = {"project_id": project_id}
+    for column in (
+        "trace_id",
+        "observation_id",
+        "session_id",
+        "name",
+        "source",
+        "config_id",
+        "dataset_run_id",
+    ):
+        value = getattr(query, column)
+        if value is not None:
+            where.append(f"{column} = {{{column}:String}}")
+            params[column] = value
+    if query.from_time:
+        where.append("timestamp >= {from_time:DateTime64(3, 'UTC')}")
+        params["from_time"] = _utc(query.from_time)
+    if query.to_time:
+        where.append("timestamp <= {to_time:DateTime64(3, 'UTC')}")
+        params["to_time"] = _utc(query.to_time)
+    if query.cursor:
+        value, row_id = decode_cursor(query.cursor)
+        if not isinstance(value, datetime):
+            raise InvalidCursor("cursor does not match the sort")
+        where.append(
+            "(timestamp < {cursor_time:DateTime64(3, 'UTC')} OR "
+            "(timestamp = {cursor_time:DateTime64(3, 'UTC')} AND id > {cursor_id:String}))"
+        )
+        params["cursor_time"], params["cursor_id"] = _utc(value), row_id
+    limit = max(1, min(query.limit, MAX_PAGE_SIZE))
+    sql = (
+        f"SELECT {', '.join(SCORE_COLUMNS)} FROM {table} FINAL WHERE {' AND '.join(where)}"
+        f" ORDER BY timestamp DESC, id ASC LIMIT {limit + 1}"
+    )
+    return sql, params, limit
 
 
 def build_existing(project_id: str, kind: str, ids: Sequence[str], database: str = ""):
@@ -845,6 +886,14 @@ class ClickHouseTraceStore:
         where = _project_where("config_id = {config_id:String}")
         sql = f"SELECT 1 AS used FROM {self.scores} WHERE {where} LIMIT 1"
         return bool(self._select((sql, {"project_id": project_id, "config_id": config_id})))
+
+    def list_scores(self, project_id: str, query: ScoreQuery) -> Page[ScoreRow]:
+        sql, params, limit = build_list_scores(project_id, query, self.scores)
+        records = self._select((sql, params))
+        more = len(records) > limit
+        items = [_to_row("scores", r) for r in records[:limit]]
+        next_cursor = encode_cursor(items[-1].timestamp, items[-1].id) if more else None
+        return Page(items=items, next_cursor=next_cursor)
 
     def delete_traces(self, project_id: str, target: Sequence[str] | TraceQuery) -> int:
         if isinstance(target, TraceQuery):
