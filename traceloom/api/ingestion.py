@@ -19,6 +19,7 @@ from traceloom.ingest.accept import (
     StorageUnavailable,
     accept_batch,
 )
+from traceloom.scores.configs import config_cache, score_check_for
 
 router = APIRouter(prefix="/api/public", tags=["public"])
 
@@ -61,7 +62,13 @@ async def ingest(request: Request, key: ResolvedKey = Depends(project_key)) -> J
     try:
         raw = await read_body(request, limits.max_bytes)
         result = await run_in_threadpool(
-            accept_batch, key.project_id, raw, container.blob_store, container.queue, limits
+            accept_batch,
+            key.project_id,
+            raw,
+            container.blob_store,
+            container.queue,
+            limits,
+            score_check_for(config_cache(container)),
         )
     except BatchTooLarge as exc:
         raise HTTPException(413, str(exc)) from exc

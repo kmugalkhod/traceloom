@@ -250,9 +250,7 @@ def test_lookups_are_memoised_per_resolution():
 
 
 def test_normal_includes_within_the_limits_still_work():
-    text, _ = resolve_text(
-        "@@@prompt:l0|label=production@@@", store(**_fan_out(width=4, levels=3))
-    )
+    text, _ = resolve_text("@@@prompt:l0|label=production@@@", store(**_fan_out(width=4, levels=3)))
     assert text == "leaf " * 64
 
 

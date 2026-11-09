@@ -141,3 +141,68 @@ def test_stop_makes_ping_false(queue):
     assert queue.ping()
     queue.stop()
     assert not queue.ping()
+
+
+def test_delayed_message_arrives_after_its_delay_and_not_before(queue):
+    seen = []
+    queue.start(seen.append)
+    started = time.monotonic()
+    queue.enqueue({"n": "late"}, delay_seconds=0.4)
+    queue.enqueue({"n": "now"}, delay_seconds=0)
+    time.sleep(0.15)
+    assert [m["n"] for m in seen] == ["now"]
+    queue.drain()
+    assert [m["n"] for m in seen] == ["now", "late"]
+    assert time.monotonic() - started >= 0.4
+
+
+def test_delayed_messages_are_delivered_in_due_order(queue):
+    seen = []
+    queue.start(seen.append)
+    queue.enqueue({"n": 2}, delay_seconds=0.3)
+    queue.enqueue({"n": 1}, delay_seconds=0.1)
+    queue.drain()
+    assert [m["n"] for m in seen] == [1, 2]
+
+
+def test_discard_drops_delayed_messages(queue):
+    seen = []
+    queue.start(seen.append)
+    queue.enqueue({"n": 1}, delay_seconds=0.2)
+    assert queue.pending == 1 and queue.discard() == 1
+    time.sleep(0.4)
+    assert seen == []
+
+
+def test_eval_messages_run_on_a_lane_apart_from_ingest(queue):
+    release, started = threading.Event(), threading.Event()
+    ingest = []
+
+    def eval_handler(message):
+        started.set()
+        release.wait(5)
+
+    queue.start(ingest.append)
+    queue.register("eval_job", eval_handler)
+    queue.register("experiment_item", eval_handler)
+    queue.enqueue({"type": "eval_job", "id": "e1"})
+    assert started.wait(2)
+    queue.enqueue({"n": "ingest"})  # not blocked behind the stuck judge call
+    deadline = time.monotonic() + 2
+    while not ingest and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert ingest == [{"n": "ingest"}]
+    release.set()
+    queue.drain()
+
+
+def test_delayed_eval_message_is_delivered_on_the_eval_lane(queue):
+    seen, threads = [], []
+    queue.start(lambda m: None)
+    queue.register(
+        "eval_job", lambda m: (seen.append(m), threads.append(threading.current_thread().name))
+    )
+    queue.enqueue({"type": "eval_job", "id": "e1"}, delay_seconds=0.1)
+    queue.drain()
+    assert seen == [{"type": "eval_job", "id": "e1"}]
+    assert threads[0].startswith("traceloom-queue-eval-")

@@ -535,10 +535,17 @@ def test_apply_migrations_runs_idempotent_statements_in_the_database():
     client = FakeClient()
     ch.apply_migrations(client, "tl_test")
     sql = [c[0] for c in client.commands]
-    assert len(sql) == 1
+    assert len(sql) == 5
     assert sql[0].startswith(
         "ALTER TABLE tl_test.observations ADD INDEX IF NOT EXISTS idx_prompt_name"
     )
+    assert [s.split(" IF NOT EXISTS ")[1].split()[0] for s in sql[1:]] == [
+        "queue_id",
+        "execution_id",
+        "channel",
+        "idx_name",
+    ]
+    assert all(s.startswith("ALTER TABLE tl_test.scores ") for s in sql[1:])
     assert all("IF NOT EXISTS" in s or "IF EXISTS" in s for s in sql)  # safe to repeat
     with pytest.raises(ValueError):
         ch.apply_migrations(client, "bad; DROP")

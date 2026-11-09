@@ -422,9 +422,7 @@ def test_public_api_saves_and_label_moves_deliver_right_away(
     assert _events_sent(container, receiver) == [events.VERSION_CREATED, events.LABEL_MOVED]
 
 
-def test_web_saves_and_label_moves_deliver_right_away(
-    client, container, world, login, receiver
-):
+def test_web_saves_and_label_moves_deliver_right_away(client, container, world, login, receiver):
     web = login(client, world.users[Role.MEMBER])
     project = world.project.id
     r = web.post(
@@ -443,8 +441,12 @@ def test_web_saves_and_label_moves_deliver_right_away(
     assert _events_sent(container, receiver)[1:] == [events.LABEL_MOVED]
     r = web.post(
         f"/project/{project}/playground/save",
-        json={"mode": "new", "name": "chatp", "commit_message": "from playground",
-              "messages": [{"role": "user", "content": "x"}]},  # fmt: skip
+        json={
+            "mode": "new",
+            "name": "chatp",
+            "commit_message": "from playground",
+            "messages": [{"role": "user", "content": "x"}],
+        },  # fmt: skip
     )
     assert r.status_code == 201
     assert _events_sent(container, receiver)[2:] == [events.VERSION_CREATED]

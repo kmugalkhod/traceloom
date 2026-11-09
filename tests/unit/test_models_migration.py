@@ -125,6 +125,11 @@ def _rows():
             project_id="p1", id="o1", trace_id="t1", start_time=NOW, usage_details={"input": 3}
         ),
         models.Score(project_id="p1", id="s1", trace_id="t1", name="q", value=1.0, timestamp=NOW),
+        models.ScoreConfig(id="sc1", project_id="p1", name="q", data_type="NUMERIC"),
+        models.AnnotationQueue(id="aq1", project_id="p1", name="review"),
+        models.AnnotationItem(
+            id="ai1", queue_id="aq1", project_id="p1", object_type="trace", object_id="t1"
+        ),
     ]
 
 

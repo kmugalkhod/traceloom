@@ -24,10 +24,16 @@ class Perm(StrEnum):
     # Viewer+
     TRACES_READ = "traces:read"  # traces, sessions, users, dashboard, comments
     PROMPTS_READ = "prompts:read"  # prompts, versions, diffs, metrics
+    EVAL_READ = "eval:read"  # score analytics, queues, datasets, rules, runs
     # Member+
     ANNOTATE = "traces:annotate"  # score, comment, bookmark, edit tags, own saved views
     PROMPTS_WRITE = "prompts:write"  # create prompt/version, move unprotected labels
     PLAYGROUND_RUN = "playground:run"  # run and save from the playground
+    SCORES_WRITE = "scores:write"  # UI scores (same semantics as ANNOTATE)
+    QUEUES_WRITE = "queues:write"
+    EVAL_TEMPLATES_WRITE = "eval:templates_write"
+    DATASETS_WRITE = "datasets:write"
+    EXPERIMENTS_RUN = "experiments:run"
     # Admin+
     SHARE_TOGGLE = "traces:share"
     TRACES_DELETE = "traces:delete"
@@ -42,6 +48,11 @@ class Perm(StrEnum):
     PROMPTS_DELETE = "prompts:delete"
     LLM_CONNECTIONS = "project:llm_connections"
     WEBHOOKS = "project:webhooks"
+    SCORE_CONFIGS = "project:score_configs"
+    EVAL_RULES = "eval:rules"
+    EVAL_SETTINGS = "eval:settings"  # cost cap, feedback origins
+    QUEUES_DELETE = "queues:delete"
+    DATASETS_DELETE = "datasets:delete"
     # Owner only
     OWNER_GRANT = "org:owner_grant"
     ORG_DELETE = "org:delete"
@@ -66,6 +77,17 @@ MIN_ROLE: dict[Perm, Role] = {
     Perm.PROMPTS_DELETE: Role.ADMIN,
     Perm.LLM_CONNECTIONS: Role.ADMIN,
     Perm.WEBHOOKS: Role.ADMIN,
+    Perm.EVAL_READ: Role.VIEWER,
+    Perm.SCORES_WRITE: Role.MEMBER,
+    Perm.QUEUES_WRITE: Role.MEMBER,
+    Perm.EVAL_TEMPLATES_WRITE: Role.MEMBER,
+    Perm.DATASETS_WRITE: Role.MEMBER,
+    Perm.EXPERIMENTS_RUN: Role.MEMBER,
+    Perm.SCORE_CONFIGS: Role.ADMIN,
+    Perm.EVAL_RULES: Role.ADMIN,
+    Perm.EVAL_SETTINGS: Role.ADMIN,
+    Perm.QUEUES_DELETE: Role.ADMIN,
+    Perm.DATASETS_DELETE: Role.ADMIN,
     Perm.OWNER_GRANT: Role.OWNER,
     Perm.ORG_DELETE: Role.OWNER,
 }

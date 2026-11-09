@@ -180,6 +180,10 @@ def _score_values(b: ScoreBody) -> dict[str, Any]:
         "comment": b.comment,
         "environment": b.environment,
         "config_id": b.config_id,
+        "queue_id": b.queue_id,
+        "execution_id": b.execution_id,
+        "dataset_run_id": b.dataset_run_id,
+        "channel": b.channel,
     }
 
 

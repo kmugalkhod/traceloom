@@ -209,6 +209,9 @@ class ScoreRow:
     author_id: str | None = None
     environment: str = "default"
     event_ts: datetime | None = None
+    queue_id: str | None = None  # annotation queue the score was written from
+    execution_id: str | None = None  # judge execution (source EVAL)
+    channel: str | None = None  # NULL or "public_feedback"
 
 
 @dataclass
@@ -329,6 +332,14 @@ class TraceStore(Protocol):
 
     def add_score(self, project_id: str, score: ScoreRow) -> None: ...
 
+    def delete_score(self, project_id: str, score_id: str) -> bool:
+        """Delete one score; False when the project has no such score."""
+        ...
+
+    def config_has_scores(self, project_id: str, config_id: str) -> bool:
+        """Whether any score of the project references the score config."""
+        ...
+
     def refresh_trace_aggregates(self, project_id: str, trace_ids: Sequence[str]) -> None: ...
 
     def list_traces(self, project_id: str, query: TraceQuery) -> Page[TraceRow]: ...
@@ -413,7 +424,12 @@ class BlobStore(Protocol):
 
 @runtime_checkable
 class Queue(Protocol):
-    def enqueue(self, message: Mapping[str, Any]) -> None: ...
+    def enqueue(self, message: Mapping[str, Any], delay_seconds: float = 0) -> None:
+        """Deliver `message` to its handler, not before `delay_seconds` have passed.
+
+        Message types: none (an ingest batch), `webhook_delivery`, `eval_job`, `experiment_item`.
+        Delivery is at-least-once; a message lost to a crash is re-sent by the sweeper."""
+        ...
 
     def start(self, handler: Callable[[Mapping[str, Any]], None]) -> None:
         """Begin consuming messages with `handler`."""

@@ -35,6 +35,8 @@ class Container:
     mailer: Mailer | None = None
     models: ModelRegistry | None = None
     sweeper: Any = None
+    # Phase 3: per-project score-config snapshots for ingest validation (built on first use).
+    score_config_cache: Any = None
     # Test seams for webhook delivery (None: real network and DNS).
     webhook_transport: Any = None
     webhook_resolver: Any = None

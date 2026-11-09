@@ -90,7 +90,11 @@ CREATE TABLE IF NOT EXISTS scores
     timestamp DateTime64(3, 'UTC'),
     environment LowCardinality(String) DEFAULT 'default',
     event_ts DateTime64(3, 'UTC'),
-    INDEX idx_trace coalesce(trace_id, '') TYPE bloom_filter(0.01) GRANULARITY 4
+    queue_id Nullable(String),
+    execution_id Nullable(String),
+    channel Nullable(String),
+    INDEX idx_trace coalesce(trace_id, '') TYPE bloom_filter(0.01) GRANULARITY 4,
+    INDEX idx_name name TYPE bloom_filter(0.01) GRANULARITY 4
 )
 ENGINE = ReplacingMergeTree(event_ts)
 ORDER BY (project_id, id);
