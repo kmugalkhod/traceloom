@@ -1,1 +1,1 @@
-"""Phase 3: scores."""
+"""Score analytics and evaluation."""
