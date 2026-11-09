@@ -600,3 +600,19 @@ def test_other_scores_on_the_object_are_listed(client, login, world, db, contain
         and "0.9" in page
         and "sc eval" in page
     )
+
+
+@pytest.mark.xfail(
+    strict=True, reason="QA T-12: CSP default-src 'self' blocks inline style/onchange"
+)
+def test_qa_queue_pages_use_no_inline_style_or_handlers(client, login, world, db, container, queue):
+    # default-src 'self' blocks style="" and on*= attributes: progress bars render empty and the
+    # reviewer filter select never submits.
+    import re
+
+    fill(db, world, container, queue, 2)
+    as_(client, login, world, Role.MEMBER)
+    for path in ("", f"/{queue.id}"):
+        html = client.get(url(world, path), headers=HTML).text
+        assert not re.search(r'<[^>]+\sstyle="width', html)
+        assert not re.search(r"\son(change|click|submit)=", html)
