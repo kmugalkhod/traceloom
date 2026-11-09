@@ -89,6 +89,11 @@ This change is stacked on `team/2026-11-06-ui-polish-align` (Phase 1 + Phase 2 +
 - `web/trace_filters.py`: a score section in the filter model, with URL round-trip and saved views.
 - `web/routers/`, all new: `scores_analytics.py`, `settings_scores.py`, `settings_evaluation.py`, `queues.py`, `queue_review.py`, `evaluators.py`, `eval_rules.py`, `eval_log.py`, `datasets.py`, `dataset_items.py`, `dataset_runs.py`, `run_compare.py`. Modified: `trace_actions.py` (config-driven score inputs, "Add to queue", "Add to dataset"), `traces.py`, `sessions.py` (score column/chips, bulk add).
 - `web/templates/`: new `scores/`, `queues/`, `evals/` and `datasets/` folders, `settings/scores.html`, `settings/evaluation.html`, `_score_chips.html` and `_score_input.html`. Modified: trace detail Scores tab, list rows, session pages.
+- Datasets UI, as built (S-3):
+  - `dataset_item_versions` and the other dataset tables also carry `project_id`, and the dataset tables are created in `0003_evaluation.py` with the rest.
+  - `web/routers/dataset_add.py` and `dataset_import.py` are new, with templates `datasets/{import,add,_add_dialog,_add_form,_json_fields,_delete_dialog}.html` and `static/ui/datasets.css`.
+  - The import wizard parks the upload in the `BlobStore` (`dataset-imports/<project>/<token>`) between steps. The upload is sent with `fetch` plus the `X-CSRF-Token` header, because the CSRF middleware does not read multipart bodies.
+  - "Add to dataset" is an HTMX fragment on the trace page and a plain page without JavaScript. The trace list gets row checkboxes and a selection bar from `dataset_import.js`; a later "Add to queue" bar can share it.
 - `web/static/`:
   - `analytics.js`: uPlot histogram, trend and scatter, with table fallbacks.
   - `queue_review.js`: shortcuts and lock renewal.

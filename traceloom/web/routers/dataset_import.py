@@ -147,14 +147,14 @@ def import_start(
 
 
 @router.post("/project/{project_id}/datasets/{dataset_id}/import", response_class=HTMLResponse)
-async def import_upload(
+def import_upload(
     request: Request,
     dataset_id: str,
     access: Access = Depends(require(Perm.DATASETS_WRITE)),
     container: Container = Depends(get_container),
+    form: FormData = Depends(form_data),
     db: Session = Depends(get_db),
 ):
-    form = await request.form()
     upload = form.get("file")
     dataset = load_dataset(db, access, dataset_id)
     settings = container.settings
@@ -162,7 +162,7 @@ async def import_upload(
         if not isinstance(upload, UploadFile) or not upload.filename:
             raise ImportLimitError("Choose a file to upload.")
         fmt = importer.detect_format(upload.filename)
-        data = await upload.read(settings.ingest_max_bytes + 1)
+        data = upload.file.read(settings.ingest_max_bytes + 1)
         importer.read_table(  # validates the file before it is parked
             data,
             fmt,
