@@ -316,3 +316,11 @@ def test_pages_have_no_inline_style_or_handlers_and_the_meter_uses_a_class(
     for role in (Role.MEMBER, Role.VIEWER):
         as_role(client, login, world, role)
         assert INLINE.search(client.get(eval_url(world)).text) is None
+
+
+def test_qa_cap_meter_has_no_inline_style(client, login, world):
+    # With style="width:N%" blocked by the CSP the meter fill defaults to full width, so a project
+    # with $0 spent shows a 100% bar. The width has to come from a stylesheet or script.
+    as_role(client, login, world, Role.ADMIN)
+    html = client.get(eval_url(world), headers={"Accept": "text/html"}).text
+    assert not re.search(r'<i style="width:', html)
