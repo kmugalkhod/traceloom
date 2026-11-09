@@ -30,8 +30,8 @@
         {% if not locked %}<button type="button" class="btn btn-icon btn-ghost" aria-label="Remove category {{ i + 1 }}" data-remove-category>{{ m.icon("i-x", "ico-sm") }}</button>{% else %}<span></span>{% endif %}
       </div>
     {% endfor %}
-    {% if not locked %}<button type="button" class="btn btn-sm" style="align-self:flex-start" data-add-category{% if rows <= (vals.categories | length) %} hidden{% endif %}>{{ m.icon("i-plus", "ico-sm") }}Add category</button>{% endif %}
+    {% if not locked %}<button type="button" class="btn btn-sm self-start" data-add-category{% if rows <= (vals.categories | length) %} hidden{% endif %}>{{ m.icon("i-plus", "ico-sm") }}Add category</button>{% endif %}
   </div>
   <div class="field"><label for="{{ prefix }}-desc">Description</label><textarea id="{{ prefix }}-desc" class="textarea" name="description" rows="2">{{ vals.description }}</textarea></div>
-  <label class="switch-row"><input type="checkbox" class="switch-cb" role="switch" name="public_feedback" value="1"{% if vals.public_feedback %} checked{% endif %}><span><b>Allow public feedback</b><span class="hint" style="display:block">Lets your app send this score with the public key. Set allowed origins in the Evaluation tab.</span></span></label>
+  <label class="switch-row"><input type="checkbox" class="switch-cb" role="switch" name="public_feedback" value="1"{% if vals.public_feedback %} checked{% endif %}><span><b>Allow public feedback</b><span class="hint block">Lets your app send this score with the public key. Set allowed origins in the Evaluation tab.</span></span></label>
 </div>

@@ -32,7 +32,7 @@
         <tr{% if show == "archived" %} class="is-dim"{% endif %}>
           <td class="c-name m-show"><div class="two"><b>{{ row.config.name }}</b><small>{{ row.config.description or "No description" }}</small></div></td>
           <td class="m-show">{{ row.type_label }}</td>
-          <td class="m-show">{% if row.chips %}<span class="scs">{% for c in row.chips %}<span class="chip">{{ c }}</span>{% endfor %}</span>{% else %}<span class="num" style="text-align:left">{{ row.shape }}</span>{% endif %}</td>
+          <td class="m-show">{% if row.chips %}<span class="scs">{% for c in row.chips %}<span class="chip">{{ c }}</span>{% endfor %}</span>{% else %}<span class="num left">{{ row.shape }}</span>{% endif %}</td>
           <td class="m-show">{% if row.config.public_feedback %}<span class="pill ok">{{ m.icon("i-check") }}On</span>{% else %}<span class="muted">Off</span>{% endif %}</td>
           <td class="num r m-show">{{ "{:,}".format(row.scores) }}</td>
           {% if can_edit %}

@@ -17,23 +17,23 @@
         <div><div class="k">Remaining</div><div class="val big">{{ remaining | money(2) }}</div></div>
         <div><div class="k">Resets</div><div class="val">00:00 UTC, in {{ reset_hours }} h</div></div>
       </div>
-      <div class="meter{% if percent >= 100 %} full{% endif %}" role="meter" aria-valuenow="{{ percent }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ percent }}% of the daily cap spent"><i style="width:{{ percent }}%"></i></div>
+      <div class="meter{% if percent >= 100 %} full{% endif %}" role="meter" aria-valuenow="{{ percent }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ percent }}% of the daily cap spent"><i class="mw-{{ percent }}"></i></div>
       {% if can_edit %}
-      <form class="row" method="post" action="{{ base }}/cap" style="align-items:flex-end;flex-wrap:wrap;gap:16px">
+      <form class="row cap-form" method="post" action="{{ base }}/cap">
         {{ m.csrf() }}
-        <div class="field" style="width:200px"><label for="cap">Cap in USD per day</label>
+        <div class="field cap-field"><label for="cap">Cap in USD per day</label>
           <span class="cap-input"><span class="cur">$</span><input id="cap" class="input num" name="cap" value="{{ cap_value }}" inputmode="decimal" autocomplete="off"{% if cap_error %} aria-invalid="true" aria-describedby="cap-err"{% endif %}></span>
           {% if cap_error %}<span class="field-error" id="cap-err" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ cap_error }}</span></span>{% endif %}
         </div>
         <button class="btn btn-primary" type="submit">Save cap</button>
-        <span class="hint" style="padding-bottom:8px">Default {{ default_cap | money(2) }} from the server setting. Leave empty to use it; 0 pauses all judges. Changes are written to the audit log.</span>
+        <span class="hint cap-hint">Default {{ default_cap | money(2) }} from the server setting. Leave empty to use it; 0 pauses all judges. Changes are written to the audit log.</span>
       </form>
       {% else %}<p class="hint">Default {{ default_cap | money(2) }} from the server setting. Admins change the cap.</p>{% endif %}
     </div>
   </section>
 
   <section class="panel" aria-label="Public feedback">
-    <div class="panel-h"><h2>Public feedback</h2><span class="muted right" style="font-size:12px">pk-only endpoint</span></div>
+    <div class="panel-h"><h2>Public feedback</h2><span class="muted right small">pk-only endpoint</span></div>
     <div class="panel-b stack">
       <div class="field"><label>Allowed feedback origins</label>
         {% if origins %}
@@ -46,9 +46,9 @@
         </div>
         {% else %}<p class="hint">No origins yet, so browsers on other sites are blocked.</p>{% endif %}
         {% if can_edit %}
-        <form class="row" method="post" action="{{ base }}/origins" style="flex-wrap:wrap">
+        <form class="row wrap" method="post" action="{{ base }}/origins">
           {{ m.csrf() }}
-          <input class="input" name="origin" style="max-width:360px" placeholder="https://your-app.example" aria-label="Add an origin" value="{{ origin_value }}" autocomplete="off"{% if origin_error %} aria-invalid="true" aria-describedby="origin-err"{% endif %}>
+          <input class="input origin-input" name="origin" placeholder="https://your-app.example" aria-label="Add an origin" value="{{ origin_value }}" autocomplete="off"{% if origin_error %} aria-invalid="true" aria-describedby="origin-err"{% endif %}>
           <button class="btn" type="submit">Add origin</button>
         </form>
         {% if origin_error %}<span class="field-error" id="origin-err" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ origin_error }}</span></span>{% endif %}

@@ -186,6 +186,8 @@ def test_configs_are_project_scoped(client, login, world, db, make_org, make_pro
         == 404
     )
     assert db.get(ScoreConfig, theirs.id).archived_at is None
+
+
 # --- evaluation tab ---------------------------------------------------------------------
 
 
@@ -288,3 +290,29 @@ def test_tabs_and_the_evaluation_nav_group(client, login, world):
     for label in ("Scores", "Annotation queues", "Evaluators", "Datasets"):
         assert f"</svg>{label}</a>" in page
     assert '<div class="cap">Evaluation</div>' in page
+
+
+INLINE = re.compile(r"\sstyle\s*=|\son[a-z]+\s*=", re.I)
+
+
+def test_pages_have_no_inline_style_or_handlers_and_the_meter_uses_a_class(
+    client, login, world, db
+):
+    """The CSP (default-src 'self') blocks both, so a blocked style would show a full meter."""
+    score_configs.create_config(db, world.project.id, name="tone", data_type="CATEGORICAL",
+                                categories=["a", "b"], description="d")  # fmt: skip
+    as_role(client, login, world, Role.ADMIN)
+    for url in (scores_url(world), scores_url(world, "?show=archived"), eval_url(world)):
+        assert INLINE.search(client.get(url).text) is None, url
+    empty = client.get(eval_url(world)).text
+    assert 'aria-valuenow="0"' in empty and 'class="mw-0"' in empty
+    db.add(
+        EvalSpendDaily(project_id=world.project.id, day=datetime.now(UTC).date(), spent_usd=3.84)
+    )
+    db.commit()
+    assert 'class="mw-38"' in client.get(eval_url(world)).text
+    css = Path("traceloom/web/static/ui/evaluation.css").read_text()
+    assert all(f".meter i.mw-{n}{{" in css for n in range(101))
+    for role in (Role.MEMBER, Role.VIEWER):
+        as_role(client, login, world, role)
+        assert INLINE.search(client.get(eval_url(world)).text) is None
