@@ -50,14 +50,17 @@ DEFAULTS: dict = {
         "review": "sonnet", "gate": "sonnet", "triage": "sonnet", "evals": "sonnet",
     },
     "pipeline": {"commit": True, "branch_prefix": "sdlc/", "open_pr": False, "max_fix_rounds": 3,
-                 "allowed_bash": []},
+                 "allowed_bash": [], "merge_mode": "trial"},
     "evals": {"dir": "evals/cases", "threshold": 0.9},
+    "holdout": {"enabled": True, "start_cmd": "", "port": 8650},
+    "checks": {"deep_globs": [], "mutation_timeout": 600},
     "team": {
         "developers": 2, "qa_agents": 1,
         "models": {"planner": "sonnet", "developer": "sonnet", "qa": "sonnet", "helper": "sonnet",
-                   "designer": "sonnet"},
+                   "designer": "sonnet", "architect": "opus"},
+        "architect": {"mode": "auto", "timeout_minutes": 30},  # auto: before the first plan of a change | off
         "max_qa_rounds": 3, "max_dev_attempts": 2, "max_help_rounds": 2, "run_timeout_minutes": 40,
-        "stall_minutes": 12,
+        "stall_minutes": 12, "plan_max_files": 10, "supervisor": {"mode": "trial", "model": ""},
         "branch_prefix": "team/", "worktree_dir": ".sdlc/worktrees",
         "allowed_bash": [],
         "qa": {"start_cmd": "", "health_path": "/", "port_base": 8600, "start_timeout": 60,
@@ -167,6 +170,16 @@ def git(root: Path, *args: str) -> str:
 def changes(root: Path, cfg: dict) -> list[Path]:
     d = root / cfg["changes_dir"]
     return sorted([p for p in d.iterdir() if p.is_dir()]) if d.is_dir() else []
+
+
+def architecture_problem(root: Path) -> str | None:
+    """None when there is no sdlc/ARCHITECTURE.md or a human approved it; else why planning must wait."""
+    f = root / "sdlc" / "ARCHITECTURE.md"
+    status = header_field(f, "Status")
+    if status is None or status in ("approved", "accepted"):
+        return None
+    return (f"sdlc/ARCHITECTURE.md is Status: {status} — a human approves the architecture before it is planned "
+            "against (run /sdlc:architect or /sdlc:loop)")
 
 
 def header_field(md_path: Path, field: str) -> str | None:

@@ -200,6 +200,10 @@ def main() -> None:
     s.add_argument("--change"); s.add_argument("--lock", nargs="*")
     s = sub.add_parser("approve-release"); s.add_argument("reference"); s.add_argument("--approver")
     sub.add_parser("revoke-release")
+    if len(sys.argv) > 1 and sys.argv[1] == "doctor":  # same checks as .sdlc/bin/doctor.py
+        import doctor
+        sys.argv = [sys.argv[0]] + sys.argv[2:]
+        doctor.main()
     a = ap.parse_args()
     root = find_root()
     if not root:

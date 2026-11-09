@@ -75,6 +75,7 @@ def tick(root: Path, cfg: dict, a, st: dict) -> None:
             git(root, "commit", "-q", "-m", "intent: from control-band breach (loop)")
 
     # 2 + 3. intake and run
+    queue: list = []
     for c in changes(root, cfg):
         if c.name in st:
             continue
@@ -96,14 +97,23 @@ def tick(root: Path, cfg: dict, a, st: dict) -> None:
             continue
 
         frm = RUNNABLE[stage]
+        if a.parallel > 1:
+            queue.append((c, frm))
+            continue
         log(f"{c.name}: running pipeline from {frm}")
         cmd = [sys.executable, str(HERE / "pipeline.py"), c.name, "--from", frm]
         cmd += ["--pr"] if a.pr else []
         cmd += ["--dry-run"] if a.dry_run else []
+        cmd += ["--merge-mode", a.merge_mode] if a.merge_mode else []
+        started = utcnow()
         r = subprocess.run(cmd, cwd=root)
         branch = git(root, "rev-parse", "--abbrev-ref", "HEAD")
         result = {0: "done", 3: "escalated"}.get(r.returncode, f"failed (exit {r.returncode})")
-        st[c.name] = {"result": result, "branch": branch, "at": utcnow()}
+        md = read_state(root, f"merge/{c.name}.json") or {}
+        if r.returncode == 0 and md.get("at", "") >= started:  # what the merge gate decided for this run
+            result = md.get("result") or md.get("decision") or result
+        st[c.name] = {"result": result, "branch": branch, "at": utcnow(),
+                      **({"reasons": md.get("reasons", [])[:5]} if md.get("at", "") >= started else {})}
         audit(root, "loop-change", change=c.name, result=result, branch=branch)
         log(f"{c.name}: {result} on {branch}")
         if not a.dry_run:
@@ -112,6 +122,75 @@ def tick(root: Path, cfg: dict, a, st: dict) -> None:
             log(f"could not switch back to {base} (uncommitted files on {branch}?) — later changes wait until "
                 "the working tree is clean")
             return
+    if queue:
+        run_parallel(root, cfg, a, st, base, queue)
+
+
+def claim(root: Path, name: str) -> bool:
+    """One runner per change, even with several loops or machines on one checkout: the claim file wins."""
+    import os
+    import socket
+    p = state_path(root, f"claims/{name}.json")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    cur = read_state(root, f"claims/{name}.json")
+    if cur:
+        same_host = cur.get("host") == socket.gethostname()
+        try:
+            os.kill(int(cur.get("pid", 0)), 0)
+            alive = same_host
+        except (OSError, ValueError):
+            alive = False
+        if alive or (not same_host and time.time() - float(cur.get("ts", 0)) < 6 * 3600):
+            return False
+    p.write_text(json.dumps({"pid": os.getpid(), "host": socket.gethostname(), "ts": time.time(), "at": utcnow()}),
+                 encoding="utf-8")
+    return True
+
+
+def run_parallel(root: Path, cfg: dict, a, st: dict, base: str, queue: list) -> None:
+    """Several changes at once, each in its own worktree and branch. Merges stay one at a time (merge_gate locks)."""
+    from concurrent.futures import ThreadPoolExecutor
+    if not git(root, "ls-files", ".sdlc/config.json"):
+        log("parallel mode needs .sdlc/config.json and .sdlc/bin committed (each worktree checks them out) — "
+            "commit them, or run without --parallel")
+        return
+    mine = [(c, f) for c, f in queue if claim(root, c.name)]
+    prefix = cfg["pipeline"].get("branch_prefix", "sdlc/")
+
+    def work(c: Path, frm: str) -> tuple[str, dict]:
+        wt = root / cfg["team"].get("worktree_dir", ".sdlc/worktrees") / f"loop-{c.name}"
+        branch = f"{prefix}{c.name}"
+        try:
+            if not wt.exists():
+                exists = git(root, "rev-parse", "--verify", "--quiet", branch)
+                r = subprocess.run(["git", "worktree", "add", "-q", str(wt)] + ([branch] if exists else
+                                   ["-b", branch, base]), cwd=root, capture_output=True, text=True)
+                if r.returncode:
+                    return c.name, {"result": f"failed (worktree: {r.stderr.strip()[:120]})", "at": utcnow()}
+            log(f"{c.name}: running pipeline from {frm} in its own worktree")
+            cmd = [sys.executable, str(wt / ".sdlc" / "bin" / "pipeline.py"), c.name, "--from", frm]
+            cmd += (["--pr"] if a.pr else []) + (["--merge-mode", a.merge_mode] if a.merge_mode else [])
+            started = utcnow()
+            r = subprocess.run(cmd, cwd=wt)
+            result = {0: "done", 3: "escalated"}.get(r.returncode, f"failed (exit {r.returncode})")
+            md = read_state(wt, f"merge/{c.name}.json") or {}
+            if r.returncode == 0 and md.get("at", "") >= started:
+                result = md.get("result") or md.get("decision") or result
+            out = {"result": result, "branch": branch, "at": utcnow()}
+            if md.get("at", "") >= started:
+                out["reasons"] = md.get("reasons", [])[:5]
+            return c.name, out
+        finally:
+            subprocess.run(["git", "worktree", "remove", "--force", str(wt)], cwd=root, capture_output=True)
+            state_path(root, f"claims/{c.name}.json").unlink(missing_ok=True)
+
+    with ThreadPoolExecutor(max_workers=a.parallel) as ex:
+        for name, res in ex.map(lambda x: work(*x), mine):
+            st[name] = res
+            audit(root, "loop-change", change=name, result=res["result"], branch=res.get("branch"), parallel=True)
+            log(f"{name}: {res['result']}")
+    if not a.dry_run:
+        save_state(root, st)
 
 
 def main() -> None:
@@ -124,6 +203,11 @@ def main() -> None:
     ap.add_argument("--bands", default="sdlc/monitor/bands.yaml")
     ap.add_argument("--no-monitor", action="store_true")
     ap.add_argument("--retry", metavar="CHANGE")
+    ap.add_argument("--merge-mode", choices=["off", "trial", "auto"],
+                    help="merge decision per change (default: config pipeline.merge_mode, 'trial')")
+    ap.add_argument("--skip-doctor", action="store_true", help="start even if `doctor` finds a blocking problem")
+    ap.add_argument("--parallel", type=int, default=1, metavar="N",
+                    help="work on up to N changes at once, each in its own worktree (merges stay one at a time)")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("-v", "--verbose", action="store_true")
     a = ap.parse_args()
@@ -141,11 +225,21 @@ def main() -> None:
         print(f"cleared: {hit or 'nothing matched'}")
         return
 
+    if not a.skip_doctor and not a.dry_run:
+        import doctor
+        bad = [c for c in doctor.run_checks(root, need_claude=True) if c["status"] == "fail"]
+        if bad:
+            for c in bad:
+                print(f"✗ {c['name']}: {c['detail']}" + (f"\n   fix: {c['fix']}" if c.get("fix") else ""))
+            sys.exit("doctor found problems that would stop the loop — fix them, or run with --skip-doctor")
     audit(root, "loop-start", interval=a.interval, auto_accept=a.auto_accept_intent)
     log(f"loop started (interval {a.interval}s{', auto-accept intent' if a.auto_accept_intent else ''}) — Ctrl+C to stop")
     try:
         while True:
             tick(root, cfg, a, st)
+            hb = state_path(root, "loop-heartbeat.json")
+            hb.parent.mkdir(parents=True, exist_ok=True)
+            hb.write_text(json.dumps({"at": utcnow(), "interval": a.interval, "parallel": a.parallel}), encoding="utf-8")
             if a.once:
                 break
             time.sleep(a.interval)

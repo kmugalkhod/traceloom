@@ -28,9 +28,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sdlc_core import audit, changes, find_root, git, header_field, load_config, utcnow  # noqa: E402
+from sdlc_core import architecture_problem, audit, changes, find_root, git, header_field, load_config, portable_cmd, utcnow  # noqa: E402
+import merge_gate  # noqa: E402
 
-STAGES = ["spec", "plan", "build", "review"]
+STAGES = ["spec", "plan", "build", "review", "assess"]
 READ_ONLY = ["Read", "Grep", "Glob"]
 WRITE = ["Read", "Grep", "Glob", "Edit", "Write", "MultiEdit"]
 SAFE_BASH = ["Bash(git status*)", "Bash(git diff*)", "Bash(git log*)", "Bash(git show*)",
@@ -42,8 +43,11 @@ class Escalate(Exception):
 
 
 def claude(prompt: str, model: str, tools: list[str], root: Path, agent: str | None = None,
-           dry: bool = False) -> str:
-    cmd = ["claude", "-p", prompt, "--model", model, "--output-format", "json",
+           dry: bool = False, env: dict | None = None) -> str:
+    # SDLC_CLAUDE_CMD (a JSON list) replaces the claude executable: wrappers, and the scripted stand-in the tests use
+    base = json.loads(os.environ["SDLC_CLAUDE_CMD"]) if os.environ.get("SDLC_CLAUDE_CMD") else \
+        [shutil.which("claude") or "claude"]
+    cmd = [*base, "-p", prompt, "--model", model, "--output-format", "json",
            "--permission-mode", "acceptEdits", "--allowedTools", *tools]
     if agent:
         cmd += ["--agent", agent]
@@ -52,7 +56,8 @@ def claude(prompt: str, model: str, tools: list[str], root: Path, agent: str | N
     print(f"  $ claude -p {prompt[:70]!r}... --model {model}" + (f" --agent {agent}" if agent else ""), flush=True)
     if dry:
         return '{"verdict":"pass","reasons":["dry run"]}'
-    r = subprocess.run(cmd, cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    r = subprocess.run(cmd, cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                       env={**os.environ, **(env or {})})
     try:
         data = json.loads(r.stdout)
     except json.JSONDecodeError:
@@ -99,7 +104,8 @@ def verify(root: Path, cfg: dict) -> tuple[bool, str]:
     for k, c in cfg["verify"].items():
         if not c:
             continue
-        r = subprocess.run(c, shell=True, cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        r = subprocess.run(portable_cmd(c), shell=True, cwd=root, capture_output=True, text=True, encoding="utf-8",
+                           errors="replace")
         out.append(f"=== {k}: {c} -> exit {r.returncode}\n{(r.stdout + r.stderr)[-4000:]}")
         ok &= r.returncode == 0
     return ok, "\n".join(out) or "no verify commands configured"
@@ -122,6 +128,14 @@ def run(root: Path, cfg: dict, change: Path, a) -> None:
                    + [f"Bash({c})" for c in cfg["pipeline"].get("allowed_bash", [])])
     bounds = STAGES[STAGES.index(a.from_stage): STAGES.index(a.to_stage) + 1]
 
+    hold = root / "sdlc" / "holdout" / f"{change.name}.md"
+    if "spec" in bounds and (cfg.get("holdout") or {}).get("enabled", True) and not hold.is_file():
+        print("\n## holdout (hidden scenarios, written from intent.md only)", flush=True)
+        claude(f"Write the hidden holdout scenarios for the change {change.name}: read only {rel}/intent.md, "
+               f"sdlc/MISSION.md and README.md (if they exist), then write sdlc/holdout/{change.name}.md.",
+               cfg["models"].get("gate", "sonnet"), ["Read", "Glob", "Write"], root, agent="sdlc:holdout-writer",
+               dry=a.dry_run, env={"SDLC_HOLDOUT_ACCESS": "1"})
+        print(f"  holdout: {'written' if hold.is_file() else 'none written'}", flush=True)
     for stage in bounds:
         print(f"\n## {stage}", flush=True)
         if stage == "spec":
@@ -138,6 +152,8 @@ def run(root: Path, cfg: dict, change: Path, a) -> None:
             if not a.dry_run:
                 set_status(spec, "accepted", "gatekeeper")
         elif stage == "plan":
+            if problem := architecture_problem(root):
+                raise Escalate(problem)
             claude(f"/sdlc:plan {rel} --headless", cfg["models"]["plan"], READ_ONLY + ["Write", "Edit"] + SAFE_BASH,
                    root, dry=a.dry_run)
             if not a.dry_run and not (change / "plan.md").is_file():
@@ -170,6 +186,17 @@ def run(root: Path, cfg: dict, change: Path, a) -> None:
                     raise Escalate(f"{important} Important review finding(s) remain — see {rel}/review.md")
                 claude(f"Address every Important finding in {rel}/review.md. Fix code; never weaken tests. "
                        "Then re-run verification.", cfg["models"]["build"], tools_build, root, dry=a.dry_run)
+        elif stage == "assess":  # the agent's own confidence report; merge_gate turns it into a decision
+            base = next((b for b in cfg.get("protected_branches", ["main"])
+                         if git(root, "rev-parse", "--verify", "--quiet", b)), "main")
+            claude(merge_gate.ASSESS_PROMPT.format(rel=rel, base=base), cfg["models"]["review"],
+                   READ_ONLY + ["Write"] + SAFE_BASH, root, dry=a.dry_run)
+            if a.dry_run:
+                (change / "assessment.json").write_text(json.dumps(
+                    {"confident": True, "recommendation": "merge", "reason": "", "assumptions": [],
+                     "notes": "dry run"}, indent=2), encoding="utf-8")
+            _, problem = merge_gate.read_assessment(change)
+            print(f"  assessment: {problem or 'reported'}", flush=True)
         commit(root, change, stage, a.commit and not a.dry_run)
 
 
@@ -177,7 +204,9 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("change")
     ap.add_argument("--from", dest="from_stage", choices=STAGES, default="spec")
-    ap.add_argument("--to", dest="to_stage", choices=STAGES, default="review")
+    ap.add_argument("--to", dest="to_stage", choices=STAGES, default="assess")
+    ap.add_argument("--merge-mode", choices=merge_gate.MODES,
+                    help="off | trial | auto (default: config pipeline.merge_mode)")
     ap.add_argument("--no-commit", dest="commit", action="store_false")
     ap.add_argument("--pr", action="store_true", help="push the branch and open a PR/MR (gh or glab)")
     ap.add_argument("--dry-run", action="store_true")
@@ -186,7 +215,7 @@ def main() -> None:
     root = find_root()
     if not root:
         sys.exit("not an SDLC repo: run /sdlc:init first")
-    if not shutil.which("claude"):
+    if not shutil.which("claude") and not os.environ.get("SDLC_CLAUDE_CMD"):
         sys.exit("claude CLI not on PATH")
     cfg = load_config(root)
     a.commit = a.commit and cfg["pipeline"].get("commit", True)
@@ -224,14 +253,23 @@ def main() -> None:
             # GitLab push options open the MR without any extra CLI
             subprocess.run(["git", "push", "-u", "origin", cur, "-o", "merge_request.create",
                             "-o", f"merge_request.title={title}", "-o", f"merge_request.description={body}"], cwd=root)
-            return
-        subprocess.run(["git", "push", "-u", "origin", cur], cwd=root)
-        if gitlab:
+        else:
+            subprocess.run(["git", "push", "-u", "origin", cur], cwd=root)
+        if gitlab and not shutil.which("glab"):
+            pass
+        elif gitlab:
             subprocess.run(["glab", "mr", "create", "--title", title, "--description", body, "--yes"], cwd=root)
         elif shutil.which("gh"):
             subprocess.run(["gh", "pr", "create", "--title", title, "--body", body], cwd=root)
         else:
             print("no gh/glab on PATH — open the PR/MR by hand")
+    mode = a.merge_mode or cfg["pipeline"].get("merge_mode", "trial")
+    if mode != "off" and a.to_stage == "assess" and a.commit and not a.dry_run:
+        print(f"\n## merge decision ({mode})", flush=True)
+        branch = git(root, "rev-parse", "--abbrev-ref", "HEAD")
+        rec = merge_gate.apply(root, cfg, change, merge_gate.decide(root, cfg, change, mode, branch=branch),
+                               pr=a.pr)
+        print(f"  {rec.get('result')}" + "".join(f"\n   - {r}" for r in rec["reasons"]), flush=True)
 
 
 if __name__ == "__main__":
