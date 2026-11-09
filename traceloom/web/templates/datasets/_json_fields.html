@@ -1,0 +1,12 @@
+{# The three JSON editors of an item. Needs: prefix, vals (field -> text), err_msg, editable. #}
+{% import "_macros.html" as m with context %}
+{% for name, label, hint, required in (("input", "Input", "JSON", true), ("expected_output", "Expected output", "JSON, optional", false), ("metadata", "Metadata", "JSON object", false)) %}
+{% set bad = err_msg.startswith(label) %}
+<div class="field">
+  <label for="{{ prefix }}-{{ name }}">{{ label }} <span class="muted">{{ hint }}</span></label>
+  <div class="jed{% if bad %} bad{% endif %}">
+    <div class="bar">{{ name }}{% if bad %}<span class="right">{{ m.icon("i-error", "ico-sm") }} {{ err_msg }}</span>{% endif %}</div>
+    <textarea id="{{ prefix }}-{{ name }}" name="{{ name }}" spellcheck="false" autocomplete="off"{% if not editable %} readonly{% endif %}{% if required and editable %} required{% endif %}{% if bad %} aria-invalid="true"{% endif %}>{{ vals.get(name, "") }}</textarea>
+  </div>
+</div>
+{% endfor %}

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Datasets{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Datasets"}]) }}{% endblock %}
+{% block content %}
+{% call m.page_header("Datasets", "Test cases you can run prompts and agents against.") %}
+  {% if can_write %}
+  <button type="button" class="btn btn-primary" data-dialog-open="new-dataset">{{ m.icon("i-plus") }}New dataset</button>
+  {% endif %}
+{% endcall %}
+
+{% if not summaries %}
+<div class="panel">
+  {% call m.empty_state("i-folder", "No datasets yet", "A dataset is a set of inputs, optionally with expected outputs. Build one from real traces, import a CSV, or create it with the SDK.") %}
+    {% if can_write %}<div class="acts"><button type="button" class="btn btn-primary" data-dialog-open="new-dataset">{{ m.icon("i-plus") }}New dataset</button></div>{% endif %}
+  {% endcall %}
+</div>
+{% else %}
+<div class="panel"><div class="rack">
+  <table class="tbl cardrows">
+    <thead><tr><th>Dataset</th><th class="r">Items</th><th class="r">Runs</th><th>Last run</th><th class="hide-m">Updated</th><th class="r menu"><span class="sr">Actions</span></th></tr></thead>
+    <tbody>
+    {% for s in summaries %}
+      <tr>
+        <td class="c-name m-show"><div class="cell2"><b><a href="{{ base }}/{{ s.dataset.id }}">{{ s.dataset.name }}</a></b><span>{{ s.dataset.description or "No description" }}</span></div></td>
+        <td class="num r m-show">{{ s.item_count }}</td>
+        <td class="num r m-show">{{ s.run_count }}</td>
+        <td class="m-show">
+          {% if s.last_run_status == "completed" %}<span class="pill ok">{{ m.icon("i-check") }}Completed</span> <small class="muted">{{ s.last_run_at | ago }}</small>
+          {% elif s.last_run_status == "running" %}<span class="pill run">{{ m.icon("i-clock") }}Running</span> <small class="muted">{{ s.last_run_at | ago }}</small>
+          {% elif s.last_run_status == "failed" %}<span class="pill err">{{ m.icon("i-error") }}Failed</span> <small class="muted">{{ s.last_run_at | ago }}</small>
+          {% else %}<span class="muted">No runs yet</span>{% endif %}
+        </td>
+        <td class="hide-m">{{ s.dataset.updated_at | date("%b %-d, %H:%M") }}</td>
+        <td class="r menu m-show">
+          <div class="menu-wrap">
+            <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="More actions for {{ s.dataset.name }}" aria-haspopup="true" aria-expanded="false" data-menu-toggle="ds-menu-{{ s.dataset.id }}">{{ m.icon("i-more-h") }}</button>
+            <div class="pop pop-right" id="ds-menu-{{ s.dataset.id }}" data-menu hidden role="menu" aria-label="Dataset actions">
+              <a class="item" role="menuitem" href="{{ base }}/{{ s.dataset.id }}">{{ m.icon("i-eye", "ico-sm") }}Open</a>
+              <button type="button" class="item" role="menuitem" data-copy="{{ s.dataset.name }}">{{ m.icon("i-copy", "ico-sm") }}Copy dataset name</button>
+              {% if can_delete %}<div class="sep"></div>
+              <button type="button" class="item danger" role="menuitem" data-dialog-open="delete-{{ s.dataset.id }}">{{ m.icon("i-trash", "ico-sm") }}Delete dataset…</button>{% endif %}
+            </div>
+          </div>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endif %}
+{% endblock %}
+
+{% block dialogs %}
+{% if can_write %}
+<dialog class="dlg" id="new-dataset" aria-label="New dataset"{% if error %} data-autoopen{% endif %}>
+  <div class="dialog">
+    {{ m.dialog_head("New dataset") }}
+    <form method="post" action="{{ base }}">
+      {{ m.csrf() }}
+      <div class="body">
+        <div class="field">
+          <label for="dn">Name</label>
+          <input id="dn" class="input" name="name" value="{{ values.name }}" maxlength="200" autocomplete="off" required{% if error %} aria-invalid="true" aria-describedby="dne"{% endif %}>
+          {% if error %}<span class="field-error" id="dne" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ error }}</span></span>{% endif %}
+        </div>
+        <div class="field"><label for="dd">Description <span class="muted">optional</span></label><textarea id="dd" class="textarea" name="description" rows="2">{{ values.description }}</textarea></div>
+        <details><summary class="btn btn-ghost btn-sm" style="width:max-content;cursor:pointer">Metadata (JSON)</summary>
+          <div class="jed" style="margin-top:8px"><textarea name="metadata" aria-label="Metadata (JSON)" spellcheck="false" placeholder="{}">{{ values.metadata }}</textarea></div></details>
+      </div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">Create dataset</button></footer>
+    </form>
+  </div>
+</dialog>
+{% endif %}
+{% if can_delete %}{% for s in summaries %}
+  {% with dataset = s.dataset, dlg_id = "delete-" ~ s.dataset.id, error = "" %}{% include "datasets/_delete_dialog.html" %}{% endwith %}
+{% endfor %}{% endif %}
+{% endblock %}

@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ dataset.name }}{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Datasets", "href": base | replace("/" ~ dataset.id, "")}, {"label": dataset.name}]) }}{% endblock %}
+{% block content %}
+<div class="page-h">
+  <div class="grow"><h1>{{ dataset.name }}</h1>
+    <p class="sub">{{ counts.items }} active item{{ "" if counts.items == 1 else "s" }} · version {{ version | date("%b %-d, %H:%M:%S") }}{% if dataset.description %} · {{ dataset.description }}{% endif %}</p></div>
+  <div class="row-wrap">
+    {% if can_write %}<button type="button" class="btn" data-dialog-open="new-item">{{ m.icon("i-plus") }}Add item</button>{% endif %}
+    {% if can_write or can_delete %}
+    <div class="menu-wrap">
+      <button type="button" class="btn btn-icon" aria-label="More actions" aria-haspopup="true" aria-expanded="false" data-menu-toggle="ds-more">{{ m.icon("i-more-h") }}</button>
+      <div class="pop pop-right" id="ds-more" data-menu hidden role="menu" aria-label="Dataset actions">
+        {% if can_write %}<a class="item" role="menuitem" href="{{ base }}/import">{{ m.icon("i-arrow", "ico-sm") }}Import items</a>{% endif %}
+        <button type="button" class="item" role="menuitem" data-copy="{{ dataset.name }}">{{ m.icon("i-copy", "ico-sm") }}Copy dataset name</button>
+        {% if can_delete %}<div class="sep"></div>
+        <button type="button" class="item danger" role="menuitem" data-dialog-open="delete-dataset">{{ m.icon("i-trash", "ico-sm") }}Delete dataset…</button>{% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if notice %}{{ m.banner("ok", notice) }}{% endif %}
+{% if not can_write %}<div><span class="rolebar">{{ m.icon("i-eye", "ico-sm") }}Read-only</span></div>{% endif %}
+
+<div class="ptabs" role="tablist" aria-label="Dataset sections">
+  <a href="{{ base }}" role="tab"{% if tab == "items" %} aria-current="page"{% endif %}>Items <span class="c2">{{ counts.items }}</span></a>
+  <a href="{{ base }}?tab=runs" role="tab"{% if tab == "runs" %} aria-current="page"{% endif %}>Runs <span class="c2">{{ counts.runs }}</span></a>
+  <a href="{{ base }}?tab=history" role="tab"{% if tab == "history" %} aria-current="page"{% endif %}>History</a>
+</div>
+
+{% if tab == "items" %}
+  <form class="toolbar" method="get" action="{{ base }}" role="search">
+    <div class="seg" role="group" aria-label="Status">
+      <button type="submit" name="status" value="active" aria-pressed="{{ 'true' if status == 'active' else 'false' }}">Active <span class="c">{{ counts.items }}</span></button>
+      <button type="submit" name="status" value="archived" aria-pressed="{{ 'true' if status == 'archived' else 'false' }}">Archived <span class="c">{{ counts.archived }}</span></button>
+    </div>
+    <div class="input-wrap grow">{{ m.icon("i-search") }}<input class="input" name="q" value="{{ q }}" placeholder="Search input and expected output" aria-label="Search items"></div>
+  </form>
+  {% if not items %}
+  <div class="panel">
+    {% if q %}{% call m.empty_state("i-search", "No items match", "Nothing in this view matches your search.") %}<div class="acts"><a class="btn" href="{{ base }}?status={{ status }}">Clear search</a></div>{% endcall %}
+    {% elif status == "archived" %}{{ m.empty_state("i-folder", "No archived items", "Archived items stay readable by runs that started before they were archived.") }}
+    {% else %}{% call m.empty_state("i-folder", "No items yet", "Add an item by hand, import a file, or add a trace from any trace page.") %}
+      {% if can_write %}<div class="acts"><button type="button" class="btn btn-primary" data-dialog-open="new-item">{{ m.icon("i-plus") }}Add item</button><a class="btn" href="{{ base }}/import">Import</a></div>{% endif %}
+    {% endcall %}{% endif %}
+  </div>
+  {% else %}
+  <div class="panel"><div class="rack">
+    <table class="tbl cardrows">
+      <thead><tr><th>Input</th><th>Expected output</th><th class="hide-m">Source</th><th class="r">Version</th><th class="hide-m">Updated</th><th class="menu r"><span class="sr">Actions</span></th></tr></thead>
+      <tbody>
+      {% for v in items %}
+        <tr>
+          <td class="c-name m-show" style="max-width:280px"><div class="trunc mono-sm">{{ compact(v.input) }}</div></td>
+          <td class="m-show" style="max-width:260px">{% if v.expected_output is none %}<span class="muted">None</span>{% else %}<div class="trunc mono-sm">{{ compact(v.expected_output) }}</div>{% endif %}</td>
+          <td class="hide-m">{% if v.source_trace_id %}<span class="srcl">{{ m.icon("i-link", "ico-sm") }}<a href="{{ trace_url(v.source_trace_id) }}">{{ v.source_trace_id[:12] }}</a></span>{% else %}<span class="muted">Imported</span>{% endif %}</td>
+          <td class="num r m-show">v{{ v.version }}</td>
+          <td class="hide-m">{{ v.created_at | date("%b %-d, %H:%M") }}</td>
+          <td class="menu r m-show"><a class="btn btn-ghost btn-sm" href="{{ base }}?item={{ v.id }}">{{ m.icon("i-pencil", "ico-sm") }}{{ "Edit" if can_write and v.status == "active" else "View" }}</a></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  <div class="row jc-between">
+    <span class="hint">{{ total }} item{{ "" if total == 1 else "s" }}</span>
+    <span class="row">{% if prev_url %}<a class="btn btn-sm" href="{{ prev_url }}">Previous</a>{% endif %}{% if next_url %}<a class="btn btn-sm" href="{{ next_url }}">Next</a>{% endif %}</span>
+  </div>
+  {% endif %}
+
+{% elif tab == "runs" %}
+  {% if not runs %}
+  <div class="panel">{{ m.empty_state("i-flask", "No runs yet", "A run records which version of this dataset it read. Create one with the SDK's run_experiment.") }}</div>
+  {% else %}
+  <div class="panel"><div class="rack">
+    <table class="tbl cardrows">
+      <thead><tr><th>Run</th><th>Status</th><th class="r">Items</th><th class="hide-m">Dataset version</th><th class="hide-m">Started</th></tr></thead>
+      <tbody>
+      {% for r, n in runs %}
+        <tr>
+          <td class="c-name m-show"><div class="cell2"><b>{{ r.name }}</b><span>{{ r.description }}</span></div></td>
+          <td class="m-show">
+            {% if r.status == "completed" %}<span class="pill ok">{{ m.icon("i-check") }}Completed</span>
+            {% elif r.status == "failed" %}<span class="pill err">{{ m.icon("i-error") }}Failed</span>
+            {% else %}<span class="pill run">{{ m.icon("i-clock") }}Running</span>{% endif %}
+          </td>
+          <td class="num r m-show">{{ n }}</td>
+          <td class="hide-m">{{ r.dataset_version | date("%b %-d, %H:%M:%S") }}</td>
+          <td class="hide-m">{{ r.created_at | ago }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% endif %}
+
+{% else %}
+  {% if not history %}
+  <div class="panel">{{ m.empty_state("i-clock", "No changes yet", "Every create, edit and archive of an item is recorded here.") }}</div>
+  {% else %}
+  <div class="panel"><div class="rack">
+    <table class="tbl cardrows">
+      <thead><tr><th>When</th><th>Who</th><th>Change</th><th>Item</th><th class="r">Item version</th></tr></thead>
+      <tbody>
+      {% for h in history %}
+        <tr>
+          <td class="m-show">{{ h.v.created_at | date("%b %-d, %H:%M") }}</td>
+          <td class="m-show">{{ h.who }}</td>
+          <td class="m-show"><span class="pill {{ h.change[1] }}">{{ h.change[0] }}</span>
+            {% if h.diff %}<div class="dl" style="margin-top:8px">{% for kind, line in h.diff %}<div class="{{ kind }}">{{ line }}</div>{% endfor %}</div>{% endif %}</td>
+          <td class="m-show"><a href="{{ base }}?item={{ h.v.id }}"><span class="trunc mono-sm">{{ compact(h.v.input)[:60] }}</span></a></td>
+          <td class="num r m-show">v{{ h.v.version }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% endif %}
+{% endif %}
+{% endblock %}
+
+{% block dialogs %}
+{% if can_write %}
+{% set add_err = error if error and error.scope == "new" else none %}
+<dialog class="dlg dialog-wide" id="new-item" aria-label="Add item"{% if add_err %} data-autoopen{% endif %}>
+  <div class="dialog">
+    {{ m.dialog_head("Add item") }}
+    <form method="post" action="{{ base }}/items">
+      {{ m.csrf() }}
+      <div class="body">
+        {% if add_err %}<div class="field-error" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ add_err.message }}</span></div>{% endif %}
+        {% with prefix = "ni", vals = (add_err.values if add_err else {}), err_msg = (add_err.message if add_err else ""), editable = true %}{% include "datasets/_json_fields.html" %}{% endwith %}
+      </div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">Add item</button></footer>
+    </form>
+  </div>
+</dialog>
+{% endif %}
+{% if can_delete %}
+  {% with dlg_id = "delete-dataset", error = delete_error %}{% include "datasets/_delete_dialog.html" %}{% endwith %}
+{% endif %}
+{% if drawer %}{% include "datasets/_item_drawer.html" %}{% endif %}
+{% endblock %}
