@@ -19,6 +19,7 @@ from traceloom.web.envpref import resolve_env, saved_env
 from traceloom.web.ranges import range_urls, resolve_range
 from traceloom.web.render import is_chat, pretty_json
 from traceloom.web.templating import render
+from traceloom.web.trace_list import hidden_environments
 
 router = APIRouter(tags=["sessions"])
 
@@ -64,7 +65,7 @@ def sessions_list(
     env = resolve_env(params, pref)
     query = SessionQuery(
         environment=env, from_time=start, to_time=end, sort=sort, descending=descending,
-        cursor=cursor or None, limit=PAGE,
+        exclude_environments=hidden_environments(), cursor=cursor or None, limit=PAGE,
     )  # fmt: skip
     try:
         page = container.trace_store.list_sessions(access.project.id, query)

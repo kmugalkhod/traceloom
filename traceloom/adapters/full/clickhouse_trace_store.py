@@ -18,7 +18,10 @@ from pathlib import Path
 from typing import Any
 
 from traceloom.ports import (
+    AGGREGATE_OBJECTS,
     LEVELS,
+    MAX_ANALYTICS_ROWS,
+    SCORE_SORT_PREFIX,
     DashboardData,
     DashboardQuery,
     InvalidCursor,
@@ -27,8 +30,14 @@ from traceloom.ports import (
     PromptGeneration,
     PromptMetrics,
     PromptMetricsQuery,
+    ScoreAggregate,
+    ScoreFilter,
+    ScorePair,
+    ScorePoint,
     ScoreQuery,
+    ScoreRange,
     ScoreRow,
+    ScoreSelector,
     SessionDetail,
     SessionQuery,
     SessionRow,
@@ -39,6 +48,7 @@ from traceloom.ports import (
     UserQuery,
     UserRow,
     UserSummary,
+    aggregate_scores,
     decode_cursor,
     encode_cursor,
 )
@@ -212,7 +222,42 @@ def _cursor_value(sort: str, cursor: str) -> tuple[Any, str]:
     return value, row_id
 
 
-def trace_filters(query: TraceQuery) -> tuple[list[str], dict[str, Any]]:
+_FAR = 1e300  # stands in for "no score", so unscored rows sort last and keysets stay total
+_CH_OPS = {"=": "=", "!=": "!=", ">": ">", ">=": ">=", "<": "<", "<=": "<="}
+
+
+def _scores_of(table: str) -> str:
+    """The scores table next to a (possibly database-qualified) traces table."""
+    return table.rsplit(".", 1)[0] + ".scores" if "." in table else "scores"
+
+
+def _score_filter_sql(
+    f: ScoreFilter, index: int, scores: str, params: dict[str, Any], id_expr: str = "id"
+) -> str:
+    """`id IN (traces with a matching score)`, or NOT IN for `missing`."""
+    params[f"sn{index}"] = f.name
+    cond = ["project_id = {project_id:String}", f"name = {{sn{index}:String}}"]
+    cond.append("trace_id IS NOT NULL")
+    key = f"sv{index}"
+    if f.op == "in":
+        if isinstance(f.value[0], str):
+            cond.append(f"string_value IN {{{key}:Array(String)}}")
+            params[key] = list(f.value)
+        else:
+            cond.append(f"value IN {{{key}:Array(Float64)}}")
+            params[key] = [float(v) for v in f.value]
+    elif f.op not in ("exists", "missing"):
+        if isinstance(f.value, str):
+            cond.append(f"string_value {_CH_OPS[f.op]} {{{key}:String}}")
+            params[key] = f.value
+        else:
+            cond.append(f"value {_CH_OPS[f.op]} {{{key}:Float64}}")
+            params[key] = float(f.value)
+    inner = f"SELECT trace_id FROM {scores} FINAL WHERE {' AND '.join(cond)}"
+    return f"{id_expr} {'NOT IN' if f.op == 'missing' else 'IN'} ({inner})"
+
+
+def trace_filters(query: TraceQuery, scores: str = "scores") -> tuple[list[str], dict[str, Any]]:
     """WHERE fragments (without the project predicate) and their parameters."""
     where: list[str] = []
     params: dict[str, Any] = {}
@@ -271,6 +316,11 @@ def trace_filters(query: TraceQuery) -> tuple[list[str], dict[str, Any]]:
     if query.to_time is not None:
         where.append("timestamp <= {to_time:DateTime64(3, 'UTC')}")
         params["to_time"] = _utc(query.to_time)
+    for i, f in enumerate(query.score_filters):
+        where.append(_score_filter_sql(f, i, scores, params))
+    if query.environment is None and query.exclude_environments:
+        where.append("environment NOT IN {exclude_envs:Array(String)}")
+        params["exclude_envs"] = list(query.exclude_environments)
     return where, params
 
 
@@ -278,16 +328,24 @@ def build_list_traces(
     project_id: str, query: TraceQuery, table: str = "traces"
 ) -> tuple[str, dict[str, Any]]:
     """Keyset-paged trace list. Order is (sort expr, id asc); one extra row detects a next page."""
-    try:
-        sort_expr = _SORT_EXPRS[query.sort]
-    except KeyError:
-        raise ValueError(
-            f"unknown sort {query.sort!r}; expected one of {sorted(_SORT_EXPRS)}"
-        ) from None
-    where, params = trace_filters(query)
+    scores = _scores_of(table)
+    by_score = query.sort.startswith(SCORE_SORT_PREFIX)
+    if by_score:
+        sort_expr = f"coalesce(s.sort_value, {-_FAR if query.descending else _FAR!r})"
+    else:
+        try:
+            sort_expr = _SORT_EXPRS[query.sort]
+        except KeyError:
+            raise ValueError(
+                f"unknown sort {query.sort!r}; expected one of {sorted(_SORT_EXPRS)}"
+                " or score:<name>"
+            ) from None
+    where, params = trace_filters(query, scores)
     params["project_id"] = project_id
     if query.cursor:
-        value, row_id = _cursor_value(query.sort, query.cursor)
+        value, row_id = _cursor_value(
+            "timestamp" if query.sort == "timestamp" else "number", query.cursor
+        )
         op = "<" if query.descending else ">"
         type_ = "DateTime64(3, 'UTC')" if query.sort == "timestamp" else "Float64"
         where.append(
@@ -298,22 +356,34 @@ def build_list_traces(
         params["cursor_id"] = row_id
     limit = max(1, min(query.limit, MAX_PAGE_SIZE))
     direction = "DESC" if query.descending else "ASC"
+    source, tail, extra = f"{table} FINAL", "", ""
+    if by_score:
+        extra = ", s.sort_value AS sort_value"
+        # The average of the score per trace; join_use_nulls makes unscored traces NULL.
+        params["score_sort_name"] = query.sort[len(SCORE_SORT_PREFIX) :]
+        source = (
+            f"{table} AS t FINAL LEFT JOIN (SELECT trace_id, avg(value) AS sort_value"
+            f" FROM {scores} FINAL WHERE project_id = {{project_id:String}}"
+            " AND name = {score_sort_name:String} AND value IS NOT NULL AND trace_id IS NOT NULL"
+            " GROUP BY trace_id) AS s ON s.trace_id = t.id"
+        )
+        tail = " SETTINGS join_use_nulls = 1"
     sql = (
-        f"SELECT {', '.join(TRACE_COLUMNS)} FROM {table} FINAL WHERE {_project_where(*where)}"
-        f" ORDER BY {sort_expr} {direction}, id ASC LIMIT {limit + 1}"
+        f"SELECT {', '.join(TRACE_COLUMNS)}{extra} FROM {source} WHERE {_project_where(*where)}"
+        f" ORDER BY {sort_expr} {direction}, id ASC LIMIT {limit + 1}{tail}"
     )
     return sql, params
 
 
 def build_trace_ids(project_id: str, query: TraceQuery, table: str = "traces"):
-    where, params = trace_filters(query)
+    where, params = trace_filters(query, _scores_of(table))
     params["project_id"] = project_id
     sql = f"SELECT id FROM {table} FINAL WHERE {_project_where(*where)}"
     return sql, params
 
 
 def build_trace_stats(project_id: str, query: TraceQuery, table: str = "traces"):
-    where, params = trace_filters(query)
+    where, params = trace_filters(query, _scores_of(table))
     params["project_id"] = project_id
     sql = (
         "SELECT count() AS count, sum(total_cost) AS total_cost,"
@@ -403,6 +473,88 @@ def build_list_scores(project_id: str, query: ScoreQuery, table: str = "scores")
     return sql, params, limit
 
 
+def _score_range_sql(
+    selector: ScoreSelector, rng: ScoreRange, params: dict[str, Any], prefix: str
+) -> list[str]:
+    where = ["project_id = {project_id:String}", f"name = {{{prefix}name:String}}"]
+    params[f"{prefix}name"] = selector.name
+    if selector.source:
+        where.append(f"source = {{{prefix}source:String}}")
+        params[f"{prefix}source"] = selector.source
+    if rng.from_time is not None:
+        where.append("timestamp >= {from_time:DateTime64(3, 'UTC')}")
+        params["from_time"] = _utc(rng.from_time)
+    if rng.to_time is not None:
+        where.append("timestamp <= {to_time:DateTime64(3, 'UTC')}")
+        params["to_time"] = _utc(rng.to_time)
+    if rng.environment is not None:
+        where.append("environment = {score_env:String}")
+        params["score_env"] = rng.environment
+    if not rng.include_feedback:
+        where.append("(channel IS NULL OR channel != 'public_feedback')")
+    return where
+
+
+def build_score_aggregates(
+    project_id: str, object_type: str, ids: Sequence[str], names, table: str = "scores"
+):
+    if object_type not in AGGREGATE_OBJECTS:
+        raise ValueError(f"object_type must be one of {AGGREGATE_OBJECTS}")
+    where = [f"{object_type}_id IN {{ids:Array(String)}}"]
+    params: dict[str, Any] = {"project_id": project_id, "ids": list(ids)}
+    if names is not None:
+        where.append("name IN {names:Array(String)}")
+        params["names"] = list(names)
+    sql = f"SELECT {', '.join(SCORE_COLUMNS)} FROM {table} FINAL WHERE {_project_where(*where)}"
+    return sql, params
+
+
+def build_score_points(
+    project_id: str,
+    selector: ScoreSelector,
+    rng: ScoreRange,
+    limit: int,
+    newest_first: bool,
+    table: str = "scores",
+):
+    params: dict[str, Any] = {"project_id": project_id}
+    where = _score_range_sql(selector, rng, params, "a_")
+    direction = "DESC" if newest_first else "ASC"
+    sql = (
+        "SELECT value, string_value, data_type, source, timestamp"
+        f" FROM {table} FINAL WHERE {' AND '.join(where)}"
+        f" ORDER BY timestamp {direction}, id LIMIT {max(1, min(limit, MAX_ANALYTICS_ROWS))}"
+    )
+    return sql, params
+
+
+def build_score_pairs(
+    project_id: str,
+    a: ScoreSelector,
+    b: ScoreSelector,
+    rng: ScoreRange,
+    limit: int,
+    table: str = "scores",
+):
+    params: dict[str, Any] = {"project_id": project_id}
+    columns = "id, trace_id, observation_id, value, string_value, timestamp"
+    left = " AND ".join(_score_range_sql(a, rng, params, "a_"))
+    right = " AND ".join(_score_range_sql(b, rng, params, "b_"))
+    sql = (
+        "SELECT a.trace_id AS trace_id, a.observation_id AS a_obs, b.observation_id AS b_obs,"
+        " a.value AS a_value, a.string_value AS a_string,"
+        " b.value AS b_value, b.string_value AS b_string"
+        f" FROM (SELECT {columns} FROM {table} FINAL WHERE {left} AND trace_id IS NOT NULL) AS a"
+        f" INNER JOIN (SELECT {columns} FROM {table} FINAL"
+        f" WHERE {right} AND trace_id IS NOT NULL) AS b ON a.trace_id = b.trace_id"
+        " WHERE (a.observation_id IS NULL OR b.observation_id IS NULL"
+        " OR a.observation_id = b.observation_id)"
+        f" ORDER BY a.timestamp DESC, a.id, b.id LIMIT {max(1, min(limit, MAX_ANALYTICS_ROWS))}"
+        " SETTINGS join_use_nulls = 1"
+    )
+    return sql, params
+
+
 def build_existing(project_id: str, kind: str, ids: Sequence[str], database: str = ""):
     table = _KIND_TABLE[kind]
     return _by_ids(
@@ -445,8 +597,23 @@ _USER_SELECT = (
 )
 
 
-def _time_env(query: SessionQuery | UserQuery, params: dict[str, Any]) -> list[str]:
+def _time_env(
+    query: SessionQuery | UserQuery, params: dict[str, Any], table: str = "traces"
+) -> list[str]:
     where = []
+    filters = getattr(query, "score_filters", ())
+    if filters:
+        sub: dict[str, Any] = {}
+        matching = [_score_filter_sql(f, i, _scores_of(table), sub) for i, f in enumerate(filters)]
+        params.update(sub)
+        where.append(
+            f"session_id IN (SELECT session_id FROM {table} FINAL"
+            f" WHERE {_project_where(*matching)})"
+        )
+    excluded = getattr(query, "exclude_environments", ())
+    if query.environment is None and excluded:
+        where.append("environment NOT IN {exclude_envs:Array(String)}")
+        params["exclude_envs"] = list(excluded)
     if query.environment is not None:
         where.append("environment = {environment:String}")
         params["environment"] = query.environment
@@ -490,7 +657,7 @@ def _grouped_page(select, group_col, sorts, query, where, params, table):
 
 def build_list_sessions(project_id: str, query: SessionQuery, table: str = "traces"):
     params: dict[str, Any] = {"project_id": project_id}
-    where = ["session_id IS NOT NULL", "session_id != ''", *_time_env(query, params)]
+    where = ["session_id IS NOT NULL", "session_id != ''", *_time_env(query, params, table)]
     return _grouped_page(_SESSION_SELECT, "session_id", _SESSION_SORTS, query, where, params, table)
 
 
@@ -895,6 +1062,76 @@ class ClickHouseTraceStore:
         next_cursor = encode_cursor(items[-1].timestamp, items[-1].id) if more else None
         return Page(items=items, next_cursor=next_cursor)
 
+    def score_aggregates(
+        self,
+        project_id: str,
+        object_type: str,
+        ids: Sequence[str],
+        names: Sequence[str] | None = None,
+    ) -> dict[str, dict[str, ScoreAggregate]]:
+        wanted = list(dict.fromkeys(ids))
+        pairs = []
+        for start in range(0, len(wanted), 1000):
+            built = build_score_aggregates(
+                project_id, object_type, wanted[start : start + 1000], names, self.scores
+            )
+            for record in self._select(built):
+                row = _to_row("scores", record)
+                pairs.append((getattr(row, f"{object_type}_id"), row))
+        return aggregate_scores(pairs)
+
+    def _score_points(self, project_id, selector, rng, limit, newest_first) -> list[ScorePoint]:
+        built = build_score_points(project_id, selector, rng, limit, newest_first, self.scores)
+        return [
+            ScorePoint(
+                None if r["value"] is None else float(r["value"]),
+                r["string_value"],
+                r["data_type"],
+                r["source"],
+                _utc(r["timestamp"]),
+            )
+            for r in self._select(built)
+        ]
+
+    def score_distribution(
+        self,
+        project_id: str,
+        selector: ScoreSelector,
+        range: ScoreRange,
+        limit: int = MAX_ANALYTICS_ROWS,
+    ) -> list[ScorePoint]:
+        return self._score_points(project_id, selector, range, limit, True)
+
+    def score_trend(
+        self,
+        project_id: str,
+        selector: ScoreSelector,
+        range: ScoreRange,
+        limit: int = MAX_ANALYTICS_ROWS,
+    ) -> list[ScorePoint]:
+        return self._score_points(project_id, selector, range, limit, False)
+
+    def score_pairs(
+        self,
+        project_id: str,
+        a: ScoreSelector,
+        b: ScoreSelector,
+        range: ScoreRange,
+        limit: int = MAX_ANALYTICS_ROWS,
+    ) -> list[ScorePair]:
+        built = build_score_pairs(project_id, a, b, range, limit, self.scores)
+        return [
+            ScorePair(
+                r["trace_id"],
+                r["a_obs"] or r["b_obs"],
+                None if r["a_value"] is None else float(r["a_value"]),
+                r["a_string"],
+                None if r["b_value"] is None else float(r["b_value"]),
+                r["b_string"],
+            )
+            for r in self._select(built)
+        ]
+
     def delete_traces(self, project_id: str, target: Sequence[str] | TraceQuery) -> int:
         if isinstance(target, TraceQuery):
             ids = self.matching_trace_ids(project_id, target)
@@ -932,12 +1169,17 @@ class ClickHouseTraceStore:
         next_cursor = None
         if more and items:
             last = items[-1]
-            sort_value = {
-                "timestamp": last.timestamp,
-                "latency": -1.0 if last.latency_ms is None else last.latency_ms,
-                "cost": last.total_cost,
-                "tokens": last.total_tokens,
-            }[query.sort]
+            if query.sort.startswith(SCORE_SORT_PREFIX):
+                raw = records[len(items) - 1]["sort_value"]
+                unscored = -_FAR if query.descending else _FAR
+                sort_value = unscored if raw is None else float(raw)
+            else:
+                sort_value = {
+                    "timestamp": last.timestamp,
+                    "latency": -1.0 if last.latency_ms is None else last.latency_ms,
+                    "cost": last.total_cost,
+                    "tokens": last.total_tokens,
+                }[query.sort]
             next_cursor = encode_cursor(sort_value, last.id)
         return Page(items=items, next_cursor=next_cursor)
 
