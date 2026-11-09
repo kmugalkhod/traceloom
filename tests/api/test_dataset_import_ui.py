@@ -212,3 +212,34 @@ def test_viewer_cannot_add_and_pages_show_the_controls(client, login, world, dat
     login(client, world.users[Role.MEMBER], csrf=False)
     assert "Add to dataset" in client.get(f"/project/{world.project.id}/traces/t9").text
     assert "data-bulk-add" in client.get(f"/project/{world.project.id}/traces").text
+
+
+def test_qa_bulk_add_skips_a_trace_from_another_project(
+    member, world, db, container, make_org, make_project
+):
+    other = make_project(make_org())
+    seed_trace(container, world.project.id, "mine", input={"q": 1}, output="o")
+    seed_trace(container, other.id, "theirs", input={"secret": 1}, output="s")
+    url = f"/project/{world.project.id}/datasets/add"
+    csrf = re.search(
+        r'name="csrf_token" value="([^"]+)"', member.get(url + "?trace_id=mine", headers=HTML).text
+    ).group(1)
+    member.post(
+        url,
+        data={"csrf_token": csrf, "new_dataset": "scoped", "trace_id": ["mine", "theirs"]},
+        follow_redirects=False,
+    )
+    dataset = service.get_dataset_by_name(db, world.project, "scoped")
+    ids = {i.source_trace_id for i in service.items_as_of(db, world.project, dataset)}
+    assert ids == {"mine"}
+
+
+def test_qa_import_without_csrf_token_is_rejected(member, world, dataset):
+    r = member.post(
+        base(world, dataset) + "/import",
+        data={},
+        files={"file": ("x.csv", io.BytesIO(b"a\n1\n"), "text/csv")},
+        headers={**HTML, "X-CSRF-Token": ""},
+        follow_redirects=False,
+    )
+    assert r.status_code in (400, 403)
