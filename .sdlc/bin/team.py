@@ -44,7 +44,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from board import Board, STATUS_LABEL  # noqa: E402
 from sdlc_core import (architecture_problem, audit, changes, find_root, git, header_field, load_config, matches_any,  # noqa: E402
-                       portable_cmd, setup_signature, utcnow)
+                       portable_cmd, setup_signature, utcnow, yolo)
 import trackers  # noqa: E402
 
 BOARD_CLI = "python3 .sdlc/bin/board.py"
@@ -390,6 +390,11 @@ def architecture_gate(root: Path, cfg: dict, change: Path, a) -> dict | None:
     if status in ("approved", "accepted") and not st.get("feedback_pending") and st.get("result") in ("approved", "proposed"):
         return None  # approved (by architecture-approve, or by hand in the file)
     if status == "proposed" and not st.get("feedback_pending"):
+        if yolo(root):
+            who = yolo_by(root)
+            approve_architecture(root, cfg, change, who, YOLO_NOTE.format(who=who))
+            log(f"architecture approved automatically ({who})")
+            return None
         return arch_wait(root, change)  # still waiting for the human (also one proposed by /sdlc:architect)
     rel = change.relative_to(root).as_posix()
     b = Board()
@@ -428,6 +433,12 @@ def architecture_gate(root: Path, cfg: dict, change: Path, a) -> dict | None:
     b.event(None, "architect", "design", "architecture proposed: sdlc/ARCHITECTURE.md + sdlc/architecture.png — "
             "waiting for a human to approve before planning")
     audit(root, "architecture-proposed", change=change.name)
+    if yolo(root):
+        who = yolo_by(root)
+        approve_architecture(root, cfg, change, who, YOLO_NOTE.format(who=who))
+        b.upsert_agent("architect", status="idle", activity="architecture approved automatically (YOLO)")
+        log(f"architecture approved automatically ({who})")
+        return None
     w = arch_wait(root, change)
     try:
         import notify
@@ -438,6 +449,17 @@ def architecture_gate(root: Path, cfg: dict, change: Path, a) -> dict | None:
     return w
 
 
+YOLO_NOTE = "approved automatically: YOLO mode is on (switched on by {who} on the board)"
+YOLO_GUIDANCE = ("YOLO mode is on, so no human will answer. You were stuck on: {why}. Pick the safest reasonable "
+                 "option that keeps to the spec and the approved architecture, write the decision and the reason in "
+                 "your commit message, and carry on.")
+
+
+def yolo_by(root: Path) -> str:
+    from sdlc_core import read_controls
+    return f"YOLO ({read_controls(root).get('updated_by') or 'human'})"
+
+
 def cmd_architecture_approve(root: Path, cfg: dict, a) -> None:
     """The human's decision: the proposed architecture is approved; planning may start."""
     change = resolve_change(root, cfg, a.change)
@@ -445,12 +467,18 @@ def cmd_architecture_approve(root: Path, cfg: dict, a) -> None:
     if (header_field(doc, "Status") or "").lower() != "proposed":
         sys.exit("sdlc/ARCHITECTURE.md is not waiting for approval (Status is not proposed)")
     who = a.by or (git(root, "config", "user.name") or "").strip() or "human"
+    approve_architecture(root, cfg, change, who, a.note)
+    print(f"architecture approved by {who}; planning can start (run prepare / plan / run again)")
+
+
+def approve_architecture(root: Path, cfg: dict, change: Path, who: str, note: str = "") -> None:
+    doc = root / "sdlc" / "ARCHITECTURE.md"
     text = doc.read_text(encoding="utf-8")
     text = re.sub(r"(?mi)^(\W*Status:\s*)proposed\b.*$", r"\1approved", text, count=1)
     stamp = f"Approved by: {who}  \nApproved for: {change.name}  \nApproved on: {time.strftime('%Y-%m-%d')}"
     text = re.sub(r"(?mi)^(\W*Status:\s*approved.*)$", lambda m: m.group(1) + "  \n" + stamp, text, count=1)
-    if a.note:
-        text = text.rstrip() + f"\n\n## Approval note\n\n{a.note}\n"
+    if note:
+        text = text.rstrip() + f"\n\n## Approval note\n\n{note}\n"
     doc.write_text(text, encoding="utf-8")
     for adr in sorted((root / "sdlc" / "adr").glob("*.md")):
         t = adr.read_text(encoding="utf-8")
@@ -460,14 +488,13 @@ def cmd_architecture_approve(root: Path, cfg: dict, a) -> None:
     st.update(result="approved", approved_by=who)
     sf.parent.mkdir(parents=True, exist_ok=True)
     sf.write_text(json.dumps(st, indent=2), encoding="utf-8")
-    Board().event(None, "human", "design", f"architecture approved by {who}" + (f": {a.note}" if a.note else ""))
+    Board().event(None, "human", "design", f"architecture approved by {who}" + (f": {note}" if note else ""))
     audit(root, "architecture-approved", change=change.name, by=who)
     if cfg["pipeline"].get("commit", True):
         paths = [p for p in ("sdlc/ARCHITECTURE.md", "sdlc/adr", "sdlc/architecture.png", "sdlc/architecture.svg",
                              "sdlc/architecture.drawio") if (root / p).exists()]
         git(root, "add", *paths)
         git(root, "commit", "-q", "-m", f"architecture: {change.name}", "-m", f"Approved by {who}.")
-    print(f"architecture approved by {who}; planning can start (run prepare / plan / run again)")
 
 
 def cmd_architecture_changes(root: Path, cfg: dict, a) -> None:
@@ -699,11 +726,13 @@ def load_breakdown(root: Path, cfg: dict, change: Path, data: dict, devs: int) -
         if existing == change.name and m.get("breakdown_sha") == sha:
             log("board already holds this breakdown — keeping it")
             return
-        if board_untouched(b):
+        finished = existing != change.name and all(i["status"] == "done" for i in b.items() if i["type"] in ("task", "design"))
+        if board_untouched(b) or finished:
             # nothing has been worked on yet, so reloading loses nothing — no human reset needed
-            log(f"breakdown changed and no work has started — reloading the board"
+            log((f"{existing} is finished — saved under the board's runs; " if finished and not board_untouched(b) else
+                 "breakdown changed and no work has started — ") + "reloading the board"
                 + (f" (was {existing})" if existing != change.name else ""))
-            b.clear()
+            b.clear()  # archives the old run first
         elif existing == change.name and m.get("breakdown_sha") is None:
             b.set_meta(breakdown_sha=sha)  # board from an older kit with work in progress: adopt, keep it
             return
@@ -1247,7 +1276,7 @@ class Lead:
         self.b.update(t["key"], "lead", status="in_progress", assignee=agent, branch=branch)
         behaviour = "block" if self.a.simulate and t["key"] == "T-4" and not self.help_rounds.get("T-4") else ""
         self.launch(agent, "developer", "developer", t, DEV_PROMPT.format(**ctx), wt,
-                    self.t["models"]["developer"], behaviour=behaviour)
+                    self.models()["developer"], behaviour=behaviour)
 
     def start_qa(self, agent: str, t: dict) -> None:
         """Claim the task now; check out, install and start the app in the background so the lead keeps
@@ -1291,7 +1320,7 @@ class Lead:
         if self.design and self.design["key"] in t["depends_on"]:
             prompt += DESIGN_FOR_QA.format(mockup_url=self.mockup_url())
         port = int(app.split(":")[2].split()[0].split("/")[0]) if app else None
-        self.launch(agent, "qa", "qa", t, prompt, wt, self.t["models"]["qa"], port=port, behaviour=behaviour)
+        self.launch(agent, "qa", "qa", t, prompt, wt, self.models()["qa"], port=port, behaviour=behaviour)
 
     def lead_check(self, t: dict) -> None:
         """Verify a no-QA task in its developer's worktree (still on the task branch) in the background."""
@@ -1371,7 +1400,7 @@ class Lead:
             budget=max(10, int(self.t["run_timeout_minutes"] * 0.6)),
             critique="; if the impeccable skill is loaded, run its critique and audit on the mockup and fix the findings")
         self.b.update(d["key"], "lead", status="in_progress", branch=branch)
-        self.launch(agent, "designer", "designer", d, prompt, wt, self.t["models"].get("designer", "sonnet"),
+        self.launch(agent, "designer", "designer", d, prompt, wt, self.models().get("designer", "sonnet"),
                     behaviour=self.rel)
 
     def start_help(self, agent: str, t: dict) -> None:
@@ -1382,7 +1411,7 @@ class Lead:
         self.help_rounds[t["key"]] = self.help_rounds.get(t["key"], 0) + 1
         self.b.event(t["key"], "lead", "help", f"{agent} sent to help {t['assignee']} (round {self.help_rounds[t['key']]})")
         cwd = self.wt(agent)
-        self.launch(agent, "helper", "helper", t, HELP_PROMPT.format(**ctx), cwd, self.t["models"]["helper"],
+        self.launch(agent, "helper", "helper", t, HELP_PROMPT.format(**ctx), cwd, self.models()["helper"],
                     add_dirs=[str(self.wt(t["assignee"]))], behaviour=t["assignee"])
 
     # ---------------------------------------------------------------- app for QA
@@ -1477,7 +1506,24 @@ class Lead:
                     self.b.update(key, "lead", note=f"{agent} answered — back to {t['assignee']}", status="in_progress")
         self.b.upsert_agent(agent, status="idle", item_key=None, activity=f"finished {kind} {key}")
 
+    def models(self) -> dict:
+        """Read fresh each time: the human may switch a phase's model on the board while the team runs."""
+        try:
+            return load_config(self.root)["team"]["models"]
+        except Exception:
+            return self.t["models"]
+
+    def auto_note(self) -> str:
+        return YOLO_NOTE.format(who=yolo_by(self.root)) if yolo(self.root) else "auto-approved (team.design.approval = auto)"
+
     def escalate(self, t: dict, why: str) -> None:
+        if yolo(self.root) and not any("RESUMED by yolo" in (e.get("text") or "")
+                                       for e in self.b.events(item_key=t["key"], limit=400)):
+            # no human to ask: send it back once with a "decide yourself" note; a second time it waits on the board
+            self.b.event(t["key"], "lead", "status", f"stuck: {why}")
+            self.b.resume(t["key"], YOLO_GUIDANCE.format(why=why), actor="yolo")
+            log(f"YOLO: {t['key']} was stuck ({why}); sent back to the team to decide")
+            return
         self.escalated.add(t["key"])
         self.b.set_meta(escalated=sorted(self.escalated))
         self.b.update(t["key"], "lead", note=f"ESCALATED to a human: {why}", status="blocked")
@@ -1532,8 +1578,8 @@ class Lead:
                 verdict = d.get("qa_by") or ""
                 if verdict.startswith("approved:"):
                     self.merge(d)
-                elif self.d.get("approval") == "auto" or getattr(self.a, "auto_approve_design", False):
-                    self.b.approve_design(d["key"], "auto-approved (team.design.approval = auto)", actor="lead")
+                elif self.d.get("approval") == "auto" or getattr(self.a, "auto_approve_design", False) or yolo(self.root):
+                    self.b.approve_design(d["key"], self.auto_note(), actor="lead")
                 elif time.time() - self._waiting_note > 300:
                     self._waiting_note = time.time()
                     self.b.event(d["key"], "lead", "system", "waiting for the human to approve the design — "
@@ -1625,6 +1671,15 @@ class Lead:
         return self.wrap_up()
 
     def wrap_up(self) -> int:
+        try:
+            return self._wrap_up()
+        finally:
+            try:
+                self.b.archive("finished")  # stays visible under the board's runs after the next change starts
+            except Exception:
+                pass
+
+    def _wrap_up(self) -> int:
         ts = self.tasks()
         done = [t for t in ts if t["status"] == "done"]
         iwt = self.wt("integration")
@@ -1837,7 +1892,7 @@ class TeamLead(Lead):
             self.spawned.append(agent)
         bm = re.search(r"budget:? about (\d+) minutes", text, re.I)
         self.jobs[agent] = {"keys": keys, "kind": kind, "started": time.time(), "budget": int(bm.group(1)) if bm else 0}
-        model = self.t["models"].get("helper" if kind == "helper" else role, "sonnet")
+        model = self.models().get("helper" if kind == "helper" else role, "sonnet")
         self.assignments.append({
             "agent": agent, "action": action, "agent_type": TL_ROLES[kind], "model": model, "keys": keys,
             "title": title, "file": str(f),
@@ -1962,8 +2017,8 @@ class TeamLead(Lead):
                 self.assign_design(d)
             elif d["status"] == "review" and (d.get("qa_by") or "").startswith("approved:"):
                 self.merge_branch(d["branch"], [d])
-            elif d["status"] == "review" and (self.d.get("approval") == "auto" or self.a.auto_approve_design):
-                self.b.approve_design(d["key"], "auto-approved (team.design.approval = auto)", actor="lead")
+            elif d["status"] == "review" and (self.d.get("approval") == "auto" or self.a.auto_approve_design or yolo(self.root)):
+                self.b.approve_design(d["key"], self.auto_note(), actor="lead")
                 self.merge_branch(d["branch"], [self.b.item(d["key"])])
 
     def assign_design(self, d: dict) -> None:
@@ -2273,7 +2328,7 @@ class TeamLead(Lead):
             f = self.adir / f"{agent}-update-{int(time.time())}.md"
             f.write_text(note + "\n", encoding="utf-8")
             self.assignments.append({"agent": agent, "action": "send", "agent_type": TL_ROLES["developer"],
-                                     "model": self.t["models"].get("developer", "sonnet"), "keys": j["keys"],
+                                     "model": self.models().get("developer", "sonnet"), "keys": j["keys"],
                                      "title": "scope change", "file": str(f), "message": note})
             log(f"rebalanced: {', '.join(t['key'] for t in move)} from {agent} → {idle}")
             return [t for t in (self.b.item(m["key"]) for m in takeable) if t]

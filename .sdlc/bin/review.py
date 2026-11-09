@@ -20,7 +20,8 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from sdlc_core import git, header_field  # noqa: E402
+from sdlc_core import changes, git, header_field, load_config, stage_of, yolo  # noqa: E402
+import gate  # noqa: E402
 
 AGENT_MODEL = {"architect": "opus"}  # others: team.models.<agent> or sonnet
 LOCK = threading.Lock()
@@ -34,30 +35,54 @@ def _slug(s: str) -> str:
 class Review:
     def __init__(self, root: Path, cfg: dict, board):
         self.root, self.cfg, self.board = Path(root), cfg or {}, board
+        gate._BOARD = board
         self.state = self.root / ".sdlc" / "state" / "review"
         self._cache = (0.0, None)
 
     # ---------- which change, which artifacts ----------
-    def change_dir(self) -> Path | None:
-        name = (self.board.meta() or {}).get("change")
+    def current_change(self) -> str:
+        """The run the board shows live: the team's change while it still has work, else the change most recently
+        worked on (so a new /sdlc:loop shows up from its intent, long before any plan)."""
+        m = self.board.meta() or {}
         base = self.root / self.cfg.get("changes_dir", "sdlc/changes")
-        if name and (base / name).is_dir():
-            return base / name
+        items = [i for i in self.board.items() if i["type"] in ("task", "design")] if m.get("change") else []
+        if m.get("change") and (base / m["change"]).is_dir() and items and not all(i["status"] == "done" for i in items):
+            return m["change"]
+        best, when = "", -1.0
+        for c in (base.iterdir() if base.is_dir() else []):
+            if c.is_dir():
+                t = self._touched(c)
+                if t > when:
+                    best, when = c.name, t
+        return best or m.get("change", "")
+
+    def board_change(self) -> str:
+        return (self.board.meta() or {}).get("change", "")
+
+    def change_dir(self, want: str | None = None) -> Path | None:
+        """The change being looked at: the one asked for, else the live one."""
+        base = self.root / self.cfg.get("changes_dir", "sdlc/changes")
+        for name in (want, self.current_change()):
+            if name and "/" not in name and "\\" not in name and ".." not in name and (base / name).is_dir():
+                return base / name
         dirs = sorted((d for d in base.glob("*") if d.is_dir()), key=lambda d: d.stat().st_mtime) if base.is_dir() else []
         return dirs[-1] if dirs else None
 
     def worktree(self, name: str) -> Path:
         return self.root / ((self.cfg.get("team") or {}).get("worktree_dir") or ".sdlc/worktrees") / name
 
-    def artifacts(self, fresh: bool = False) -> list[dict]:
-        t, cached = self._cache
-        if cached is not None and not fresh and time.time() - t < 3:
+    def artifacts(self, fresh: bool = False, change: str | None = None) -> list[dict]:
+        ch = self.change_dir(change)
+        t, key, cached = self._cache if len(self._cache) == 3 else (0.0, None, None)
+        if cached is not None and not fresh and key == (ch.name if ch else "") and time.time() - t < 3:
             return cached
-        out, ch = [], self.change_dir()
+        out = []
+        live = bool(ch) and ch.name == self.board_change()  # the board's items belong to this change
+        gates = gate.load(self.root, ch.name) if ch else {}
 
         def add(id_, name, path, agent, status, kind="doc", needs=False, extra=None):
             out.append({"id": id_, "name": name, "path": path, "agent": agent, "status": status or "", "kind": kind,
-                        "needs": needs, **(extra or {})})
+                        "needs": needs, "change": ch.name if ch else "", **(extra or {})})
 
         def file_status(p: Path) -> str:
             return (header_field(p, "Status") or "").strip().lower() if p.is_file() else ""
@@ -65,10 +90,12 @@ class Review:
         if ch:
             rel = ch.relative_to(self.root).as_posix()
             for fname, name, agent in (("intent.md", "Intent", "lead"), ("spec.md", "Spec", "lead"),
-                                       ("plan.md", "Plan notes", "planner")):
-                p = ch / fname
+                                       ("plan.md", "Plan notes", "planner"), ("review.md", "Code review", "lead")):
+                p, g = ch / fname, gates.get(fname[:-3]) or {}
                 if p.is_file():
-                    add(f"file:{rel}/{fname}", name, f"{rel}/{fname}", agent, file_status(p))
+                    st = g.get("status") if g.get("status") in ("waiting", "approved", "changes") else file_status(p)
+                    add(f"file:{rel}/{fname}", name, f"{rel}/{fname}", agent, st, kind=fname[:-3],
+                        needs=g.get("status") == "waiting")
             esc = ch / "ESCALATION.md"
             if esc.is_file():
                 add(f"file:{rel}/ESCALATION.md", "Escalation", f"{rel}/ESCALATION.md", "lead", "waiting", needs=True)
@@ -88,32 +115,142 @@ class Review:
             title = adr.stem.split("-", 1)
             add(f"file:sdlc/adr/{adr.name}", f"ADR-{title[0]} {title[1].replace('-', ' ') if len(title) > 1 else ''}".strip(),
                 f"sdlc/adr/{adr.name}", "architect", file_status(adr), kind="adr")
-        for it in self.board.items("design"):
+        for it in (self.board.items("design") if live else []):
             waiting = it["status"] == "review" and not str(it.get("qa_by") or "").startswith("approved")
             st = "waiting" if waiting else "approved" if it["status"] in ("review", "done") else it["status"]
             add(f"design:{it['key']}", f"Design {it['key']}", f"design/{it['key']}", "designer", st, kind="design",
                 needs=waiting, extra={"key": it["key"], "title": it.get("title", "")})
-        for key in (self.board.meta() or {}).get("escalated", []) or []:
+        for key in ((self.board.meta() or {}).get("escalated", []) or [] if live else []):
             it = self.board.item(key) or {}
             add(f"escalated:{key}", f"Escalated {key}", f"task/{key}", "lead", "waiting", kind="escalation",
                 needs=True, extra={"key": key, "title": it.get("title", "")})
         if ch and (ch / "breakdown.json").is_file():
             add("plan", "Plan", f"{ch.relative_to(self.root).as_posix()}/breakdown.json", "planner", "planned", kind="plan")
-        self._cache = (time.time(), out)
+        self._cache = (time.time(), ch.name if ch else "", out)
         return out
 
-    def count(self) -> int:
+    def count(self, change: str | None = None) -> int:
         try:
-            return sum(1 for a in self.artifacts() if a["needs"])
+            return sum(1 for a in self.artifacts(change=change) if a["needs"])
         except Exception:
             return 0
 
-    def find(self, id_: str) -> dict | None:
-        return next((a for a in self.artifacts(fresh=True) if a["id"] == id_), None)
+    def find(self, id_: str, change: str | None = None) -> dict | None:
+        return next((a for a in self.artifacts(fresh=True, change=change) if a["id"] == id_), None)
+
+    # ---------- runs and stages (what the board shows before any task exists) ----------
+    def runs(self) -> list[dict]:
+        """Every change in the project, newest first, with its stage and whether the board has a saved snapshot."""
+        c = getattr(self, "_runs_cache", None)
+        if c and time.time() - c[0] < 5:
+            return c[1]
+        hist = self.root / ".sdlc" / "state" / "history"
+        cur = self.current_change()
+        out = []
+        for c in sorted(changes(self.root, self.cfg), key=lambda d: (d.name != cur, -self._touched(d))):
+            st = self.stages(c.name)
+            label = next((x["label"] + (" — needs you" if x["state"] == "waiting" else "") for x in st["stages"]
+                          if x["key"] == st["stage"]), "") if st.get("stages") else stage_of(c)
+            out.append({"change": c.name, "stage": label or "done", "live": c.name == cur,
+                        "snapshot": (hist / f"{c.name}.json").is_file()})
+        self._runs_cache = (time.time(), out)
+        return out
+
+    @staticmethod
+    def _touched(c: Path) -> float:
+        return max([c.stat().st_mtime] + [f.stat().st_mtime for f in c.iterdir() if f.is_file()])
+
+    def stages(self, change: str | None = None) -> dict:
+        """The loop's stages for a change, each done / waiting (needs you) / active / pending / skipped."""
+        ch = self.change_dir(change)
+        if not ch:
+            return {"change": "", "stages": [], "yolo": yolo(self.root)}
+        live = ch.name == self.board_change()
+        g = gate.load(self.root, ch.name)
+        fs = lambda f: (header_field(ch / f, "Status") or "").lower() if (ch / f).is_file() else ""
+        ok = ("accepted", "approved", "implemented", "done", "in-progress")
+        arch = self.root / "sdlc" / "ARCHITECTURE.md"
+        ast = (header_field(arch, "Status") or "").lower() if arch.is_file() else ""
+        items = self.board.items() if live else self._snapshot_items(ch.name)
+        tasks = [i for i in items if i["type"] == "task"]
+        designs = [i for i in items if i["type"] == "design"]
+        done_t = sum(t["status"] == "done" for t in tasks)
+        st = []
+
+        def add(key, label, state, note=""):
+            st.append({"key": key, "label": label, "state": state, "note": note})
+
+        def doc(key, label, f):
+            gs = (g.get(key) or {}).get("status")
+            if gs == "waiting":
+                return add(key, label, "waiting", "needs your approval")
+            if fs(f) in ok or gs == "approved":
+                return add(key, label, "done")
+            return add(key, label, "active" if (ch / f).is_file() else "pending")
+
+        doc("intent", "Intent", "intent.md")
+        doc("spec", "Spec", "spec.md")
+        later = (ch / "plan.md").is_file() or (ch / "breakdown.json").is_file() or bool(tasks)
+        if ast == "proposed":
+            add("architecture", "Architecture", "waiting", "needs your approval")
+        elif ast in ("approved", "accepted"):
+            add("architecture", "Architecture", "done")
+        else:
+            add("architecture", "Architecture", "skipped" if later else "pending", "unchanged" if later else "")
+        if (ch / "breakdown.json").is_file() or tasks:
+            add("plan", "Plan", "done", f"{len(tasks)} tasks" if tasks else "")
+        else:
+            doc("plan", "Plan", "plan.md")
+        if designs:
+            w = any(d["status"] == "review" and not str(d.get("qa_by") or "").startswith("approved") for d in designs)
+            dn = all(d["status"] == "done" or str(d.get("qa_by") or "").startswith("approved") for d in designs)
+            add("design", "Design", "waiting" if w else "done" if dn else "active", "needs your approval" if w else "")
+        else:
+            add("design", "Design", "skipped" if tasks else "pending")
+        if tasks:
+            add("build", "Build", "done" if done_t == len(tasks) else "active", f"{done_t}/{len(tasks)}")
+            inq = sum(t["status"] == "in_qa" for t in tasks)
+            add("qa", "QA", "done" if done_t == len(tasks) else "active" if inq or done_t else "pending",
+                f"{inq} testing" if inq else "")
+        else:
+            add("build", "Build", "active" if fs("plan.md") in ok else "pending")
+            add("qa", "QA", "pending")
+        doc("review", "Review", "review.md")
+        if (g.get("review") or {}).get("status") == "approved" or fs("review.md") in ok:
+            add("done", "Done", "done")
+        else:
+            add("done", "Done", "pending")
+        if live and (self.board.meta() or {}).get("escalated"):
+            for x in st:
+                if x["key"] == "build":
+                    x["state"], x["note"] = "waiting", f"{len(self.board.meta()['escalated'])} task(s) need you"
+        cur = next((x["key"] for x in st if x["state"] in ("waiting", "active")), None) or \
+            next((x["key"] for x in st if x["state"] == "pending"), "done")
+        if cur == "done" and not any(x["key"] == "done" and x["state"] == "done" for x in st):
+            cur = ""
+        return {"change": ch.name, "stage": cur, "stages": st, "live": ch.name == self.current_change(), "yolo": yolo(self.root),
+                "waiting": sum(x["state"] == "waiting" for x in st)}
+
+    def _snapshot_items(self, change: str) -> list[dict]:
+        try:
+            return json.loads((self.root / ".sdlc/state/history" / f"{change}.json").read_text(encoding="utf-8")).get("items", [])
+        except (OSError, ValueError):
+            return []
+
+    def snapshot(self, change: str) -> dict | None:
+        """A run's board: the live board when it still holds that change, else the copy saved when it moved on."""
+        if "/" in change or "\\" in change or ".." in change:
+            return None
+        if change == self.board_change():
+            return self.board.snapshot()
+        try:
+            return json.loads((self.root / ".sdlc/state/history" / f"{change}.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
 
     # ---------- documents and versions ----------
-    def _design_notes(self, key: str) -> tuple[str, Path | None]:
-        ch = self.change_dir()
+    def _design_notes(self, key: str, change: str | None = None) -> tuple[str, Path | None]:
+        ch = self.change_dir(change)
         if not ch:
             return "", None
         rel = ch.relative_to(self.root) / "design"
@@ -161,8 +298,8 @@ class Review:
                            encoding="utf-8", errors="replace")
         return r.stdout if r.returncode == 0 else ""
 
-    def doc(self, id_: str, ver: str = "") -> dict | None:
-        a = self.find(id_)
+    def doc(self, id_: str, ver: str = "", change: str | None = None) -> dict | None:
+        a = self.find(id_, change)
         if not a:
             return None
         res = {**a, "content": "", "versions": [], "version": "", "added": [], "editable": self.editable(a),
@@ -187,11 +324,11 @@ class Review:
                         res["diagram"] = img
                         break
         elif a["kind"] == "design":
-            res["content"], _ = self._design_notes(a["key"])
+            res["content"], _ = self._design_notes(a["key"], a["change"])
             res["content"] = res["content"] or f"# Design {a['key']}\n\n{a.get('title', '')}\n\nThe designer is still working."
             res["mockup"] = f"design/{a['key']}/"
         elif a["kind"] == "escalation":
-            ch = self.change_dir()
+            ch = self.change_dir(a["change"])
             esc = ch / "ESCALATION.md" if ch else None
             reason = ""
             try:
@@ -237,8 +374,8 @@ class Review:
         tmp.write_text(json.dumps({k: v for k, v in d.items() if k != "pending"}, indent=1), encoding="utf-8")
         os.replace(tmp, f)
 
-    def post(self, id_: str, text: str, quote: str = "", section: str = "") -> dict:
-        a = self.find(id_)
+    def post(self, id_: str, text: str, quote: str = "", section: str = "", change: str | None = None) -> dict:
+        a = self.find(id_, change)
         if not a:
             return {"error": "unknown document"}
         with LOCK:
@@ -258,7 +395,7 @@ class Review:
 
     def _prompt(self, a: dict, text: str, quote: str, section: str, editable: bool) -> str:
         who = {"architect": "the architect", "designer": "the designer", "planner": "the planner"}.get(a["agent"], "the team lead")
-        ch = self.change_dir()
+        ch = self.change_dir(a.get("change"))
         ctx = f"The change folder is {ch.relative_to(self.root).as_posix()}." if ch else ""
         doc = a["path"] if a["kind"] not in ("design", "escalation") else {"design": "the design notes and mockup",
                                                                              "escalation": "the escalated task"}[a["kind"]]
@@ -289,8 +426,9 @@ class Review:
         id_ = a["id"]
         d = self.chat(id_)
         editable = self.editable(a)
-        team = self.cfg.get("team") or {}
-        model = (team.get("models") or {}).get(a["agent"]) or AGENT_MODEL.get(a["agent"], "sonnet")
+        cfg = load_config(self.root)  # fresh: the human may have switched models on the board
+        model = ((cfg.get("team") or {}).get("models") or {}).get(a["agent"]) or \
+            (cfg.get("models") or {}).get("spec" if a["agent"] == "lead" else "", "") or AGENT_MODEL.get(a["agent"], "sonnet")
         tools = ["Read", "Grep", "Glob", "Bash(git log*)", "Bash(git show*)", "Bash(git diff*)", "Bash(ls*)"]
         if editable:
             tools += ["Edit(sdlc/ARCHITECTURE.md)", "Write(sdlc/ARCHITECTURE.md)", "Edit(sdlc/adr/**)", "Write(sdlc/adr/**)",
@@ -305,7 +443,7 @@ class Review:
         reply, cost, session, err = "", 0.0, d.get("session"), ""
         try:
             r = subprocess.run(cmd, cwd=cwd, input=self._prompt(a, text, quote, section, editable), capture_output=True,
-                               text=True, encoding="utf-8", errors="replace", timeout=int(team.get("review_timeout_s", 900)),
+                               text=True, encoding="utf-8", errors="replace", timeout=int((cfg.get("team") or {}).get("review_timeout_s", 900)),
                                env={**os.environ, "PYTHONIOENCODING": "utf-8"})
             for line in reversed((r.stdout or "").strip().splitlines()):
                 try:
@@ -353,48 +491,33 @@ class Review:
         return h.hexdigest()
 
     # ---------- decisions ----------
-    def decide(self, id_: str, action: str, text: str = "") -> dict:
-        a = self.find(id_)
+    def decide(self, id_: str, action: str, text: str = "", change: str | None = None, by: str = "") -> dict:
+        """Approve / request changes / resume, through the same gate the loop and the team lead wait on."""
+        a = self.find(id_, change)
         if not a:
             return {"error": "unknown document"}
-        bin_ = self.root / ".sdlc" / "bin" / "team.py"
-        if a["kind"] in ("architecture", "adr"):
-            doc = self.root / "sdlc" / "ARCHITECTURE.md"
-            if (header_field(doc, "Status") or "").lower() != "proposed":
-                return {"error": "the architecture is not waiting for approval"}
-            m = re.search(r"^\W*Change:\W*([^\s`*]+)", "\n".join(doc.read_text(encoding="utf-8", errors="replace").splitlines()[:15]), re.M | re.I)
-            change = (m.group(1).rstrip("/").split("/")[-1] if m else "") or (self.board.meta() or {}).get("change", "")
-            if not change:
-                return {"error": "cannot tell which change this architecture belongs to"}
-            if action == "approve":
-                args = ["architecture-approve", change, text[:1000]]
-            elif action == "changes" and text.strip():
-                args = ["architecture-changes", change, text.strip()[:2000]]
-            else:
-                return {"error": "action must be approve, or changes with text"}
-            r = subprocess.run([sys.executable, str(bin_), *args], cwd=self.root, capture_output=True, text=True,
-                               encoding="utf-8", errors="replace")
-            if r.returncode != 0:
-                return {"error": (r.stderr or r.stdout).strip()[-400:]}
-        elif a["kind"] == "design":
-            if not a["needs"]:
-                return {"error": "that design is not waiting for approval"}
-            if action == "approve":
-                self.board.approve_design(a["key"], text[:1000])
-            elif action == "changes" and text.strip():
-                self.board.request_design_changes(a["key"], text.strip()[:2000])
-            else:
-                return {"error": "action must be approve, or changes with text"}
-        elif a["kind"] == "escalation":
-            if action != "resume" or not text.strip():
-                return {"error": "give the team some guidance to resume"}
-            self.board.resume(a["key"], text.strip()[:2000])
-        else:
+        kind = {"architecture": "architecture", "adr": "architecture", "design": f"design:{a.get('key')}",
+                "escalation": f"escalated:{a.get('key')}"}.get(a["kind"], a["kind"])
+        if kind not in gate.DOC_KINDS and kind != "architecture" and ":" not in kind:
             return {"error": "nothing to decide on this document"}
+        if kind in gate.DOC_KINDS and not a["needs"]:
+            return {"error": f"the {kind} is not waiting for approval"}
+        ch = self.change_dir(a["change"] or None)
+        if kind == "architecture":  # the architecture names its change; fall back to the one on screen
+            doc = self.root / "sdlc" / "ARCHITECTURE.md"
+            m = re.search(r"^\W*Change:\W*([^\s`*]+)", "\n".join(doc.read_text(encoding="utf-8", errors="replace").splitlines()[:15]), re.M | re.I)
+            named = m.group(1).rstrip("/").split("/")[-1] if m else ""
+            ch = self.change_dir(named) if named and self.change_dir(named).name == named else ch
+        if not ch:
+            return {"error": "cannot tell which change this belongs to"}
+        r = gate.decide(self.root, self.cfg, ch, kind, action, text, by)
+        if r.get("error"):
+            return r
         d = self.chat(id_)
-        label = {"approve": "✓ Approved", "changes": "Changes requested", "resume": "Resumed with guidance"}[action]
+        label = {"approve": "✓ Approved", "changes": "Changes requested", "resume": "Resumed with guidance",
+                 "stop": "Stopped"}[r["decision"]]
         d["messages"].append({"who": "system", "text": label + (f": {text.strip()}" if text.strip() else ""),
-                              "ts": time.time(), "decision": action})
+                              "ts": time.time(), "decision": r["decision"]})
         self._save_chat(id_, d)
         self._cache = (0.0, None)
         return {"ok": True}
