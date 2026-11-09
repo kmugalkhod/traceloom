@@ -58,3 +58,19 @@
 .mono-sm{font-family:var(--font-mono);font-size:12px}
 .ev-outcome{display:flex;gap:6px;flex-wrap:wrap}
 @media (max-width:900px){.tpl-grid{grid-template-columns:1fr}.form2{grid-template-columns:1fr}.fgrid{grid-template-columns:1fr}.tgt{grid-template-columns:1fr}.frow{grid-template-columns:1fr 36px}.frow .select{grid-column:1/-1}}
+
+/* no inline styles: the app CSP (default-src 'self') drops style="" attributes */
+.ev-s1{font-size:12px}
+.ev-s2{vertical-align:middle}
+.ev-s3{margin-top:12px}
+.ev-s4{margin-top:16px}
+.ev-s5{margin-right:4px}
+.ev-s6{text-align:left}
+.ev-s7{margin-bottom:6px}
+.ev-s8{margin-top:4px}
+.ev-s9{display:block;margin-top:6px}
+.ev-s10{width:72px}
+.ev-s11{max-width:240px}
+.ev-s12{padding:12px 16px}
+.ev-s13{position:sticky;top:16px}
+.ev-s14{font-size:13px}

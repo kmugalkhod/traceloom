@@ -7,7 +7,7 @@
 {% set action = "/project/" ~ project.id ~ "/evals/templates" ~ ("/" ~ view.template.id if view else "") %}
 <div class="page-h">
   <div class="grow">
-    <h1>{{ view.template.name if view else "New template" }}{% if view %} <span class="pill lab" style="vertical-align:middle">v{{ (shown or view.latest).version }}</span>{% if builtin %} <span class="pill builtin" style="vertical-align:middle">Built-in</span>{% endif %}{% endif %}</h1>
+    <h1>{{ view.template.name if view else "New template" }}{% if view %} <span class="ev-s2 pill lab">v{{ (shown or view.latest).version }}</span>{% if builtin %} <span class="ev-s2 pill builtin">Built-in</span>{% endif %}{% endif %}</h1>
     <p class="sub">
       {% if builtin %}Built-in templates are read-only. Clone it to change the wording, then choose a model.
       {% elif shown %}You are viewing an older version. <a href="/project/{{ project.id }}/evals/templates/{{ view.template.id }}">Back to the current version</a>.
@@ -25,19 +25,19 @@
     {% endif %}
   </div>
 </div>
-{% if error %}<div style="margin-top:12px">{{ m.banner("err", error) }}</div>{% endif %}
+{% if error %}<div class="ev-s3">{{ m.banner("err", error) }}</div>{% endif %}
 
 {% set ro = not editable %}
 <form id="editor-form" method="post" action="{{ action }}" data-template-editor>
 {{ m.csrf() }}
-<div class="form2" style="margin-top:16px">
+<div class="ev-s4 form2">
   <div class="stackf">
     {% if not view %}
     <section class="panel"><div class="panel-b">{{ m.field("tname", "Name", name="name", value=form.name, required=True) }}</div></section>
     {% endif %}
-    <section class="panel"><div class="panel-h"><h2>Prompt</h2><span class="muted right" style="font-size:12px">use {{ "{{variables}}" }}</span></div><div class="panel-b stackf">
+    <section class="panel"><div class="panel-h"><h2>Prompt</h2><span class="ev-s1 muted right">use {{ "{{variables}}" }}</span></div><div class="panel-b stackf">
       <textarea class="textarea ev-ta{{ ' ev-ro' if ro }}" name="prompt" id="prompt" aria-label="Judge prompt" data-prompt{{ " readonly" if ro }}>{{ form.prompt }}</textarea>
-      <div class="vars" aria-live="polite"><span class="hint" style="margin-right:4px">Variables found:</span><span data-vars>{% for v in variables %}<span class="chip var">{{ "{{" }}{{ v }}{{ "}}" }}</span> {% else %}<span class="hint">none yet</span>{% endfor %}</span></div>
+      <div class="vars" aria-live="polite"><span class="ev-s5 hint">Variables found:</span><span data-vars>{% for v in variables %}<span class="chip var">{{ "{{" }}{{ v }}{{ "}}" }}</span> {% else %}<span class="hint">none yet</span>{% endfor %}</span></div>
     </div></section>
     <section class="panel"><div class="panel-h"><h2>Output</h2></div><div class="panel-b stackf">
       <div class="field"><span class="lbl">Score type</span>
@@ -49,8 +49,8 @@
         {% if ro %}<input type="hidden" name="type" value="{{ form.type }}">{% endif %}
       </div>
       <div class="fgrid" data-for-type="numeric"{{ " hidden" if form.type != "numeric" }}>
-        <div class="field"><label for="tmin">Minimum</label><input class="input num" style="text-align:left" id="tmin" name="min" value="{{ form.min }}"{{ " readonly" if ro }}></div>
-        <div class="field"><label for="tmax">Maximum</label><input class="input num" style="text-align:left" id="tmax" name="max" value="{{ form.max }}"{{ " readonly" if ro }}></div>
+        <div class="field"><label for="tmin">Minimum</label><input class="ev-s6 input num" id="tmin" name="min" value="{{ form.min }}"{{ " readonly" if ro }}></div>
+        <div class="field"><label for="tmax">Maximum</label><input class="ev-s6 input num" id="tmax" name="max" value="{{ form.max }}"{{ " readonly" if ro }}></div>
       </div>
       <div class="field" data-for-type="categorical"{{ " hidden" if form.type != "categorical" }}>
         <label for="tcats">Categories <span class="muted">one per line, 2 or more</span></label>
@@ -73,8 +73,8 @@
         <input class="input mono" id="mmodel" name="model" value="{{ form.model }}" list="model-options" autocomplete="off" data-model>
         <datalist id="model-options">{% for c in connections %}{% for name in c.models %}<option value="{{ name }}">{% endfor %}{% endfor %}</datalist></div>
       <div class="fgrid">
-        <div class="field"><label for="mtemp">Temperature</label><input class="input num" style="text-align:left" id="mtemp" name="temperature" value="{{ form.temperature }}"></div>
-        <div class="field"><label for="mtok">Max tokens</label><input class="input num" style="text-align:left" id="mtok" name="max_tokens" value="{{ form.max_tokens }}"></div>
+        <div class="field"><label for="mtemp">Temperature</label><input class="ev-s6 input num" id="mtemp" name="temperature" value="{{ form.temperature }}"></div>
+        <div class="field"><label for="mtok">Max tokens</label><input class="ev-s6 input num" id="mtok" name="max_tokens" value="{{ form.max_tokens }}"></div>
       </div>
       <span class="hint">Built-ins need a model chosen when a rule uses them.</span>
       {% endif %}
