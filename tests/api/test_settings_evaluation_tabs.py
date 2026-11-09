@@ -186,6 +186,8 @@ def test_configs_are_project_scoped(client, login, world, db, make_org, make_pro
         == 404
     )
     assert db.get(ScoreConfig, theirs.id).archived_at is None
+
+
 # --- evaluation tab ---------------------------------------------------------------------
 
 
@@ -288,3 +290,14 @@ def test_tabs_and_the_evaluation_nav_group(client, login, world):
     for label in ("Scores", "Annotation queues", "Evaluators", "Datasets"):
         assert f"</svg>{label}</a>" in page
     assert '<div class="cap">Evaluation</div>' in page
+
+
+@pytest.mark.xfail(
+    strict=True, reason="QA T-9: CSP default-src 'self' blocks the meter's inline width"
+)
+def test_qa_cap_meter_has_no_inline_style(client, login, world):
+    # With style="width:N%" blocked by the CSP the meter fill defaults to full width, so a project
+    # with $0 spent shows a 100% bar. The width has to come from a stylesheet or script.
+    as_role(client, login, world, Role.ADMIN)
+    html = client.get(eval_url(world), headers={"Accept": "text/html"}).text
+    assert not re.search(r'<i style="width:', html)
