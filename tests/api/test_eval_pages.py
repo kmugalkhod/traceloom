@@ -475,3 +475,25 @@ def test_rules_are_project_scoped(client, login, world, db, make_org, make_proje
     as_(client, login, world, Role.ADMIN)
     assert client.get(url(world, f"/rules/{other.id}"), headers=HTML).status_code == 404
     assert post(client, world, f"/rules/{other.id}/delete").status_code == 404
+
+
+def test_evaluator_pages_use_no_inline_styles_or_handlers(
+    client, login, world, db, make_eval_rule, make_eval_template
+):
+    """The app CSP is default-src 'self', which drops style="" and on*= attributes."""
+    template = make_eval_template(world.project, "judge", prompt="{{input}} {{output}}", model="m")
+    rule = make_eval_rule(world.project, template, name="r")
+    as_(client, login, world, Role.ADMIN)
+    paths = [
+        "/templates",
+        "/templates/new",
+        f"/templates/{template.id}",
+        "/rules",
+        "/rules/new",
+        f"/rules/{rule.id}",
+        "/rules/preview",
+    ]
+    for path in paths:
+        html = client.get(url(world, path), headers=HTML).text
+        assert not re.search(r"<[^>]+\sstyle=", html), path
+        assert not re.search(r"\son[a-z]+=", html), path
