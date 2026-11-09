@@ -1,4 +1,4 @@
-"""Factories for eval templates, rules and executions, loaded as a pytest plugin from conftest.py."""
+"""Factories for eval templates, rules and executions, loaded as a pytest plugin by conftest."""
 
 from __future__ import annotations
 
