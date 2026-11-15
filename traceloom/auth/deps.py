@@ -170,6 +170,25 @@ def project_key(
     return resolved
 
 
+@dataclass(frozen=True)
+class FeedbackPrincipal:
+    """A project resolved from its public key alone. It is a different type from `ResolvedKey` on
+    purpose: only the feedback endpoint accepts it, so a public key never reaches another route."""
+
+    key_id: str
+    project_id: str
+    public_key: str
+
+
+def feedback_key(request: Request, db: Session = Depends(get_db)) -> FeedbackPrincipal:
+    """Authenticate `X-Traceloom-Public-Key` (the pk of a live API key) to exactly one project."""
+    public_key = request.headers.get("x-traceloom-public-key", "").strip()
+    key = db.scalar(select(ApiKey).where(ApiKey.public_key == public_key)) if public_key else None
+    if key is None or key.revoked_at is not None:
+        raise HTTPException(401, "Invalid API key.")
+    return FeedbackPrincipal(key.id, key.project_id, key.public_key)
+
+
 def _stamp_last_used(container: Container, key_id: str, now: datetime) -> None:
     """Record use in a short transaction of its own. On the request session the write lock
     would be held until the endpoint finishes, slow body upload included."""

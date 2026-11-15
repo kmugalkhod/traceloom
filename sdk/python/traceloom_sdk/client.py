@@ -394,10 +394,24 @@ class Traceloom:
         observation_id: str | None = None,
         data_type: str | None = None,
         comment: str | None = None,
+        config_id: str | None = None,
+        session_id: str | None = None,
+        dataset_run_id: str | None = None,
     ) -> None:
         from traceloom_sdk import objects
 
-        objects.score(self, name, value, trace_id, observation_id, data_type, comment)
+        objects.score(
+            self,
+            name,
+            value,
+            trace_id,
+            observation_id,
+            data_type,
+            comment,
+            config_id,
+            session_id,
+            dataset_run_id,
+        )
 
     def update_current_trace(self, **fields: Any) -> None:
         from traceloom_sdk import objects

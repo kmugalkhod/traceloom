@@ -18,9 +18,12 @@ from sqlalchemy.orm import Session
 from traceloom.db.models import Observation, Score, Trace
 from traceloom.ports import (
     LEVELS,
+    SCORE_SORT_PREFIX,
     InvalidCursor,
     ObservationRow,
     Page,
+    ScoreFilter,
+    ScoreQuery,
     ScoreRow,
     TraceDetail,
     TraceQuery,
@@ -34,7 +37,30 @@ MAX_PAGE_SIZE = 200
 _LIKE_ESCAPE = "\\"
 
 
-def _sort_column(sort: str) -> ColumnElement[Any]:
+_FAR = 1e300  # stands in for "no score", so unscored rows sort last and keysets stay total
+
+
+def _score_sort(project_id: str, name: str, descending: bool) -> ColumnElement[Any]:
+    """The trace's average value of score `name`; no score sorts last in either direction."""
+    average = (
+        select(func.avg(Score.value))
+        .where(
+            Score.project_id == project_id,
+            Score.trace_id == Trace.id,
+            Score.name == name,
+            Score.value.is_not(None),
+        )
+        .scalar_subquery()
+    )
+    return func.coalesce(average, -_FAR if descending else _FAR)
+
+
+def _sort_column(sort: str, project_id: str = "", descending: bool = True) -> ColumnElement[Any]:
+    if sort.startswith(SCORE_SORT_PREFIX):
+        name = sort[len(SCORE_SORT_PREFIX) :]
+        if not name:
+            raise ValueError("sort=score: needs a score name")
+        return _score_sort(project_id, name, descending)
     # NULL latency sorts as -1 so keyset comparisons stay total.
     columns: dict[str, ColumnElement[Any]] = {
         "timestamp": Trace.timestamp,
@@ -45,7 +71,9 @@ def _sort_column(sort: str) -> ColumnElement[Any]:
     try:
         return columns[sort]
     except KeyError:
-        raise ValueError(f"unknown sort {sort!r}; expected one of {sorted(columns)}") from None
+        raise ValueError(
+            f"unknown sort {sort!r}; expected one of {sorted(columns)} or score:<name>"
+        ) from None
 
 
 def _contains(column: ColumnElement[Any], needle: str) -> ColumnElement[bool]:
@@ -98,6 +126,44 @@ def trace_filter_clauses(project_id: str, query: TraceQuery) -> list[ColumnEleme
     _range(clauses, Trace.timestamp, query.from_time, query.to_time)
     if query.bookmarked is not None:
         clauses.append(Trace.bookmarked == query.bookmarked)
+    clauses.extend(score_filter_clauses(project_id, query.score_filters, Trace.id))
+    if query.environment is None and query.exclude_environments:
+        clauses.append(Trace.environment.not_in(list(query.exclude_environments)))
+    return clauses
+
+
+_COMPARE = {
+    "=": lambda c, v: c == v,
+    "!=": lambda c, v: c != v,
+    ">": lambda c, v: c > v,
+    ">=": lambda c, v: c >= v,
+    "<": lambda c, v: c < v,
+    "<=": lambda c, v: c <= v,
+}
+
+
+def _score_condition(f: ScoreFilter) -> ColumnElement[bool]:
+    """The test on one score row: text values compare `string_value`, numbers and bools `value`."""
+    if f.op == "in":
+        if isinstance(f.value[0], str):
+            return Score.string_value.in_(list(f.value))
+        return Score.value.in_([float(v) for v in f.value])
+    if isinstance(f.value, str):
+        return _COMPARE[f.op](Score.string_value, f.value)
+    return _COMPARE[f.op](Score.value, float(f.value))
+
+
+def score_filter_clauses(
+    project_id: str, filters: Sequence[ScoreFilter], trace_id: ColumnElement[Any]
+) -> list[ColumnElement[bool]]:
+    """One clause per filter: `trace_id` has (or, for `missing`, lacks) a matching score."""
+    clauses: list[ColumnElement[bool]] = []
+    for f in filters:
+        where = [Score.project_id == project_id, Score.name == f.name, Score.trace_id.is_not(None)]
+        if f.op not in ("exists", "missing"):
+            where.append(_score_condition(f))
+        matching = select(Score.trace_id).where(*where)
+        clauses.append(trace_id.not_in(matching) if f.op == "missing" else trace_id.in_(matching))
     return clauses
 
 
@@ -243,14 +309,22 @@ class SqlReadMixin:
 
     def list_traces(self, project_id: str, query: TraceQuery) -> Page[TraceRow]:
         limit = max(1, min(query.limit, MAX_PAGE_SIZE))
-        sort_col = _sort_column(query.sort)
+        sort_col = _sort_column(query.sort, project_id, query.descending)
         where = trace_filter_clauses(project_id, query)
         if query.cursor:
             where.append(_keyset(sort_col, query.descending, query.cursor))
         order = sort_col.desc() if query.descending else sort_col.asc()
-        stmt = select(Trace).where(*where).order_by(order, Trace.id.asc()).limit(limit + 1)
+        by_score = query.sort.startswith(SCORE_SORT_PREFIX)
+        stmt = (
+            select(Trace, sort_col.label("sort_value")) if by_score else select(Trace)
+        ).where(*where).order_by(order, Trace.id.asc()).limit(limit + 1)  # fmt: skip
         with self.session_factory() as session:
-            rows = list(session.scalars(stmt))
+            if by_score:
+                pairs = list(session.execute(stmt))
+                rows = [t for t, _ in pairs]
+                sort_values = [v for _, v in pairs]
+            else:
+                rows = list(session.scalars(stmt))
             more = len(rows) > limit
             rows = rows[:limit]
             items = [trace_to_row(t) for t in rows]
@@ -260,9 +334,63 @@ class SqlReadMixin:
         next_cursor = None
         if more:
             last = rows[-1]
-            sort_value = last.timestamp if query.sort == "timestamp" else _sort_value(last, query)
+            if by_score:
+                sort_value = sort_values[len(rows) - 1]
+            else:
+                sort_value = (
+                    last.timestamp if query.sort == "timestamp" else _sort_value(last, query)
+                )
             next_cursor = encode_cursor(sort_value, last.id)
         return Page(items=items, next_cursor=next_cursor)
+
+    def score_counts(self, project_id: str, config_ids: Sequence[str]) -> dict[str, int]:
+        if not config_ids:
+            return {}
+        stmt = (
+            select(Score.config_id, func.count())
+            .where(Score.project_id == project_id, Score.config_id.in_(list(config_ids)))
+            .group_by(Score.config_id)
+        )
+        with self.session_factory() as session:
+            return {config_id: int(n) for config_id, n in session.execute(stmt)}
+
+    def list_scores(self, project_id: str, query: ScoreQuery) -> Page[ScoreRow]:
+        limit = max(1, min(query.limit, MAX_PAGE_SIZE))
+        where = [Score.project_id == project_id]
+        for column, value in (
+            (Score.trace_id, query.trace_id),
+            (Score.observation_id, query.observation_id),
+            (Score.session_id, query.session_id),
+            (Score.name, query.name),
+            (Score.source, query.source),
+            (Score.config_id, query.config_id),
+            (Score.dataset_run_id, query.dataset_run_id),
+        ):
+            if value is not None:
+                where.append(column == value)
+        if query.from_time:
+            where.append(Score.timestamp >= query.from_time)
+        if query.to_time:
+            where.append(Score.timestamp <= query.to_time)
+        if query.cursor:
+            value, row_id = decode_cursor(query.cursor)
+            if not isinstance(value, datetime):
+                raise InvalidCursor("cursor does not match the sort")
+            where.append(
+                or_(Score.timestamp < value, and_(Score.timestamp == value, Score.id > row_id))
+            )
+        stmt = (
+            select(Score)
+            .where(*where)
+            .order_by(Score.timestamp.desc(), Score.id.asc())
+            .limit(limit + 1)
+        )
+        with self.session_factory() as session:
+            rows = list(session.scalars(stmt))
+        more = len(rows) > limit
+        rows = rows[:limit]
+        next_cursor = encode_cursor(rows[-1].timestamp, rows[-1].id) if more else None
+        return Page(items=[score_to_row(r) for r in rows], next_cursor=next_cursor)
 
     def trace_stats(self, project_id: str, query: TraceQuery) -> TraceStats:
         where = trace_filter_clauses(project_id, query)

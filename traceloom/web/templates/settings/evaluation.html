@@ -1,0 +1,67 @@
+{% extends "settings/base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Evaluation{% endblock %}
+
+{% block settings_body %}
+<div class="stack">
+  {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
+  <p class="hint">Judge spending and the public feedback endpoint for this project.</p>
+
+  <section class="panel" aria-label="Daily cost cap">
+    <div class="panel-h"><h2>Judge daily cost cap</h2></div>
+    <div class="panel-b stack">
+      {% if paused %}{{ m.banner("warn", "The cap is 0, so every judge is paused.") }}{% endif %}
+      <div class="kvl">
+        <div><div class="k">Spent today (UTC)</div><div class="val big">{{ spent | money(2) }}</div></div>
+        <div><div class="k">Cap</div><div class="val big">{{ cap | money(2) }}</div></div>
+        <div><div class="k">Remaining</div><div class="val big">{{ remaining | money(2) }}</div></div>
+        <div><div class="k">Resets</div><div class="val">00:00 UTC, in {{ reset_hours }} h</div></div>
+      </div>
+      <div class="meter{% if percent >= 100 %} full{% endif %}" role="meter" aria-valuenow="{{ percent }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ percent }}% of the daily cap spent"><i class="mw-{{ percent }}"></i></div>
+      {% if can_edit %}
+      <form class="row cap-form" method="post" action="{{ base }}/cap">
+        {{ m.csrf() }}
+        <div class="field cap-field"><label for="cap">Cap in USD per day</label>
+          <span class="cap-input"><span class="cur">$</span><input id="cap" class="input num" name="cap" value="{{ cap_value }}" inputmode="decimal" autocomplete="off"{% if cap_error %} aria-invalid="true" aria-describedby="cap-err"{% endif %}></span>
+          {% if cap_error %}<span class="field-error" id="cap-err" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ cap_error }}</span></span>{% endif %}
+        </div>
+        <button class="btn btn-primary" type="submit">Save cap</button>
+        <span class="hint cap-hint">Default {{ default_cap | money(2) }} from the server setting. Leave empty to use it; 0 pauses all judges. Changes are written to the audit log.</span>
+      </form>
+      {% else %}<p class="hint">Default {{ default_cap | money(2) }} from the server setting. Admins change the cap.</p>{% endif %}
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Public feedback">
+    <div class="panel-h"><h2>Public feedback</h2><span class="muted right small">pk-only endpoint</span></div>
+    <div class="panel-b stack">
+      <div class="field"><label>Allowed feedback origins</label>
+        {% if origins %}
+        <div class="fchips">
+          {% for origin in origins %}
+          <span class="chip f mono">{{ origin }}
+            {% if can_edit %}<form method="post" action="{{ base }}/origins/remove">{{ m.csrf() }}<input type="hidden" name="origin" value="{{ origin }}"><button type="submit" aria-label="Remove {{ origin }}">{{ m.icon("i-x", "ico-sm") }}</button></form>{% endif %}
+          </span>
+          {% endfor %}
+        </div>
+        {% else %}<p class="hint">No origins yet, so browsers on other sites are blocked.</p>{% endif %}
+        {% if can_edit %}
+        <form class="row wrap" method="post" action="{{ base }}/origins">
+          {{ m.csrf() }}
+          <input class="input origin-input" name="origin" placeholder="https://your-app.example" aria-label="Add an origin" value="{{ origin_value }}" autocomplete="off"{% if origin_error %} aria-invalid="true" aria-describedby="origin-err"{% endif %}>
+          <button class="btn" type="submit">Add origin</button>
+        </form>
+        {% if origin_error %}<span class="field-error" id="origin-err" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ origin_error }}</span></span>{% endif %}
+        {% endif %}
+        <span class="hint">Only these origins receive CORS headers. The list is empty by default, so browsers on other sites are blocked.</span>
+      </div>
+      <div class="field"><label>Add 👍 / 👎 to your app</label>
+        <div class="snip"><pre id="feedback-snippet">{{ snippet }}</pre>{{ m.copy_button("#feedback-snippet") }}</div>
+        {% if not has_key %}<span class="hint">This project has no API key yet. Create one under API keys and put its public key in the snippet.</span>{% endif %}
+        <span class="hint">feedback.js is {{ script_kb }} KB, has no dependencies and uses your public key only. It can write scores for configs with public feedback turned on, nothing else. Limited to {{ feedback_rate | replace("/", " a ") }} per key and per IP.</span>
+      </div>
+    </div>
+  </section>
+  {% if not can_edit %}<div><span class="rolebar">{{ m.icon("i-eye", "ico-sm") }}Read-only: Admins edit the cap and the allowed origins</span></div>{% endif %}
+</div>
+{% endblock %}
