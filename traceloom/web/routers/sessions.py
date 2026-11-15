@@ -11,9 +11,9 @@ from sqlalchemy.orm import Session
 from traceloom.auth.deps import Access, get_container, require
 from traceloom.auth.permissions import Perm
 from traceloom.container import Container
-from traceloom.scores import configs as score_configs
 from traceloom.db.session import get_db
 from traceloom.ports import InvalidCursor, SessionQuery, TraceRow
+from traceloom.scores import configs as score_configs
 from traceloom.web import pagefmt  # noqa: F401  (registers the filters)
 from traceloom.web.context import env_context, page_context
 from traceloom.web.envpref import resolve_env, saved_env

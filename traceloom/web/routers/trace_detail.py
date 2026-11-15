@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 from traceloom.auth.deps import Access, get_container, require
 from traceloom.auth.permissions import Perm
 from traceloom.container import Container
-from traceloom.scores import configs as score_configs
 from traceloom.db.session import get_db
+from traceloom.scores import configs as score_configs
 from traceloom.web import trace_detail as td
 from traceloom.web import tree
 from traceloom.web.context import page_context

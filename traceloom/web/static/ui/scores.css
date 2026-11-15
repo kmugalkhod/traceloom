@@ -6,3 +6,5 @@
 .sin .row{display:flex;gap:8px;align-items:center}
 .sin .row .input,.sin .row .select{height:36px;min-width:0}
 .sin{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,260px);align-items:center;gap:12px}
+.score-filters{border:0;padding:0;margin:0;display:grid;gap:8px}
+.score-filters .frow{grid-template-columns:minmax(0,1.2fr) 88px minmax(0,1fr);margin-bottom:0}

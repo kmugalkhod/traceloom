@@ -220,7 +220,8 @@ def test_score_chips_macro_for_the_list(client):
                 score("t", "tone", None, data_type="CATEGORICAL", string_value="<b>x</b>")],
         csrf_token="",
     )  # fmt: skip
-    assert '<span class="n">quality:</span> <b>0.8</b>' in out and '<span class="n">ok:</span> <b>true</b>' in out
+    assert '<span class="n">quality:</span> <b>0.8</b>' in out
+    assert '<span class="n">ok:</span> <b>true</b>' in out
     assert "&lt;b&gt;x&lt;/b&gt;" in out
 
 
