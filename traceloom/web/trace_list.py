@@ -13,7 +13,8 @@ from urllib.parse import urlencode
 
 from starlette.datastructures import QueryParams
 
-from traceloom.ports import LEVELS, ScoreRow, TraceQuery, TraceRow
+from traceloom.config import get_settings
+from traceloom.ports import LEVELS, ScoreFilter, ScoreRow, TraceQuery, TraceRow
 from traceloom.web.context import avatar_class
 
 PAGE_SIZE = 50
@@ -172,6 +173,12 @@ class ListState:
         )
 
 
+def hidden_environments() -> tuple[str, ...]:
+    """The judge and experiment environments, left out of lists unless one is selected."""
+    settings = get_settings()
+    return (settings.eval_environment, settings.experiment_environment)
+
+
 def parse_state(
     params: QueryParams, base_path: str, env_pref: str | None, now: datetime | None = None
 ) -> ListState:
@@ -237,6 +244,7 @@ def parse_state(
         bookmarked=bookmarked,
         from_time=from_time,
         to_time=to_time,
+        exclude_environments=hidden_environments(),
         sort=SORTS[sort_key],
         descending=direction == "desc",
         limit=PAGE_SIZE,

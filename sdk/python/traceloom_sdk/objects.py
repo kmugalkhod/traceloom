@@ -308,14 +308,19 @@ def score(
     observation_id: str | None = None,
     data_type: str | None = None,
     comment: str | None = None,
+    config_id: str | None = None,
+    session_id: str | None = None,
+    dataset_run_id: str | None = None,
 ) -> None:
     try:
         if client is None:
             return
-        if trace_id is None:
+        if trace_id is None and session_id is None:
             current = context.current_observation()
             if current is None:
-                log.warning("score() needs a trace_id outside an observation; ignored")
+                log.warning(
+                    "score() needs a trace_id or session_id outside an observation; ignored"
+                )
                 return
             trace_id = current.trace_id
             observation_id = observation_id or current.id
@@ -326,18 +331,22 @@ def score(
                 data_type = "CATEGORICAL"
             else:
                 data_type = "NUMERIC"
-        client.emit(
-            "score-create",
-            {
-                "id": new_id(),
-                "traceId": trace_id,
-                "observationId": observation_id,
-                "name": name,
-                "value": value,
-                "dataType": data_type,
-                "comment": comment,
-            },
-            trace_id,
-        )
+        body = {
+            "id": new_id(),
+            "traceId": trace_id,
+            "observationId": observation_id,
+            "name": name,
+            "value": value,
+            "dataType": data_type,
+            "comment": comment,
+        }
+        for key, extra in (
+            ("configId", config_id),
+            ("sessionId", session_id),
+            ("datasetRunId", dataset_run_id),
+        ):
+            if extra is not None:
+                body[key] = extra
+        client.emit("score-create", body, trace_id or session_id)
     except Exception:
         log.exception("Traceloom: score failed")

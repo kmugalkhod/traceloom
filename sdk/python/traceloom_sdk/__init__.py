@@ -43,8 +43,21 @@ def score(
     observation_id: str | None = None,
     data_type: str | None = None,
     comment: str | None = None,
+    config_id: str | None = None,
+    session_id: str | None = None,
+    dataset_run_id: str | None = None,
 ) -> None:
-    get_client().score(name, value, trace_id, observation_id, data_type, comment)
+    get_client().score(
+        name,
+        value,
+        trace_id,
+        observation_id,
+        data_type,
+        comment,
+        config_id,
+        session_id,
+        dataset_run_id,
+    )
 
 
 def get_prompt(name: str, **options: Any) -> TextPrompt | ChatPrompt:
