@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from traceloom.auth.deps import Access, get_container, require
 from traceloom.auth.permissions import Perm
 from traceloom.container import Container
+from traceloom.scores import configs as score_configs
 from traceloom.db.session import get_db
 from traceloom.ports import InvalidCursor, SessionQuery, TraceRow
 from traceloom.web import pagefmt  # noqa: F401  (registers the filters)
@@ -123,5 +124,10 @@ def session_replay(
         session=detail.session,
         turns=[turn(t) for t in traces],
         cost_sum=sum(t.total_cost for t in traces),
+        archived_config_ids={
+            c.id
+            for c in score_configs.list_configs(db, access.project.id, include_archived=True)
+            if c.archived_at is not None
+        },
     )
     return render(request, "sessions/detail.html", context)

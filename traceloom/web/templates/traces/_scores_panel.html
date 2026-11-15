@@ -1,18 +1,22 @@
 {% import "_macros.html" as m with context %}
+{% import "_score_chips.html" as sc %}
+{% import "_score_input.html" as si with context %}
 {% set base = "/project/" ~ project.id ~ "/traces/" ~ trace.id %}
 <div class="tp" id="tp-scores" role="tabpanel" aria-labelledby="dt-scores">
   <div class="tp-b" id="scores">
     {% for s in scores_panel %}
       <div class="row-wrap line-b">
-        <span class="score"><b>{{ s.name }}</b><span>{{ s | score_value }}</span></span>
-        <span class="src">{{ s.source | title }}</span>
-        <span class="hint">{{ author_names.get(s.author_id, "API") if s.author_id else "API" }} · {{ s.timestamp | ago }}</span>
+        {{ sc.chip(s, archived_config_ids) }}
+        <span class="hint">{{ s.source | title }} · {{ author_names.get(s.author_id, "API") if s.author_id else "API" }} · {{ s.timestamp | ago }}</span>
         {% if s.comment %}<span class="hint">{{ s.comment }}</span>{% endif %}
       </div>
     {% else %}
       <p class="hint">No scores yet.</p>
     {% endfor %}
     {% if can("traces:annotate") %}
+      {% for cfg in score_configs %}{{ si.config_input(cfg) }}{% endfor %}
+      <details class="stack-s pad-t"{% if score_error or score_form.name %} open{% endif %}>
+      <summary class="hint">Free-form score</summary>
       <form method="post" action="{{ base }}/scores" hx-post="{{ base }}/scores" hx-target="#trace-discussion" hx-swap="innerHTML" class="stack-s pad-t score-form">
         {{ m.csrf() }}
         <div class="score-row">
@@ -41,6 +45,7 @@
         </div>
         <div class="hint">Saved as source ANNOTATION by you.</div>
       </form>
+      </details>
     {% endif %}
   </div>
 </div>

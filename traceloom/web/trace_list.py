@@ -13,7 +13,7 @@ from urllib.parse import urlencode
 
 from starlette.datastructures import QueryParams
 
-from traceloom.ports import LEVELS, TraceQuery, TraceRow
+from traceloom.ports import LEVELS, ScoreRow, TraceQuery, TraceRow
 from traceloom.web.context import avatar_class
 
 PAGE_SIZE = 50
@@ -348,7 +348,7 @@ class Row:
     level: str
     environment: str
     release: str | None
-    scores: list[tuple[str, str]]
+    scores: list[ScoreRow]
     more_scores: int
 
     @property
@@ -356,16 +356,8 @@ class Row:
         return self.level if self.level in ("ERROR", "WARNING") else ""
 
 
-def _score_value(score) -> str:
-    if score.string_value:
-        return score.string_value
-    if score.data_type == "BOOLEAN":
-        return "true" if score.value else "false"
-    return "" if score.value is None else f"{score.value:g}"
-
-
 def row_model(project_id: str, trace: TraceRow) -> Row:
-    scores = [(s.name, _score_value(s)) for s in trace.scores]
+    scores = list(trace.scores)
     return Row(
         id=trace.id,
         href=f"/project/{project_id}/traces/{trace.id}",
