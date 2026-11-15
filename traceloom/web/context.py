@@ -28,7 +28,7 @@ BUILD_NAV = (
     ("playground", "Playground", "i-play", "playground"),
 )
 EVAL_NAV = (
-    ("scores", "Scores", "i-check", "scores/analytics"),
+    ("scores", "Scores", "i-dash", "scores/analytics"),
     ("queues", "Annotation queues", "i-sessions", "queues"),
     ("evaluators", "Evaluators", "i-flask", "evals"),
     ("datasets", "Datasets", "i-folder", "datasets"),

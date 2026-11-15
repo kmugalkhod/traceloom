@@ -74,3 +74,23 @@
 .ev-s12{padding:12px 16px}
 .ev-s13{position:sticky;top:16px}
 .ev-s14{font-size:13px}
+
+/* Execution log (T-26) */
+.reason{padding:12px;border-left:3px solid var(--t-generation);background:var(--surface-2);border-radius:0 10px 10px 0;font-size:13.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+.errtxt{font-family:var(--font-mono);font-size:12.5px;color:var(--err);white-space:pre-wrap;word-break:break-word}
+.fltr{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.fltr .select{width:auto;min-width:160px}
+.seg.scroll{max-width:100%;overflow-x:auto}
+.seg .c{font-size:11px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.pill.run{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.pill .spin{width:10px;height:10px;border:1.5px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.pill .spin{animation:none}}
+.log-wrap{overflow-x:auto}
+.log-tbl{min-width:980px}
+.log-tbl tr.err td:first-child{box-shadow:inset 3px 0 0 var(--err-bar)}
+.log-detail{display:flex;flex-direction:column;gap:16px}
+.log-detail .dh{display:flex;align-items:center;gap:8px}
+.log-detail .dh h2{margin:0;flex:1}
+.retry-form{display:inline}
+.ev-cell-trunc{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

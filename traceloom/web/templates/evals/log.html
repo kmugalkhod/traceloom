@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Evaluators · Log{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Evaluators", "href": "/project/" ~ project.id ~ "/evals/templates"}, {"label": "Log"}]) }}{% endblock %}
+
+{% macro pill(r) -%}
+{%- set icons = {"succeeded": "i-check", "failed": "i-error", "capped": "i-warn", "skipped": "i-x", "pending": "i-clock"} -%}
+<span class="pill {{ {'succeeded': 'ok', 'failed': 'err', 'capped': 'capd', 'skipped': 'skip', 'pending': 'pend', 'running': 'run'}[r.status] }}">
+  {%- if r.status == "running" %}<span class="spin"></span>{% else %}{{ m.icon(icons[r.status]) }}{% endif %}{{ r.status_label }}</span>
+{%- endmacro %}
+{% macro money(x) %}${{ "%.4f"|format(x) }}{% endmacro %}
+{% macro target(r) -%}
+<a class="mono" href="/project/{{ project.id }}/traces/{{ r.trace_id or r.target_id }}">{{ r.target_id[:12] }}</a>{% if r.target_type == "observation" %} <small class="muted">observation</small>{% endif %}
+{%- endmacro %}
+{% macro dur(x) %}{% if x is none %}-{% elif x < 10 %}{{ "%.1f"|format(x) }} s{% else %}{{ "%.0f"|format(x) }} s{% endif %}{% endmacro %}
+
+{% block content %}
+{% call m.page_header("Evaluators", "LLM judges that score traces and observations automatically.") %}{% endcall %}
+{% include "evals/_tabs.html" %}
+<div class="stack">
+  {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
+
+  <form class="fltr" method="get" action="/project/{{ project.id }}/evals/log">
+    <select class="select" name="rule" aria-label="Rule" data-autosubmit>
+      <option value="">All rules</option>
+      {% for r in rule_options %}<option value="{{ r.id }}"{% if r.id == rule %} selected{% endif %}>{{ r.title }}</option>{% endfor %}
+    </select>
+    <input type="hidden" name="status" value="{{ status }}">
+    <input type="hidden" name="range" value="{{ range }}">
+    <button class="btn" type="submit">Apply</button>
+    <div class="seg scroll" role="group" aria-label="Status">
+      <a href="{{ link(status="") }}"{% if not status %} aria-pressed="true"{% endif %}>All <span class="c">{{ total }}</span></a>
+      {% for s in statuses %}<a href="{{ link(status=s.key) }}"{% if s.key == status %} aria-pressed="true"{% endif %}>{{ s.label }} <span class="c">{{ s.count }}</span></a>{% endfor %}
+    </div>
+    <div class="seg" role="group" aria-label="Range">
+      {% for key in ranges %}<a href="{{ link(range=key) }}"{% if key == range %} aria-pressed="true"{% endif %}>{{ key }}</a>{% endfor %}
+    </div>
+  </form>
+
+  {% if opened %}
+  <section class="panel" aria-label="Execution details"><div class="panel-b log-detail">
+    <div class="dh"><h2>Execution</h2>{{ pill(opened) }}<a class="btn btn-ghost btn-icon btn-sm" aria-label="Close details" href="{{ link() }}">{{ m.icon("i-x") }}</a></div>
+    <div class="kvl">
+      <div><div class="k">Rule</div><div class="val">{{ opened.rule }}</div></div>
+      <div><div class="k">Template</div><div class="val">{{ opened.template or "-" }}</div></div>
+      <div><div class="k">Target</div><div class="val">{{ target(opened) }}</div></div>
+      <div><div class="k">Judge trace</div><div class="val">{% if opened.judge_trace_id %}<a class="mono" href="/project/{{ project.id }}/traces/{{ opened.judge_trace_id }}">{{ opened.judge_trace_id[:12] }}</a>{% else %}<span class="muted">-</span>{% endif %}</div></div>
+      <div><div class="k">Attempts</div><div class="val num">{{ opened.attempts }}</div></div>
+      <div><div class="k">Cost</div><div class="val num">{% if opened.cost is not none %}{{ money(opened.cost) }}{% else %}-{% endif %}</div></div>
+      <div><div class="k">Duration</div><div class="val num">{{ dur(opened.duration) }}</div></div>
+    </div>
+    {% if opened.score %}
+    <div><div class="k">Score</div><span class="sc eval">{{ m.icon("i-flask") }}<span class="n">{{ opened.score_name }}:</span> <b>{{ opened.score_value }}</b></span></div>
+    {% if opened.reasoning %}<div><div class="k">Judge reasoning</div><div class="reason">{{ opened.reasoning }}</div></div>{% endif %}
+    {% endif %}
+    {% if opened.status == "failed" %}
+    <div class="banner err" role="alert">{{ m.icon("i-error") }}<div><b>Failed after {{ opened.attempts }} attempt{{ "" if opened.attempts == 1 else "s" }}.</b></div></div>
+    {% elif opened.status == "capped" %}
+    <div class="banner" role="status">{{ m.icon("i-warn") }}<div><b>Capped.</b> It is not retried today. It runs again only if the cap is raised and you retry it.</div></div>
+    {% endif %}
+    {% if opened.error %}<div class="errtxt">{{ opened.error }}</div>
+    <p class="hint">Provider keys are scrubbed before this text is stored.</p>{% endif %}
+    {% if can_retry and opened.status in ("failed", "capped") %}
+    <form method="post" action="/project/{{ project.id }}/evals/log/{{ opened.id }}/retry">{{ m.csrf() }}
+      <button class="btn btn-primary" type="submit">{{ m.icon("i-play") }}Retry</button> <span class="hint">Retry queues another run of up to {{ max_attempts }} attempts.</span></form>
+    {% endif %}
+  </div></section>
+  {% endif %}
+
+  {% if not rows %}
+  <div class="panel">
+    {% call m.empty_state("i-flask", "No executions match", "Nothing ran in this time range with these filters. New traces are judged after each rule's delay.") %}
+      <div class="acts"><a class="btn" href="{{ link(rule="", status="", range="") }}">Clear filters</a></div>
+    {% endcall %}
+  </div>
+  {% else %}
+  <div class="panel"><div class="panel-b flush log-wrap">
+    <table class="tbl log-tbl">
+      <thead><tr><th>Time</th><th>Rule</th><th>Target</th><th>Status</th><th class="r">Tries</th><th>Score</th><th class="r">Cost</th><th class="r">Duration</th><th class="menu"><span class="sr">Actions</span></th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr{% if r.status == "failed" %} class="err"{% endif %}>
+          <td><div class="two"><b>{{ r.when|date("%H:%M:%S") }}</b><small>{{ r.when|date("%b %-d") }}</small></div></td>
+          <td><div class="two"><b>{{ r.rule }}</b><small>{{ r.template }}</small></div></td>
+          <td>{{ target(r) }}</td>
+          <td>{{ pill(r) }}</td>
+          <td class="num r">{{ r.attempts }}</td>
+          <td>
+            {% if r.score %}<span class="sc eval">{{ m.icon("i-flask") }}<span class="n">{{ r.score_name }}:</span> <b>{{ r.score_value }}</b></span>
+            {% elif r.status == "skipped" and r.error %}<span class="muted">{{ r.error }}</span>
+            {% elif r.status in ("failed", "capped") and r.error %}<div class="errtxt ev-cell-trunc" title="{{ r.error }}">{{ r.error }}</div>
+            {% elif r.status == "pending" %}<span class="muted">Waiting to run</span>
+            {% else %}<span class="muted">-</span>{% endif %}
+          </td>
+          <td class="num r">{% if r.cost is not none %}{{ money(r.cost) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+          <td class="num r">{% if r.duration is none %}<span class="muted">-</span>{% else %}{{ dur(r.duration) }}{% endif %}</td>
+          <td class="menu">
+            {% if can_retry and r.status == "failed" %}
+            <form class="retry-form" method="post" action="/project/{{ project.id }}/evals/log/{{ r.id }}/retry">{{ m.csrf() }}<button class="btn btn-sm" type="submit">{{ m.icon("i-play") }}Retry</button></form>
+            {% endif %}
+            <a class="btn btn-ghost btn-icon btn-sm" aria-label="Open details" href="{{ link(open=r.id) }}">{{ m.icon("i-chev-r") }}</a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% if rows|length >= limit %}<p class="hint">Showing the newest {{ limit }} executions. Narrow the filters to see others.</p>{% endif %}
+  {% endif %}
+</div>
+{% endblock %}

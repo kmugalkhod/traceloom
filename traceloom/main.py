@@ -70,12 +70,14 @@ def include_discovered_routers(app: FastAPI) -> None:
 
 
 def _wire_evaluation(container: Container) -> None:
-    """Startup (after migrate): seed the built-in judge templates and let the sweeper recover
-    judge jobs that were never delivered or got stuck."""
-    from traceloom.evals import rules, templates
+    """Startup (after migrate): seed the built-in judge templates, register the judge worker and
+    let the sweeper recover judge jobs that were never delivered or got stuck."""
+    from traceloom.evals import rules, runner, templates
+    from traceloom.queue_registry import EVAL_JOB
 
     with container.session_factory.begin() as db:
         templates.seed_builtins(db)
+    container.queue.register(EVAL_JOB, lambda message: runner.handle(container, message))
     if container.sweeper is not None:
         container.sweeper.set_due_jobs(lambda: rules.due_messages(container))
 
