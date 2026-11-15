@@ -128,6 +128,8 @@ button,textarea{font:inherit;color:inherit} button{background:none;border:0;curs
 </div>
 <script>
 const $ = id => document.getElementById(id);
+const CH = new URLSearchParams(location.search).get("change") || "";  // an earlier run, picked on the board
+const Q = CH ? "&change=" + encodeURIComponent(CH) : "";
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const S = { list: [], cur: null, doc: null, ver: "", chatN: -1, pending: false, quote: null, sending: false };
 const AG = { architect: ["Architect", "AR"], designer: ["Designer", "DE"], planner: ["Planner", "PL"], lead: ["Team lead", "TL"] };
@@ -211,7 +213,7 @@ function renderRail() {
   $("rail").querySelectorAll(".art").forEach(b => b.onclick = () => open(b.dataset.id));
 }
 async function loadList() {
-  const d = await api("api/review"); if (d.error) return;
+  const d = await api("api/review" + (CH ? "?change=" + encodeURIComponent(CH) : "")); if (d.error) return;
   S.list = d.artifacts || []; renderRail();
   if (!S.cur && S.list.length) { const want = decodeURIComponent(location.hash.slice(1)); open(S.list.find(a => a.id === want) ? want : (S.list.find(a => a.needs) || S.list[0]).id); }
 }
@@ -220,7 +222,7 @@ async function loadList() {
 async function open(id, ver) {
   if (S.cur !== id) { S.chatN = -1; $("msgs").innerHTML = ""; clearQuote(); }
   S.cur = id; S.ver = ver || ""; history.replaceState(null, "", "#" + encodeURIComponent(id));
-  const d = await api("api/review/doc?id=" + encodeURIComponent(id) + (ver ? "&ver=" + encodeURIComponent(ver) : ""));
+  const d = await api("api/review/doc?id=" + encodeURIComponent(id) + (ver ? "&ver=" + encodeURIComponent(ver) : "") + Q);
   if (d.error) { $("paper").innerHTML = `<p>${esc(d.error)}</p>`; return; }
   const keep = S.doc && S.doc.id === id ? $("scroll").scrollTop : 0;
   S.doc = d; renderRail();
@@ -247,6 +249,11 @@ function renderGate() {
   else if (d.kind === "design") g.innerHTML = `<p><b>Approve design ${esc(d.key)}?</b> Developers start on screens after you approve.</p>
     <textarea id="gtext" placeholder="Note, or the changes you want (needed for Request changes)"></textarea>
     <div class="row"><button class="btn primary" data-a="approve">✓ Approve</button><button class="btn" data-a="changes">Request changes</button></div>`;
+  else if (["intent", "spec", "plan", "review"].includes(d.kind)) g.innerHTML = `<p><b>Approve this ${esc(d.kind === "review" ? "code review" : d.kind)}?</b>
+    The loop waits here. Approve, or say what to change: the session that wrote it revises it and asks again.</p>
+    <textarea id="gtext" placeholder="Note, or the changes you want (needed for Request changes)"></textarea>
+    <div class="row"><button class="btn primary" data-a="approve">✓ Approve</button><button class="btn" data-a="changes">Request changes</button>
+    <button class="btn" data-a="stop" title="Stop the loop here; run it again later to continue">Stop here</button></div>`;
   else if (d.kind === "escalation") g.innerHTML = `<p><b>${esc(d.key)} needs your guidance.</b> Tell the team how to continue; the task resumes right away.</p>
     <textarea id="gtext" placeholder="Your guidance for the team"></textarea><div class="row"><button class="btn primary" data-a="resume">Resume with this guidance</button></div>`;
   else { g.hidden = true; return; }
@@ -256,9 +263,9 @@ async function decide(action) {
   const t = ($("gtext") && $("gtext").value.trim()) || "";
   if ((action === "changes" || action === "resume") && !t) { $("gtext").focus(); return; }
   $("gate").querySelectorAll("button").forEach(b => b.disabled = true);
-  const r = await api("api/review/decide", { id: S.cur, action, text: t });
+  const r = await api("api/review/decide", { id: S.cur, action, text: t, change: CH });
   if (r.error) { $("gate").classList.add("err"); $("gate").querySelector("p").textContent = r.error; $("gate").querySelectorAll("button").forEach(b => b.disabled = false); return; }
-  $("gate").className = "gate done"; $("gate").innerHTML = `<p><b>${action === "approve" ? "✓ Approved." : action === "resume" ? "✓ Resumed." : "✓ Sent to the agent."}</b> The board updates in a moment.</p>`;
+  $("gate").className = "gate done"; $("gate").innerHTML = `<p><b>${action === "approve" ? "✓ Approved." : action === "resume" ? "✓ Resumed." : action === "stop" ? "■ Stopped." : "✓ Sent to the agent."}</b> The board updates in a moment.</p>`;
   setTimeout(async () => { await loadList(); open(S.cur); }, 900);
 }
 function renderSuggest() { const k = S.doc.kind in SUGGEST ? S.doc.kind : "doc";
@@ -275,7 +282,7 @@ function msgHTML(m) {
 }
 async function pollChat(force) {
   if (!S.cur) return;
-  const id = S.cur, d = await api("api/review/chat?id=" + encodeURIComponent(id)); if (d.error || id !== S.cur) return;
+  const id = S.cur, d = await api("api/review/chat?id=" + encodeURIComponent(id) + Q); if (d.error || id !== S.cur) return;
   const n = d.messages.length + (d.pending ? 1 : 0);
   if (force || n !== S.chatN || d.pending !== S.pending) {
     const grew = d.messages.length > Math.max(0, S.chatN - (S.pending ? 1 : 0)), hadPending = S.pending;
@@ -291,7 +298,7 @@ async function pollChat(force) {
 async function send(text) {
   text = (text ?? $("input").value).trim(); if (!text || S.sending || S.pending) return;
   S.sending = true; const q = S.quote;
-  const r = await api("api/review/chat", { id: S.cur, text, quote: q ? q.text : "", section: q ? q.sec : "" });
+  const r = await api("api/review/chat", { id: S.cur, text, quote: q ? q.text : "", section: q ? q.sec : "", change: CH });
   S.sending = false;
   if (r.error) { $("hint").textContent = r.error; return; }
   $("input").value = ""; $("input").style.height = "auto"; clearQuote(); pollChat(true);

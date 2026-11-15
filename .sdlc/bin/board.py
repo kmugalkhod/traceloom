@@ -255,8 +255,29 @@ class Board:
                     qa_rounds=(it.get("qa_rounds") or 0) + 1, qa_by=f"changes:{actor}")
         self.send(actor, "designer", f"Changes requested on {key}: {text}", key)
 
+    def archive(self, reason: str = "") -> Path | None:
+        """Save this run's board (items, agents, history) under .sdlc/state/history/<change>.json, so the board can
+        still show it after it moves on to another change."""
+        m = self.meta()
+        if not m.get("change") or not self.items():
+            return None
+        snap = self.snapshot()
+        snap.update(archived_at=now(), reason=reason)
+        d = Path(self.path).parent / "history"
+        d.mkdir(parents=True, exist_ok=True)
+        f = d / f"{m['change']}.json"
+        tmp = f.with_suffix(".tmp")
+        tmp.write_text(json.dumps(snap), encoding="utf-8")
+        os.replace(tmp, f)
+        return f
+
     def clear(self) -> None:
-        """Empty every table in place (works while the board server has the file open, incl. on Windows)."""
+        """Empty every table in place (works while the board server has the file open, incl. on Windows).
+        The run is archived first, so it stays visible under the board's runs."""
+        try:
+            self.archive("cleared for the next run")
+        except Exception:
+            pass
         with self.conn() as c:
             for t in ("events", "messages", "agents", "items", "meta"):
                 c.execute(f"DELETE FROM {t}")
