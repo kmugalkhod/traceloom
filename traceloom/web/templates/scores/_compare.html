@@ -1,0 +1,59 @@
+{# The compare panel: preset, A/B pickers, matrix / scatter / box plot, stat tiles, table fallback. #}
+{% from "scores/_parts.html" import nd, table_fb, carry with context %}
+{% set cmp = view.compare %}
+<section class="panel" aria-label="Compare two scores">
+  <div class="panel-h"><h2>Compare two scores</h2><span class="muted right">matched on the same trace</span></div>
+  <div class="panel-b stack">
+    <div class="an-bar">
+      <a class="btn" href="{{ preset_url }}" aria-pressed="{{ 'true' if view.preset else 'false' }}" data-preset><span class="an-preset"><svg class="ico" aria-hidden="true"><use href="#i-user"/></svg>vs<svg class="ico" aria-hidden="true"><use href="#i-flask"/></svg></span>Human vs judge</a>
+      <span class="muted">or</span>
+      <form method="get" action="{{ request.url.path }}" class="an-ab" data-autosubmit>
+        {{ carry(["score"]) }}
+        <span class="an-ltr">A</span>
+        <select class="select" name="a" aria-label="Score A">{% for n in view.names %}<option value="{{ n.name }}"{% if n.name == view.a[0] %} selected{% endif %}>{{ n.name }}</option>{% endfor %}</select>
+        <select class="select" name="as" aria-label="Source A">{% for k, l in source_options %}<option value="{{ k }}"{% if k == view.a[1] %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+        <span class="an-ltr b">B</span>
+        <select class="select" name="b" aria-label="Score B">{% for n in view.names %}<option value="{{ n.name }}"{% if n.name == view.b[0] %} selected{% endif %}>{{ n.name }}</option>{% endfor %}</select>
+        <select class="select" name="bs" aria-label="Source B">{% for k, l in source_options %}<option value="{{ k }}"{% if k == view.b[1] %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+        <noscript><button class="btn" type="submit">Compare</button></noscript>
+      </form>
+    </div>
+    {% if cmp and not cmp.enough %}
+      {% call nd() %}<b>Not enough data.</b> Only {{ cmp.n }} trace{{ "" if cmp.n == 1 else "s" }} {{ "has" if cmp.n == 1 else "have" }} both <span class="an-name">{{ cmp.a[0] }}</span> ({{ source_label[cmp.a[1]] }}) and <span class="an-name">{{ cmp.b[0] }}</span> ({{ source_label[cmp.b[1]] }}) scores. Agreement, κ and correlation need at least 10.{% endcall %}
+    {% elif cmp and cmp.kind %}
+      <div class="an-cmp">
+        <div>
+        {% if cmp.kind == "matrix" %}
+          <div class="an-lbl">Confusion matrix · A (rows) vs B (columns) · n = {{ cmp.n }} matched traces</div>
+          <div class="an-cmat" data-cols="{{ cmp.labels | length }}" role="table" aria-label="Confusion matrix, {{ source_label[cmp.a[1]] }} in rows, {{ source_label[cmp.b[1]] }} in columns">
+            <span></span>{% for l in cmp.labels %}<span class="h">{{ source_label[cmp.b[1]] }} {{ l }}</span>{% endfor %}
+            {% for row in cmp.cells %}{% set i = loop.index0 %}
+              <span class="h rl">{{ source_label[cmp.a[1]] }} {{ cmp.labels[i] }}</span>
+              {% for c in row %}<div class="cell{{ ' ok' if c.agree }}" data-w="{{ c.w }}" role="cell"><b>{{ c.count }}</b><small>{{ c.pct }}</small><span class="tag">{{ "agree" if c.agree else "differ" }}</span></div>{% endfor %}
+            {% endfor %}
+          </div>
+        {% elif cmp.kind == "scatter" %}
+          <div class="an-chart an-chart-sm" data-an-chart='{{ {"kind": "scatter", "x": cmp.chart.x, "y": cmp.chart.y, "xname": cmp.a[0], "yname": cmp.b[0]} | tojson }}' role="img" aria-label="{{ cmp.aria }}"></div>
+        {% else %}
+          <svg class="an-svg" viewBox="0 0 300 120" preserveAspectRatio="none" role="img" aria-label="{{ cmp.aria }}">
+            <g stroke="var(--line)"><line x1="0" x2="300" y1="119" y2="119"/></g>
+            {% for b in cmp.boxes %}
+            <g stroke="var(--s1)" stroke-width="2" fill="var(--accent-soft)"><line x1="{{ b.cx }}" x2="{{ b.cx }}" y1="{{ b.top }}" y2="{{ b.bot }}"/><rect x="{{ b.x }}" y="{{ b.q3 }}" width="50" height="{{ b.h }}" rx="3"/></g>
+            <line stroke="var(--ink)" stroke-width="2.5" x1="{{ b.x }}" x2="{{ b.x2 }}" y1="{{ b.med }}" y2="{{ b.med }}"/>
+            {% endfor %}
+          </svg>
+          <div class="an-ax">{% for b in cmp.boxes %}<span>{{ b.cat }} · n {{ b.n }}</span>{% endfor %}</div>
+        {% endif %}
+        </div>
+        <div class="stack">
+          <div class="an-tiles">{% for l, v, cp in cmp.tiles %}<div class="t"><div class="l">{{ l }}</div><div class="v">{{ v }}</div><div class="cp">{{ cp }}</div></div>{% endfor %}</div>
+          {% if cmp.kind == "matrix" %}<p class="hint">Agreement is exact match. κ corrects for chance: 0 is chance, 1 is perfect. Below n = 10 these show "Not enough data".</p>
+          {% elif cmp.kind == "scatter" %}<p class="hint">Above 2,000 points a sample is plotted and "Sampled" is shown.</p>{% endif %}
+        </div>
+      </div>
+      {% if cmp.kind == "matrix" %}{{ table_fb(["A", "B", "Count"], cmp.table) }}
+      {% elif cmp.kind == "scatter" %}{{ table_fb(["A", "B"], cmp.table) }}{% if cmp.more %}<p class="hint">{{ cmp.more }} more points not listed.</p>{% endif %}
+      {% else %}{{ table_fb(["Category", "Median", "n"], cmp.table) }}{% endif %}
+    {% endif %}
+  </div>
+</section>

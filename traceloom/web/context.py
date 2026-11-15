@@ -28,12 +28,13 @@ BUILD_NAV = (
     ("playground", "Playground", "i-play", "playground"),
 )
 EVAL_NAV = (
+    ("scores", "Scores", "i-dash", "scores/analytics"),
     ("queues", "Annotation queues", "i-sessions", "queues"),
     ("evaluators", "Evaluators", "i-flask", "evals"),
 )
 # Phone bottom bar: four destinations and a "More" sheet holding the rest.
 BOTTOM_NAV = ("traces", "prompts", "playground", "dashboard")
-MORE_NAV = ("sessions", "users", "queues", "evaluators")
+MORE_NAV = ("sessions", "users", "scores", "queues", "evaluators")
 
 
 def initials(text: str) -> str:
