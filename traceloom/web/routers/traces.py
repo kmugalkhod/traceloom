@@ -24,6 +24,7 @@ from traceloom.web.trace_list import (
     COLUMN_KEYS,
     COLUMNS,
     PAGE_SIZE,
+    SESSION_COLUMN_KEYS,
     canonical_params,
     chip_url,
     parse_columns,
@@ -172,14 +173,21 @@ def set_columns(
     db: Session = Depends(get_db),
     form: FormData = Depends(form_data),
 ):
-    chosen = [c for c in form.getlist("col") if c in COLUMN_KEYS]
+    sessions = form.get("scope") == "sessions"
+    keys = SESSION_COLUMN_KEYS if sessions else COLUMN_KEYS
+    pref = "session_columns" if sessions else "columns"
+    chosen = [c for c in form.getlist("col") if c in keys]
     project_id = access.project.id
     if chosen:
-        views.set_pref(db, access.user.id, project_id, "columns", ",".join(chosen))
+        views.set_pref(db, access.user.id, project_id, pref, ",".join(chosen))
     else:
-        views.clear_pref(db, access.user.id, project_id, "columns")
+        views.clear_pref(db, access.user.id, project_id, pref)
     db.commit()
-    return RedirectResponse(_local_next(project_id, str(form.get("next", ""))), status_code=303)
+    fallback = "sessions" if sessions else "traces"
+    target = _local_next(project_id, str(form.get("next", "")))
+    if target == f"/project/{project_id}/traces" and sessions:
+        target = f"/project/{project_id}/{fallback}"
+    return RedirectResponse(target, status_code=303)
 
 
 def _without_param(url: str, name: str) -> str:

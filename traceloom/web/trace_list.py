@@ -77,6 +77,25 @@ def parse_columns(stored: str | None) -> tuple[str, ...]:
     return ordered or DEFAULT_COLUMNS
 
 
+SESSION_COLUMNS = (
+    ("first_trace", "First trace"),
+    ("last_trace", "Last trace"),
+    ("traces", "Traces"),
+    ("duration", "Duration"),
+    ("cost", "Cost"),
+    ("users", "Users"),
+    ("tags", "Tags"),
+    ("scores", "Scores"),
+)
+SESSION_COLUMN_KEYS = tuple(k for k, _ in SESSION_COLUMNS)
+
+
+def parse_session_columns(stored: str | None) -> tuple[str, ...]:
+    """The user's session-list column choice, canonical order; unknown or empty -> all."""
+    chosen = {c for c in (stored or "").split(",") if c in SESSION_COLUMN_KEYS}
+    return tuple(k for k in SESSION_COLUMN_KEYS if k in chosen) or SESSION_COLUMN_KEYS
+
+
 def _number_or_text(text: str) -> float | str:
     try:
         return float(text)
