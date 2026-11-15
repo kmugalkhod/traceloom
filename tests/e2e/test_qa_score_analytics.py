@@ -1,4 +1,4 @@
-"""T-32 QA: score analytics page in a real browser — charts, fallbacks, preset, dark, 390px, escaping."""
+"""T-32 QA: score analytics page in a real browser (charts, preset, dark, 390px, escaping)."""
 
 from __future__ import annotations
 
@@ -51,7 +51,8 @@ def seed(live, project_id, name="correct"):
             ))  # fmt: skip
     for k in range(10):
         rows.append(Score(
-            project_id=project_id, id=f"x{k}", trace_id=f"x{k}", name="<img src=x onerror=window.pwned=1>",
+            project_id=project_id, id=f"x{k}", trace_id=f"x{k}",
+            name="<img src=x onerror=window.pwned=1>",
             value=0.5, data_type="NUMERIC", source="API", environment="production",
             timestamp=now - timedelta(hours=3),
         ))  # fmt: skip
