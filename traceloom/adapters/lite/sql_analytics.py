@@ -17,12 +17,19 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import ColumnElement, Integer, Select, and_, case, cast, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
-from traceloom.adapters.lite.sql_read import _scores_by_trace, score_to_row, trace_to_row
+from traceloom.adapters.lite.sql_read import (
+    _scores_by_trace,
+    score_filter_clauses,
+    score_to_row,
+    trace_to_row,
+)
 from traceloom.db.models import Observation, Score, Trace
 from traceloom.ports import (
+    AGGREGATE_OBJECTS,
     LEVELS,
+    MAX_ANALYTICS_ROWS,
     DashboardData,
     DashboardQuery,
     InvalidCursor,
@@ -30,12 +37,18 @@ from traceloom.ports import (
     PromptGeneration,
     PromptMetrics,
     PromptMetricsQuery,
+    ScoreAggregate,
+    ScorePair,
+    ScorePoint,
+    ScoreRange,
+    ScoreSelector,
     SessionDetail,
     SessionQuery,
     SessionRow,
     UserQuery,
     UserRow,
     UserSummary,
+    aggregate_scores,
     decode_cursor,
     encode_cursor,
 )
@@ -45,6 +58,32 @@ RECENT_LIMIT = 50
 BREAKDOWN_LIMIT = 50
 TOP_USERS = 10
 PERCENTILES = (("p50", 0.5), ("p90", 0.9), ("p95", 0.95), ("p99", 0.99))
+
+
+def _analytics_limit(limit: int) -> int:
+    return max(1, min(limit, MAX_ANALYTICS_ROWS))
+
+
+def _score_range_filters(rng: ScoreRange, score: Any = Score) -> list[ColumnElement[bool]]:
+    where: list[ColumnElement[bool]] = []
+    if rng.from_time is not None:
+        where.append(score.timestamp >= rng.from_time)
+    if rng.to_time is not None:
+        where.append(score.timestamp <= rng.to_time)
+    if rng.environment is not None:
+        where.append(score.environment == rng.environment)
+    if not rng.include_feedback:
+        where.append(or_(score.channel.is_(None), score.channel != "public_feedback"))
+    return where
+
+
+def _score_range(
+    project_id: str, selector: ScoreSelector, rng: ScoreRange, score: Any = Score
+) -> list[ColumnElement[bool]]:
+    where = [score.project_id == project_id, score.name == selector.name]
+    if selector.source:
+        where.append(score.source == selector.source)
+    return where + _score_range_filters(rng, score)
 
 
 # --- dialect helpers ---------------------------------------------------------------------
@@ -300,6 +339,15 @@ class SqlAnalyticsMixin:
     def list_sessions(self, project_id: str, query: SessionQuery) -> Page[SessionRow]:
         limit = _page_limit(query.limit)
         where = _trace_filters(project_id, query.environment, query.from_time, query.to_time)
+        if query.environment is None and query.exclude_environments:
+            where.append(Trace.environment.not_in(list(query.exclude_environments)))
+        if query.score_filters:
+            member = aliased(Trace)
+            matching = select(member.session_id).where(
+                member.project_id == project_id,
+                *score_filter_clauses(project_id, query.score_filters, member.id),
+            )
+            where.append(Trace.session_id.in_(matching))
         with self.session_factory() as s:
             grouped = _group_select(Trace.session_id, _dialect(s), where)
             rows, next_cursor = _grouped_page(
@@ -590,6 +638,111 @@ class SqlAnalyticsMixin:
             }
             for r in s.execute(stmt)
         ]
+
+    # --- score analytics --------------------------------------------------------------------
+
+    def score_aggregates(
+        self,
+        project_id: str,
+        object_type: str,
+        ids: Sequence[str],
+        names: Sequence[str] | None = None,
+    ) -> dict[str, dict[str, ScoreAggregate]]:
+        if object_type not in AGGREGATE_OBJECTS:
+            raise ValueError(f"object_type must be one of {AGGREGATE_OBJECTS}")
+        column = getattr(Score, f"{object_type}_id")
+        wanted = list(dict.fromkeys(ids))
+        pairs = []
+        with self.session_factory() as s:
+            for start in range(0, len(wanted), 500):
+                where = [Score.project_id == project_id, column.in_(wanted[start : start + 500])]
+                if names is not None:
+                    where.append(Score.name.in_(list(names)))
+                pairs += [
+                    (getattr(r, f"{object_type}_id"), r)
+                    for r in map(score_to_row, s.scalars(select(Score).where(*where)))
+                ]
+        return aggregate_scores(pairs)
+
+    def _score_points(
+        self,
+        project_id: str,
+        selector: ScoreSelector,
+        rng: ScoreRange,
+        limit: int,
+        newest_first: bool,
+    ) -> list[ScorePoint]:
+        where = _score_range(project_id, selector, rng)
+        order = Score.timestamp.desc() if newest_first else Score.timestamp.asc()
+        stmt = select(Score).where(*where).order_by(order, Score.id).limit(_analytics_limit(limit))
+        with self.session_factory() as s:
+            return [
+                ScorePoint(r.value, r.string_value, r.data_type, r.source, r.timestamp)
+                for r in s.scalars(stmt)
+            ]
+
+    def score_distribution(
+        self,
+        project_id: str,
+        selector: ScoreSelector,
+        range: ScoreRange,
+        limit: int = MAX_ANALYTICS_ROWS,
+    ) -> list[ScorePoint]:
+        return self._score_points(project_id, selector, range, limit, newest_first=True)
+
+    def score_trend(
+        self,
+        project_id: str,
+        selector: ScoreSelector,
+        range: ScoreRange,
+        limit: int = MAX_ANALYTICS_ROWS,
+    ) -> list[ScorePoint]:
+        return self._score_points(project_id, selector, range, limit, newest_first=False)
+
+    def score_pairs(
+        self,
+        project_id: str,
+        a: ScoreSelector,
+        b: ScoreSelector,
+        range: ScoreRange,
+        limit: int = MAX_ANALYTICS_ROWS,
+    ) -> list[ScorePair]:
+        left, right = aliased(Score), aliased(Score)
+        stmt = (
+            select(left, right)
+            .join(
+                right,
+                and_(
+                    right.project_id == left.project_id,
+                    right.trace_id == left.trace_id,
+                    or_(
+                        left.observation_id.is_(None),
+                        right.observation_id.is_(None),
+                        left.observation_id == right.observation_id,
+                    ),
+                ),
+            )
+            .where(
+                *_score_range(project_id, a, range, left),
+                right.name == b.name,
+                *([right.source == b.source] if b.source else []),
+                *_score_range_filters(range, right),
+            )
+            .order_by(left.timestamp.desc(), left.id, right.id)
+            .limit(_analytics_limit(limit))
+        )
+        with self.session_factory() as s:
+            return [
+                ScorePair(
+                    first.trace_id,
+                    first.observation_id or second.observation_id,
+                    first.value,
+                    first.string_value,
+                    second.value,
+                    second.string_value,
+                )
+                for first, second in s.execute(stmt)
+            ]
 
     @staticmethod
     def _level_share(s: Session, where: list) -> list[dict[str, Any]]:

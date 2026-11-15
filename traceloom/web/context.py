@@ -28,13 +28,14 @@ BUILD_NAV = (
     ("playground", "Playground", "i-play", "playground"),
 )
 EVAL_NAV = (
+    ("scores", "Scores", "i-dash", "scores/analytics"),
     ("queues", "Annotation queues", "i-sessions", "queues"),
     ("evaluators", "Evaluators", "i-flask", "evals"),
     ("datasets", "Datasets", "i-folder", "datasets"),
 )
 # Phone bottom bar: four destinations and a "More" sheet holding the rest.
 BOTTOM_NAV = ("traces", "prompts", "playground", "dashboard")
-MORE_NAV = ("sessions", "users", "queues", "evaluators", "datasets")
+MORE_NAV = ("sessions", "users", "scores", "queues", "evaluators", "datasets")
 
 
 def initials(text: str) -> str:
@@ -197,6 +198,9 @@ def settings_tabs(project_id: str, current: str, role: Role | None) -> list[dict
         tabs.append(("webhooks", "Webhooks", f"{base}/webhooks"))
     if can(role, Perm.PROJECT_SETTINGS):
         tabs.append(("audit", "Audit log", f"{base}/audit"))
+    if can(role, Perm.EVAL_READ):
+        tabs.append(("scores", "Score configs", f"{base}/scores"))
+        tabs.append(("evaluation", "Evaluation", f"{base}/evaluation"))
     return [
         {"key": k, "label": label, "href": href, "current": k == current} for k, label, href in tabs
     ]
