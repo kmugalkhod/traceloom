@@ -30,6 +30,15 @@
       <div class="field"><label for="f-costmax">Cost to ($)</label><input class="input" id="f-costmax" name="cost_max" inputmode="decimal" value="{{ state.form.cost_max }}"></div>
       <div class="field"><label for="f-from">From date</label><input class="input" id="f-from" name="from" type="date" value="{{ state.form["from"] }}"></div>
       <div class="field"><label for="f-to">To date</label><input class="input" id="f-to" name="to" type="date" value="{{ state.form.to }}"><span class="hint">Setting either date uses a custom range.</span></div>
+      <fieldset class="wide score-filters" id="score-filters">
+        <legend class="lbl">Score</legend>
+        {% for sf in state.form.scores %}
+        <div class="frow score-frow"><input class="input" name="sf_name" aria-label="Score name" value="{{ sf.name }}"><select class="select" name="sf_op" aria-label="Operator">{% for op in ["=", "!=", ">", ">=", "<", "<=", "in", "exists", "missing"] %}<option value="{{ op }}"{% if sf.op == op %} selected{% endif %}>{{ op }}</option>{% endfor %}</select><input class="input" name="sf_value" aria-label="Value" value="{{ sf.value }}"></div>
+        {% endfor %}
+        <div class="frow score-frow"><input class="input" name="sf_name" aria-label="Score name" placeholder="quality"><select class="select" name="sf_op" aria-label="Operator">{% for op in ["=", "!=", ">", ">=", "<", "<=", "in", "exists", "missing"] %}<option value="{{ op }}"{% if op == ">=" %} selected{% endif %}>{{ op }}</option>{% endfor %}</select><input class="input" name="sf_value" aria-label="Value" inputmode="decimal" placeholder="0.5"></div>
+        <span class="hint">Add one condition at a time; list values with commas (ok, great). Applied filters appear as chips.</span>
+        {% for err in state.score_errors %}<span class="hint" role="alert">{{ err }} was ignored.</span>{% endfor %}
+      </fieldset>
       <label class="check wide"><input type="checkbox" name="bookmarked" value="1"{% if state.form.bookmarked %} checked{% endif %}>Bookmarked only</label>
     </div>
     <div class="row jc-end spacer-top"><a class="btn btn-ghost" href="{{ state.base_path }}">Clear filters</a><button class="btn btn-primary" type="submit">Apply filters</button></div>

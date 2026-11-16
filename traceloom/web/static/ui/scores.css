@@ -1,0 +1,10 @@
+/* Score chips (T-10): extends .sc from queues.css with the archived, feedback and name parts. */
+.sc .n{overflow:hidden;text-overflow:ellipsis}
+.sc.arch{border-style:dashed;background:transparent}
+.sc.fb::after{content:"feedback";font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);margin-left:2px}
+.tree-pane .nm .scs{flex-wrap:nowrap;margin-left:8px;overflow:hidden}
+.sin .row{display:flex;gap:8px;align-items:center}
+.sin .row .input,.sin .row .select{height:36px;min-width:0}
+.sin{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,260px);align-items:center;gap:12px}
+.score-filters{border:0;padding:0;margin:0;display:grid;gap:8px}
+.score-filters .frow{grid-template-columns:minmax(0,1.2fr) 88px minmax(0,1fr);margin-bottom:0}

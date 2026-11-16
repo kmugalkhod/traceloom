@@ -67,6 +67,7 @@ def test_member_journey_in_the_browser(live_server, browser_page):  # noqa: F811
     page.goto(base + "/discussion")
     assert "by hand" in page.content()
     assert page.evaluate("window.pwned") is None
+    page.get_by_text("Free-form score").click()
     page.fill("#score-name", "quality")
     page.fill("#score-value", "0.9")
     with page.expect_navigation():

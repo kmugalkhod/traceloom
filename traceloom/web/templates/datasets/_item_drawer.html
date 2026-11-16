@@ -1,0 +1,44 @@
+{# The item drawer: edit (Member) or read (Viewer), with the version list. Needs `drawer`. #}
+{% import "_macros.html" as m with context %}
+{% set it = drawer.item %}
+{% set err = error if error and error.scope == it.id else none %}
+{% set editable = can_write and it.status == "active" %}
+<dialog class="drawer" id="item-drawer" aria-label="{{ 'Edit item' if editable else 'Item' }}" data-autoopen>
+  <div class="dialog">
+    <header><h2>Item v{{ it.version }}</h2>
+      <span class="pill lab">v{{ it.version }} of {{ it.version }}</span>
+      {% if it.status == "archived" %}<span class="pill skip">Archived</span>{% endif %}
+      <button type="button" class="btn btn-icon btn-ghost btn-sm right" aria-label="Close" data-dialog-close>{{ m.icon("i-x") }}</button></header>
+    <form method="post" action="{{ base }}/items/{{ it.id }}">
+      {{ m.csrf() }}
+      <div class="body">
+        {% if it.source_trace_id %}<div class="srcl">Source: {{ m.icon("i-link", "ico-sm") }}<a href="{{ trace_url(it.source_trace_id) }}">{{ it.source_trace_id[:12] }}</a>{% if it.source_observation_id %} · observation <span class="mono-sm">{{ it.source_observation_id[:12] }}</span>{% endif %}</div>{% endif %}
+        {% if it.status == "archived" %}{{ m.banner("info", "This item is archived. Runs started before it was archived still read it.") }}{% endif %}
+        {% if err %}<div class="field-error" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>Fix the JSON before saving. Nothing is changed yet.</span></div>{% endif %}
+        {% with prefix = "it", editable = editable,
+                err_msg = (err.message if err else ""),
+                vals = (err.values if err else {"input": pretty(it.input), "expected_output": (pretty(it.expected_output) if it.expected_output is not none else ""), "metadata": pretty(it.metadata or {})}) %}
+          {% include "datasets/_json_fields.html" %}
+        {% endwith %}
+        <div class="field"><label>Versions</label>
+          <div class="ver">
+            {% for v, who in drawer.versions %}
+            <div class="v{% if loop.first %} cur{% endif %}"><b>v{{ v.version }}{% if loop.first %} <span class="pill lab ml-4">Current</span>{% endif %}{% if v.status == "archived" %} <span class="pill skip">Archived</span>{% endif %}</b>
+              <div class="m">{{ who }}{% if who %} · {% endif %}{{ v.created_at | date("%b %-d, %H:%M") }}</div></div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <footer>
+        {% if editable %}<span class="l">Saving creates v{{ it.version + 1 }}. Runs started earlier keep reading older versions.</span>{% endif %}
+        <button type="button" class="btn" data-dialog-close>{{ "Cancel" if editable else "Close" }}</button>
+        {% if editable %}<button type="submit" class="btn btn-primary">Save as v{{ it.version + 1 }}</button>{% endif %}
+      </footer>
+    </form>
+    {% if editable %}
+    <form method="post" action="{{ base }}/items/{{ it.id }}/archive" data-confirm="Archive this item? Runs started earlier still read it.">{{ m.csrf() }}
+      <footer class="foot-flat"><button type="submit" class="btn btn-ghost">{{ m.icon("i-trash", "ico-sm") }}Archive item</button></footer>
+    </form>
+    {% endif %}
+  </div>
+</dialog>

@@ -10,6 +10,7 @@ from traceloom.auth.deps import Access, get_container, require
 from traceloom.auth.permissions import Perm
 from traceloom.container import Container
 from traceloom.db.session import get_db
+from traceloom.scores import configs as score_configs
 from traceloom.web import trace_detail as td
 from traceloom.web import tree
 from traceloom.web.context import page_context
@@ -24,6 +25,22 @@ def _load(container: Container, project_id: str, trace_id: str):
     if detail is None:
         raise HTTPException(404, f"There is no trace {trace_id} in this project.")
     return detail
+
+
+def _obs_scores(scores) -> dict[str, list]:
+    out: dict[str, list] = {}
+    for s in scores:
+        if s.observation_id:
+            out.setdefault(s.observation_id, []).append(s)
+    return out
+
+
+def _archived_ids(db: Session, project_id: str) -> set[str]:
+    return {
+        c.id
+        for c in score_configs.list_configs(db, project_id, include_archived=True)
+        if c.archived_at is not None
+    }
 
 
 @router.get("/project/{project_id}/traces/{trace_id}", response_class=HTMLResponse)
@@ -86,6 +103,8 @@ def trace_page(
         },
         list_url=f"/project/{project_id}/traces",
         scores=detail.scores,
+        obs_scores=_obs_scores(detail.scores),
+        archived_config_ids=_archived_ids(db, project_id),
     )
     return render(request, "traces/detail.html", context)
 

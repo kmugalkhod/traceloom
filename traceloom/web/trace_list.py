@@ -6,6 +6,7 @@ and the environment are stored per user and project (user_prefs).
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -14,7 +15,7 @@ from urllib.parse import urlencode
 from starlette.datastructures import QueryParams
 
 from traceloom.config import get_settings
-from traceloom.ports import LEVELS, TraceQuery, TraceRow
+from traceloom.ports import LEVELS, SCORE_SORT_PREFIX, ScoreFilter, ScoreRow, TraceQuery, TraceRow
 from traceloom.web.context import avatar_class
 
 PAGE_SIZE = 50
@@ -44,6 +45,10 @@ DEFAULT_RANGE = "24h"
 SORTS = {"time": "timestamp", "latency": "latency", "cost": "cost", "tokens": "tokens"}
 TABS = ("all", "errors", "warnings", "bookmarked")
 MAX_METADATA_FILTERS = 10
+MAX_SCORE_FILTERS = 10
+_SCORE_PARAM = re.compile(
+    r"^(?P<name>.+?):(?P<op>>=|<=|!=|=|>|<|in|exists|missing)(?::(?P<value>.*))?$"
+)
 
 
 _GENERIC_PREFIXES = {"usr", "user", "u", "uid"}
@@ -70,6 +75,64 @@ def parse_columns(stored: str | None) -> tuple[str, ...]:
     chosen = {c for c in stored.split(",") if c in COLUMN_KEYS}
     ordered = tuple(k for k in COLUMN_KEYS if k in chosen)
     return ordered or DEFAULT_COLUMNS
+
+
+SESSION_COLUMNS = (
+    ("first_trace", "First trace"),
+    ("last_trace", "Last trace"),
+    ("traces", "Traces"),
+    ("duration", "Duration"),
+    ("cost", "Cost"),
+    ("users", "Users"),
+    ("tags", "Tags"),
+    ("scores", "Scores"),
+)
+SESSION_COLUMN_KEYS = tuple(k for k, _ in SESSION_COLUMNS)
+
+
+def parse_session_columns(stored: str | None) -> tuple[str, ...]:
+    """The user's session-list column choice, canonical order; unknown or empty -> all."""
+    chosen = {c for c in (stored or "").split(",") if c in SESSION_COLUMN_KEYS}
+    return tuple(k for k in SESSION_COLUMN_KEYS if k in chosen) or SESSION_COLUMN_KEYS
+
+
+def _number_or_text(text: str) -> float | str:
+    try:
+        return float(text)
+    except ValueError:
+        return text
+
+
+def parse_score_filter(raw: str) -> ScoreFilter:
+    """`name:op[:value]` (the `score` URL param) -> a ScoreFilter. Raises ValueError if invalid."""
+    match = _SCORE_PARAM.match(raw.strip())
+    if not match:
+        raise ValueError(f"{raw!r} is not name:operator:value")
+    name, op, text = match["name"].strip(), match["op"], match["value"]
+    if op in ("exists", "missing"):
+        return ScoreFilter(name, op)
+    if text is None or not text.strip():
+        raise ValueError(f"{name} {op} needs a value")
+    text = text.strip()
+    if op == "in":
+        items = [t.strip() for t in text.split(",") if t.strip()]
+        numbers = [_number_or_text(t) for t in items]
+        return ScoreFilter(
+            name, op, numbers if all(isinstance(n, float) for n in numbers) else items
+        )
+    return ScoreFilter(name, op, _number_or_text(text))
+
+
+def parse_score_filters(values: Sequence[str]) -> tuple[list[ScoreFilter], list[str]]:
+    """Valid filters (capped) and a message per rejected one."""
+    filters: list[ScoreFilter] = []
+    errors: list[str] = []
+    for raw in values[:MAX_SCORE_FILTERS]:
+        try:
+            filters.append(parse_score_filter(raw))
+        except ValueError as exc:
+            errors.append(str(exc))
+    return filters, errors
 
 
 def _float(value: str | None) -> float | None:
@@ -105,6 +168,7 @@ class ListState:
     form: dict[str, object]
     environment: str | None
     chips: list[Chip] = field(default_factory=list)
+    score_errors: list[str] = field(default_factory=list)
     base_path: str = ""
 
     def url(
@@ -161,6 +225,11 @@ class ListState:
         keys = {k for k, _ in self.params.multi_items()} - {"cursor", "shown", "sort", "range"}
         return bool(keys) or self.range != DEFAULT_RANGE
 
+    def score_sort_url(self, name: str) -> str:
+        prefix = f"{SCORE_SORT_PREFIX}{name}"
+        descending_now = self.sort == f"{prefix}:desc"
+        return self.url(set={"sort": f"{prefix}:{'asc' if descending_now else 'desc'}"})
+
     def sort_url(self, column: str) -> str:
         current, _, direction = self.sort.partition(".")
         nxt = "asc" if (current == column and direction == "desc") else "desc"
@@ -179,6 +248,13 @@ def hidden_environments() -> tuple[str, ...]:
     return (settings.eval_environment, settings.experiment_environment)
 
 
+def _score_value_text(f: ScoreFilter) -> str:
+    if f.value is None:
+        return ""
+    values = f.value if isinstance(f.value, list | tuple) else [f.value]
+    return ", ".join(f"{v:g}" if isinstance(v, float) else str(v) for v in values)
+
+
 def parse_state(
     params: QueryParams, base_path: str, env_pref: str | None, now: datetime | None = None
 ) -> ListState:
@@ -195,10 +271,19 @@ def parse_state(
     else:
         from_time, to_time = now - RANGES[rng], None
 
-    sort_key, _, direction = (get("sort") or "time.desc").partition(".")
-    if sort_key not in SORTS:
+    sort_param = get("sort") or "time.desc"
+    score_sort = ""
+    if sort_param.startswith(SCORE_SORT_PREFIX):
+        score_sort, _, direction = sort_param[len(SCORE_SORT_PREFIX) :].rpartition(":")
+        if direction not in ("asc", "desc"):
+            score_sort, direction = f"{score_sort}:{direction}".strip(":"), "desc"
         sort_key = "time"
+    else:
+        sort_key, _, direction = sort_param.partition(".")
+        if sort_key not in SORTS:
+            sort_key = "time"
     direction = direction if direction in ("asc", "desc") else "desc"
+    score_filters, score_errors = parse_score_filters(params.getlist("score"))
 
     tab = get("tab") if get("tab") in TABS else "all"
     level = get("level") if get("level") in LEVELS else None
@@ -245,7 +330,8 @@ def parse_state(
         from_time=from_time,
         to_time=to_time,
         exclude_environments=hidden_environments(),
-        sort=SORTS[sort_key],
+        sort=f"{SCORE_SORT_PREFIX}{score_sort}" if score_sort else SORTS[sort_key],
+        score_filters=tuple(score_filters),
         descending=direction == "desc",
         limit=PAGE_SIZE,
     )
@@ -254,7 +340,10 @@ def parse_state(
         params=params,
         range=rng,
         tab=tab,
-        sort=f"{sort_key}.{direction}",
+        sort=f"{SCORE_SORT_PREFIX}{score_sort}:{direction}"
+        if score_sort
+        else f"{sort_key}.{direction}",
+        score_errors=score_errors,
         search=get("q") or "",
         form={
             "name": get("name") or "",
@@ -273,6 +362,9 @@ def parse_state(
             "from": get("from") or "",
             "to": get("to") or "",
             "metadata": metadata,
+            "scores": [
+                {"name": f.name, "op": f.op, "value": _score_value_text(f)} for f in score_filters
+            ],
         },
         environment=environment,
         base_path=base_path,
@@ -305,6 +397,16 @@ def chips_for(state: ListState) -> list[Chip]:
         )
     if p.get("bookmarked") == "1":
         chips.append(Chip("bookmarked", {"bookmarked": None}))
+    for raw in p.getlist("score"):
+        try:
+            f = parse_score_filter(raw)
+        except ValueError:
+            continue
+        chips.append(
+            Chip(
+                f"score {f.name} {f.op} {_score_value_text(f)}".strip(), {"score": None}, value=raw
+            )
+        )
     for key, value in state.form["metadata"].items():
         chips.append(Chip(f"metadata.{key} = {value}", {f"metadata.{key}": None}))
     for low, high, label, unit in (
@@ -356,7 +458,7 @@ class Row:
     level: str
     environment: str
     release: str | None
-    scores: list[tuple[str, str]]
+    scores: list[ScoreRow]
     more_scores: int
 
     @property
@@ -364,16 +466,8 @@ class Row:
         return self.level if self.level in ("ERROR", "WARNING") else ""
 
 
-def _score_value(score) -> str:
-    if score.string_value:
-        return score.string_value
-    if score.data_type == "BOOLEAN":
-        return "true" if score.value else "false"
-    return "" if score.value is None else f"{score.value:g}"
-
-
 def row_model(project_id: str, trace: TraceRow) -> Row:
-    scores = [(s.name, _score_value(s)) for s in trace.scores]
+    scores = list(trace.scores)
     return Row(
         id=trace.id,
         href=f"/project/{project_id}/traces/{trace.id}",
@@ -404,6 +498,7 @@ FILTER_PARAMS = (
     "name",
     "user",
     "session",
+    "score",
     "tag",
     "level",
     "has_error",
@@ -433,7 +528,7 @@ def canonical_params(params: QueryParams) -> list[tuple[str, str]]:
     meta_value = (params.get("metadata_value") or "").strip()
     for key, value in params.multi_items():
         value = value.strip()
-        if key in ("metadata_key", "metadata_value") or not value:
+        if key in ("metadata_key", "metadata_value", "sf_name", "sf_op", "sf_value") or not value:
             continue
         if key == "tag":
             pairs.extend(("tag", t.strip()) for t in value.split(",") if t.strip())
@@ -441,6 +536,14 @@ def canonical_params(params: QueryParams) -> list[tuple[str, str]]:
             continue
         else:
             pairs.append((key, value))
+    for name, op, value in zip(
+        params.getlist("sf_name"), params.getlist("sf_op"), params.getlist("sf_value"), strict=False
+    ):
+        name, value = name.strip(), value.strip()
+        if name and op in ("exists", "missing"):
+            pairs.append(("score", f"{name}:{op}"))
+        elif name and op and value:
+            pairs.append(("score", f"{name}:{op}:{value}"))
     if meta_key and meta_value:
         pairs.append((f"metadata.{meta_key}", meta_value))
     if (params.get("from") or params.get("to")) and not any(k == "range" for k, _ in pairs):

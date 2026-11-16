@@ -1,0 +1,19 @@
+{# Admin-only confirm: the name must be typed. Needs `dataset`, `project`, `dlg_id`, `error`. #}
+{% import "_macros.html" as m with context %}
+<dialog class="dlg" id="{{ dlg_id }}" aria-label="Delete {{ dataset.name }}"{% if error %} data-autoopen{% endif %}>
+  <div class="dialog">
+    {{ m.dialog_head("Delete " ~ dataset.name ~ "?") }}
+    <form method="post" action="/project/{{ project.id }}/datasets/{{ dataset.id }}/delete">
+      {{ m.csrf() }}
+      <div class="body">
+        <p>This removes the dataset, its items and its runs. Scores and traces already written stay where they are.</p>
+        <div class="field">
+          <label for="{{ dlg_id }}-name">Type <b class="mono">{{ dataset.name }}</b> to confirm</label>
+          <input class="input" id="{{ dlg_id }}-name" name="confirm_name" autocomplete="off" required{% if error %} aria-invalid="true" aria-describedby="{{ dlg_id }}-err"{% endif %}>
+          {% if error %}<span class="field-error" id="{{ dlg_id }}-err" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ error }}</span></span>{% endif %}
+        </div>
+      </div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-danger">Delete dataset</button></footer>
+    </form>
+  </div>
+</dialog>

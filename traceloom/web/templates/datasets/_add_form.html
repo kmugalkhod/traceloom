@@ -1,0 +1,30 @@
+{# The Add to dataset form, shared by the dialog and the standalone page. #}
+{% import "_macros.html" as m with context %}
+{% if error %}<div class="banner err" role="alert">{{ m.icon("i-error") }}<div>{{ error }}</div></div>{% endif %}
+<div class="field">
+  <label for="ad">Dataset</label>
+  <select id="ad" class="select" name="dataset_id">
+    <option value="">{{ "Choose a dataset" if datasets else "No datasets yet" }}</option>
+    {% for d in datasets %}<option value="{{ d.id }}"{% if d.id == dataset_id %} selected{% endif %}>{{ d.name }}</option>{% endfor %}
+  </select>
+</div>
+<div class="field"><label for="ad-new">Or create a new dataset <span class="muted">optional</span></label>
+  <input id="ad-new" class="input" name="new_dataset" value="{{ new_dataset }}" maxlength="200" autocomplete="off"></div>
+{% for t in trace_ids %}<input type="hidden" name="trace_id" value="{{ t }}">{% endfor %}
+<input type="hidden" name="observation_id" value="{{ observation_id }}">
+{% if bulk %}
+  <div class="banner info">{{ m.icon("i-info") }}<div>Adding {{ trace_ids | length }} traces. Each becomes an item with its input and output prefilled and a source link. No editing step.</div></div>
+{% else %}
+  {% set err_msg = error %}
+  {% with prefix = "ad", editable = true, vals = vals %}
+  <div class="fgrid">
+    <div class="field"><label for="ad-input">Input <span class="muted">from {{ "its input" if not observation_id else "the observation" }}</span></label>
+      <div class="jed{% if error.startswith('Input') %} bad{% endif %}"><textarea id="ad-input" name="input" spellcheck="false" required>{{ vals.get("input", "") }}</textarea></div></div>
+    <div class="field"><label for="ad-expected_output">Expected output <span class="muted">from its output, edit if wrong</span></label>
+      <div class="jed{% if error.startswith('Expected') %} bad{% endif %}"><textarea id="ad-expected_output" name="expected_output" spellcheck="false">{{ vals.get("expected_output", "") }}</textarea></div></div>
+  </div>
+  <details{% if error.startswith('Metadata') %} open{% endif %}><summary class="btn btn-ghost btn-sm summ-btn">Metadata (JSON)</summary>
+    <div class="jed{% if error.startswith('Metadata') %} bad{% endif %} mt-8"><textarea id="ad-metadata" name="metadata" aria-label="Metadata (JSON)" spellcheck="false">{{ vals.get("metadata", "") }}</textarea></div></details>
+  <div class="srcl">{{ m.icon("i-link", "ico-sm") }}Saved with a link to <a href="{{ trace_url }}{{ trace_ids[0] | urlencode }}">{{ trace_ids[0][:12] }}</a>{% if observation_id %} · <span class="mono-sm">{{ observation_id[:12] }}</span>{% endif %}</div>
+  {% endwith %}
+{% endif %}

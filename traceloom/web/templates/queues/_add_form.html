@@ -1,0 +1,31 @@
+{# The body of the Add to queue dialog and page: the queue picker, what is added, and any error. #}
+{% import "_macros.html" as m with context %}
+{% for t in trace_ids %}<input type="hidden" name="trace_id" value="{{ t }}">{% endfor %}
+{% for s in session_ids %}<input type="hidden" name="session_id" value="{{ s }}">{% endfor %}
+{% if observation_id %}<input type="hidden" name="observation_id" value="{{ observation_id }}">{% endif %}
+{% if matching %}<input type="hidden" name="matching" value="1"><input type="hidden" name="filter" value="{{ raw_filter }}">{% endif %}
+{% if error %}{{ m.banner("err", error) }}{% endif %}
+{% if matching %}
+  <div class="fchips">{% for c in chips %}<span class="chip f">{{ c }}</span>{% endfor %}</div>
+{% endif %}
+<div class="field">
+  <label for="aq-queue">Queue</label>
+  {% if options %}
+  <select id="aq-queue" name="queue_id" class="select" required>
+    <option value="">Choose a queue</option>
+    {% for o in options %}
+      <option value="{{ o.queue.id }}"{% if not o.usable %} disabled{% elif o.queue.id == queue_id %} selected{% endif %}>{{ o.queue.name }} · {{ o.pending }} pending{% if not o.usable %} · all configs archived{% endif %}</option>
+    {% endfor %}
+  </select>
+  {% else %}
+  <div class="hint">There are no annotation queues yet. <a href="{{ queues_url }}">Create one</a> first.</div>
+  {% endif %}
+  {% if not matching %}<span class="hint">Adds {{ subject }} as {{ count }} item{{ "s" if count > 1 }}. Items already in the queue are skipped.</span>{% endif %}
+</div>
+{% if matching %}
+  {% if over_limit %}
+    {{ m.banner("err", (match_count | count) ~ " traces match; the limit is " ~ (bulk_max | count) ~ ". Only the first " ~ (bulk_max | count) ~ " (newest first) are added. Narrow the filter or continue.") }}
+  {% else %}
+    {{ m.banner("warn", (match_count | count) ~ " traces match, " ~ (bulk_max | count) ~ " is the most one add can take. This adds a snapshot of the matches as they are right now. Later matches are not added.") }}
+  {% endif %}
+{% endif %}
