@@ -325,7 +325,12 @@ def _execute(container: Container, execution_id: str, secrets: list[str]) -> Non
         project_id, object_type, object_id = ex.project_id, ex.object_type, ex.object_id
         trace_id, attempt = ex.trace_id or ex.object_id, ex.attempts
         version = db.get(EvalTemplateVersion, ex.template_version_id)
-        rule = db.get(EvalRule, ex.rule_id) if ex.rule_id else None
+        rule: Any = db.get(EvalRule, ex.rule_id) if ex.rule_id else None
+        experiment = (
+            _experiment_job(db, ex, settings.experiment_environment) if ex.run_item_id else None
+        )
+        if experiment is not None:
+            rule = experiment.rule
         if version is None or rule is None:
             raise Permanent("the rule or the template version no longer exists")
         template = db.get(EvalTemplate, version.template_id)
@@ -337,23 +342,27 @@ def _execute(container: Container, execution_id: str, secrets: list[str]) -> Non
     policy = ConnectionPolicy.from_settings(settings)
 
     # 1. The object, and whether the rule still wants it.
-    detail = store.get_trace(project_id, trace_id)
-    if detail is None:
-        raise Skipped("the trace no longer exists")
-    row: TraceRow | ObservationRow | None = detail.trace
-    if object_type == OBSERVATION:
-        row = next((o for o in detail.observations if o.id == object_id), None)
-    if row is None or object_type not in (TRACE, OBSERVATION):
-        raise Skipped("the object no longer exists")
-    if not still_matches(rule, row):
-        raise Skipped("the object no longer matches the rule's filter")
+    row: Any
+    if experiment is not None:  # bound from the run item and its item version, not the trace
+        row, context = experiment.row, experiment.context
+    else:
+        detail = store.get_trace(project_id, trace_id)
+        if detail is None:
+            raise Skipped("the trace no longer exists")
+        row = detail.trace
+        if object_type == OBSERVATION:
+            row = next((o for o in detail.observations if o.id == object_id), None)
+        if row is None or object_type not in (TRACE, OBSERVATION):
+            raise Skipped("the object no longer exists")
+        if not still_matches(rule, row):
+            raise Skipped("the object no longer matches the rule's filter")
+        context = _context(row, detail.observations if object_type == TRACE else [])
 
     # 2. Score config, variables, model.
     if rule.config_id:
         snapshot = config_cache(container).get(project_id, rule.config_id)
         if snapshot is None or snapshot.archived:
             raise Permanent("the score config is archived or no longer exists")
-    context = _context(row, detail.observations if object_type == TRACE else [])
     variables = _variables(version.prompt)
     try:
         values = resolve_variables(variables, rule.mapping, context)
@@ -400,7 +409,10 @@ def _execute(container: Container, execution_id: str, secrets: list[str]) -> Non
     except Retryable:
         _record_trace(container, execution_id, judge_trace_id, cost)
         raise
-    _write_score(container, project_id, execution_id, rule, row, trace_id, object_type, judgement)
+    _write_score(
+        container, project_id, execution_id, rule, row, trace_id, object_type, judgement,
+        dataset_run_id=experiment.run_id if experiment else None,
+    )  # fmt: skip
     _finish(
         container,
         execution_id,
@@ -410,6 +422,70 @@ def _execute(container: Container, execution_id: str, secrets: list[str]) -> Non
         cost=cost,
     )
     log.info("eval %s succeeded on attempt %d", execution_id, attempt)
+
+
+@dataclass(frozen=True)
+class _ExperimentRule:
+    """What an experiment evaluator supplies in place of a rule."""
+
+    score_name: str
+    mapping: dict[str, Any]
+    config_id: str | None
+    connection_id: str | None
+    model: str | None
+    filter: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class _ExperimentJob:
+    rule: _ExperimentRule
+    row: Any  # carries `environment` for the score
+    context: ObjectContext
+    run_id: str
+
+
+def _experiment_job(db, ex: EvalExecution, environment: str) -> _ExperimentJob | None:
+    """The evaluator of a run item: the run's config, the run item's output and the item as of
+    the run's version (so `{{expected_output}}` binds without waiting for the trace)."""
+    from types import SimpleNamespace
+
+    from traceloom.datasets import service as datasets
+    from traceloom.db.models import Project
+    from traceloom.db.models_datasets import DatasetRun, DatasetRunItem
+
+    run_item = db.get(DatasetRunItem, ex.run_item_id)
+    run = db.get(DatasetRun, run_item.run_id) if run_item else None
+    if run is None:
+        return None
+    spec = next(
+        (
+            e
+            for e in run.config.get("evaluators", [])
+            if e["template_version_id"] == ex.template_version_id
+        ),
+        None,
+    )
+    if spec is None:
+        return None
+    project = db.get(Project, ex.project_id)
+    item = datasets.item_at_version(
+        db, project, datasets.get_item(db, project, run_item.item_id), run_item.item_version
+    )
+    rule = _ExperimentRule(
+        score_name=spec["score_name"],
+        mapping=spec.get("mapping") or {},
+        config_id=spec.get("config_id"),
+        connection_id=run.config.get("connection_id"),
+        model=run.config.get("model"),
+        filter={},
+    )
+    context = ObjectContext(
+        input=item.input,
+        output=run_item.output,
+        expected_output=item.expected_output,
+        metadata=item.metadata or {},
+    )
+    return _ExperimentJob(rule, SimpleNamespace(environment=environment), context, run.id)
 
 
 def _variables(prompt: str) -> list[str]:
@@ -499,6 +575,7 @@ def _write_score(
     trace_id: str,
     object_type: str,
     judgement: Judgement,
+    dataset_run_id: str | None = None,
 ) -> None:
     settings = container.settings
     body: dict[str, Any] = {
@@ -511,6 +588,8 @@ def _write_score(
         "executionId": execution_id,
         "environment": row.environment,
     }
+    if dataset_run_id:
+        body["datasetRunId"] = dataset_run_id
     if object_type == OBSERVATION:
         body["observationId"] = row.id
     if rule.config_id:
