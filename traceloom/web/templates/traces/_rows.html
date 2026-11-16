@@ -1,5 +1,6 @@
 {# Table rows for one page of traces. Everything user-supplied is autoescaped. #}
 {% import "_macros.html" as m with context %}
+{% import "_score_chips.html" as sc %}
 {% for r in rows %}
 <tr class="{{ r.row_class }}" tabindex="-1" data-row data-href="{{ r.href }}">
   <td class="lvl"></td>
@@ -13,7 +14,7 @@
   {% if "tokens" in columns %}<td class="num r">{{ r.tokens | count }}</td>{% endif %}
   {% if "cost" in columns %}<td class="num r c-cost">{{ r.cost | money }}</td>{% else %}<td class="c-cost only-m num r">{{ r.cost | money }}</td>{% endif %}
   {% if "level" in columns %}<td>{% include "traces/_level.html" %}</td>{% endif %}
-  {% if "scores" in columns %}<td class="c">{% for name, value in r.scores %}<span class="score"><b>{{ name }}</b><span>{{ value }}</span></span> {% else %}<span class="muted">—</span>{% endfor %}{% if r.more_scores %} <span class="hint">+{{ r.more_scores }}</span>{% endif %}</td>{% endif %}
+  {% if "scores" in columns %}<td class="c">{% for s in r.scores %}{{ sc.chip(s) }} {% else %}<span class="muted">—</span>{% endfor %}{% if r.more_scores %} <span class="hint">+{{ r.more_scores }}</span>{% endif %}</td>{% endif %}
   {% if "environment" in columns %}<td>{{ r.environment }}</td>{% endif %}
   {% if "release" in columns %}<td class="mono">{{ r.release or "–" }}</td>{% endif %}
   <td class="only-m c-meta"><span class="mono">{{ r.clock }}</span>{% if r.user %}<span>{{ r.user }}</span>{% endif %}<span class="mono">{{ r.latency_ms | latency }}</span><span class="mono">{{ r.tokens | count }} tok</span><span>{% include "traces/_level.html" %}</span></td>

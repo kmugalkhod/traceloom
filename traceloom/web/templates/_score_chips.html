@@ -1,0 +1,8 @@
+{# Score chips, coloured by source (ann = person, eval = judge, plain = API). Names and comments
+   are escaped by Jinja autoescape; `archived` is a set of config ids whose chips render dashed. #}
+{% macro chip(s, archived=()) -%}
+<span class="sc {{ 'ann' if s.source == 'ANNOTATION' else ('eval' if s.source == 'EVAL' else '') }}{{ ' arch' if s.config_id and s.config_id in archived }}{{ ' fb' if s.channel == 'public_feedback' }}" title="{{ s.source | lower }}{% if s.comment %}: {{ s.comment }}{% endif %}"><span class="n">{{ s.name }}:</span> <b>{{ s | score_value }}</b></span>
+{%- endmacro %}
+{% macro chips(scores, archived=(), limit=0) -%}
+<span class="scs">{% for s in scores %}{% if not limit or loop.index <= limit %}{{ chip(s, archived) }}{% endif %}{% endfor %}{% if limit and scores | length > limit %}<span class="hint">+{{ scores | length - limit }}</span>{% endif %}</span>
+{%- endmacro %}

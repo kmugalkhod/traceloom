@@ -1,0 +1,20 @@
+{# Config-driven score input: number field, category select or boolean select. `cfg` is a
+   ScoreConfig; `base` and the `m` macros come from the including template's context. Each config
+   is its own form that posts `config_id` and `value`; the server validates against the config. #}
+{% macro config_input(cfg) %}
+<div class="sin" data-score="{{ cfg.id }}">
+  <div class="nm"><span>{{ cfg.name }}</span><small>{% if cfg.description %}{{ cfg.description }}{% elif cfg.data_type == "NUMERIC" %}{% if cfg.min_value is not none or cfg.max_value is not none %}{{ "%g" | format(cfg.min_value) if cfg.min_value is not none else "" }} to {{ "%g" | format(cfg.max_value) if cfg.max_value is not none else "" }}{% else %}Number{% endif %}{% elif cfg.data_type == "BOOLEAN" %}True or false{% else %}Pick one{% endif %}</small></div>
+  <form method="post" action="{{ base }}/scores" hx-post="{{ base }}/scores" hx-target="#trace-discussion" hx-swap="innerHTML" class="row" data-score-form>
+    {{ m.csrf() }}
+    <input type="hidden" name="config_id" value="{{ cfg.id }}">
+    {% if cfg.data_type == "NUMERIC" %}
+      <input class="input" name="value" inputmode="decimal" autocomplete="off" required aria-label="{{ cfg.name }}">
+    {% elif cfg.data_type == "BOOLEAN" %}
+      <select class="select" name="value" required aria-label="{{ cfg.name }}"><option value="">Choose</option><option value="true">True</option><option value="false">False</option></select>
+    {% else %}
+      <select class="select" name="value" required aria-label="{{ cfg.name }}"><option value="">Choose</option>{% for c in cfg.categories or [] %}<option value="{{ c.label }}">{{ c.label }}</option>{% endfor %}</select>
+    {% endif %}
+    <button class="btn btn-sm" type="submit">Add</button>
+  </form>
+</div>
+{% endmacro %}

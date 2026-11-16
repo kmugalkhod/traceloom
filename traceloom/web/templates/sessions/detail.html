@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m with context %}
+{% import "_score_chips.html" as sc %}
 {% block title %}Session {{ session.session_id }}{% endblock %}
 {% block crumbs %}
 <nav class="crumbs" aria-label="Breadcrumb"><a href="/project/{{ project.id }}/sessions">Sessions</a>{{ m.icon("i-chev-r", "ico-sm") }}<span class="mono" aria-current="page">{{ session.session_id }}</span></nav>
@@ -36,6 +37,7 @@
         <div class="meta">
           <span class="mono">{{ t.trace.total_cost | cost }}</span>
           <span class="mono">{{ t.trace.latency_ms | duration }}</span>
+          {% if t.trace.scores %}{{ sc.chips(t.trace.scores, archived_config_ids) }}{% endif %}
           <a href="/project/{{ project.id }}/traces/{{ t.trace.id | urlencode }}">Open trace <span class="mono">{{ t.trace.id }}</span></a>
         </div>
       </div>

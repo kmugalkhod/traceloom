@@ -103,10 +103,11 @@ def test_io_blocks_and_panels(live_server, browser_page):  # noqa: F811
         and len({h for _t, h in cols}) == 1
         and max(t for t, _ in cols) - min(t for t, _ in cols) <= 1
     ), cols
+    page.get_by_text("Free-form score").click()
     page.fill("#score-name", "quality")
     page.fill("#score-value", "0.9")
     page.get_by_role("button", name="Add score").click()
-    page.wait_for_selector("#scores .score:has-text('quality')")
+    page.wait_for_selector("#scores .sc:has-text('quality')")
     page.get_by_role("tab", name="Comments").click()
     payload = "<img src=x onerror=alert(1)><b>bold</b>"
     page.fill("#comment-body", payload)
