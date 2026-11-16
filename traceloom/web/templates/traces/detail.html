@@ -13,7 +13,9 @@
     <h1>{{ trace.name or "(unnamed trace)" }}</h1>
     {% if trace.max_level == "ERROR" %}<span class="lv ERROR">{{ m.icon("i-error", "ico-sm") }}Error</span>{% elif trace.max_level == "WARNING" %}<span class="lv WARNING">{{ m.icon("i-warn", "ico-sm") }}Warning</span>{% endif %}
     {% for flag in flags %}<span class="chip">{{ flag }}</span>{% endfor %}
-    <span class="right row-wrap">{% include "traces/_actions.html" ignore missing %}</span>
+    <span class="right row-wrap">
+      {% if can("datasets:write") %}<a class="btn" href="/project/{{ project.id }}/datasets/add?trace_id={{ trace.id | urlencode }}" hx-get="/project/{{ project.id }}/datasets/add?trace_id={{ trace.id | urlencode }}" hx-target="#dataset-dialog-slot" hx-swap="innerHTML">{{ m.icon("i-folder") }}Add to dataset</a>{% endif %}
+      {% include "traces/_actions.html" ignore missing %}</span>
   </div>
   <div class="mline-row">
     <dl class="mline kv">
@@ -58,6 +60,8 @@
 
 {# Scores and Comments are tabs of the detail pane; their panels load into #trace-discussion above. #}
 {% include "traces/_scores.html" ignore missing %}
+<div id="dataset-dialog-slot"></div>
+<script src="/static/dataset_import.js" defer></script>
 {% endblock %}
 
 {% block dialogs %}

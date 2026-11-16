@@ -1,0 +1,12 @@
+{# HTMX fragment: the dialog, opened by dataset_import.js after it is swapped into the page. #}
+{% import "_macros.html" as m with context %}
+<dialog class="dlg dialog-wide" id="add-to-dataset" aria-label="Add to dataset" data-autoopen>
+  <div class="dialog">
+    {{ m.dialog_head("Add to dataset") }}
+    <form method="post" action="{{ action }}">
+      {{ m.csrf() }}
+      <div class="body">{% include "datasets/_add_form.html" %}</div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">{{ "Add items" if bulk else "Add item" }}</button></footer>
+    </form>
+  </div>
+</dialog>

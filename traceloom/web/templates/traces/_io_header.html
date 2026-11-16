@@ -6,3 +6,6 @@
 {% if pane.playground_url and can("playground:run") %}
   <a class="btn btn-sm io-open-pg" href="{{ pane.playground_url }}" aria-label="Open in playground" title="Open in playground" data-open-playground>{{ m.icon("i-play", "ico-sm") }}<span class="lbl">Open in playground</span></a>
 {% endif %}
+{% if can("datasets:write") %}
+  <a class="btn btn-sm io-add-dataset" href="/project/{{ project.id }}/datasets/add?trace_id={{ pane.trace.id | urlencode }}&amp;observation_id={{ pane.obs.id | urlencode }}" hx-get="/project/{{ project.id }}/datasets/add?trace_id={{ pane.trace.id | urlencode }}&amp;observation_id={{ pane.obs.id | urlencode }}" hx-target="#dataset-dialog-slot" hx-swap="innerHTML" data-add-to-dataset>{{ m.icon("i-folder", "ico-sm") }}<span class="lbl">Add to dataset</span></a>
+{% endif %}

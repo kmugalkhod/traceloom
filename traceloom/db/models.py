@@ -471,4 +471,6 @@ __all__ = [
     "WebhookDelivery",
 ]
 
+# Register the dataset tables on Base.metadata whenever the core models load.
+from traceloom.db import models_datasets as _models_datasets  # noqa: E402,F401
 from traceloom.db import models_eval as _models_eval  # noqa: E402,F401  (registers the tables)
