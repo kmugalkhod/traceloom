@@ -1,0 +1,6 @@
+score_configs 1
+annotation_queues 1
+datasets 1
+dataset_items 20
+dataset_runs 2
+dataset_run_items 40

@@ -1,0 +1,28 @@
+TRACELOOM_ENCRYPTION_KEY is not set; using an ephemeral key. Stored LLM connection keys and webhook secrets will not survive a restart.
+database is at head
+TRACELOOM_ENCRYPTION_KEY is not set; using an ephemeral key. Stored LLM connection keys and webhook secrets will not survive a restart.
+demo created
+email:        demo@example.com
+password:     demo-password-123
+org id:       956539a7b7b64a6d94ef65a5c684332c
+project id:   ec6dca56e3754ebeb0c7f3ff1081b194
+public key:   tl-pk-demo-5b237efd4fa7
+secret key:   tl-sk-demo-774425229c6aea0272db9f4b0ce990c4
+
+TRACELOOM_HOST=http://127.0.0.1:8000 \
+TRACELOOM_PUBLIC_KEY=tl-pk-demo-5b237efd4fa7 \
+TRACELOOM_SECRET_KEY=tl-sk-demo-774425229c6aea0272db9f4b0ce990c4 \
+python examples/agent.py
+TRACELOOM_ENCRYPTION_KEY is not set; using an ephemeral key. Stored LLM connection keys and webhook secrets will not survive a restart.
+demo created
+email:        demo@example.com
+password:     demo-password-123
+org id:       956539a7b7b64a6d94ef65a5c684332c
+project id:   ec6dca56e3754ebeb0c7f3ff1081b194
+public key:   tl-pk-demo-78dd79bd266b
+secret key:   tl-sk-demo-cb3efb379380623a82cf9d6f62a38501
+
+TRACELOOM_HOST=http://127.0.0.1:8000 \
+TRACELOOM_PUBLIC_KEY=tl-pk-demo-78dd79bd266b \
+TRACELOOM_SECRET_KEY=tl-sk-demo-cb3efb379380623a82cf9d6f62a38501 \
+python examples/agent.py
