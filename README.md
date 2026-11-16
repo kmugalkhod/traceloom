@@ -33,6 +33,49 @@ with traceloom_sdk.start_generation(
 
 `get_prompt` caches for `TRACELOOM_PROMPT_CACHE_TTL` seconds (default 60; `0` disables), serves the old version while refreshing in the background, and uses the fallback when the server is unreachable (a fallback prompt is not linked). It raises `PromptNotFound` only when there is no cached value and no fallback. With the OpenAI and Anthropic wrappers, pass `traceloom_prompt=prompt` to a call to link it. See `examples/prompt_app.py` and the public API under `/api/public/v2/prompts`.
 
+## Evaluation
+
+Run `traceloom seed-demo` to get a demo project with a score config, an annotation queue, a 20-item dataset and two runs (safe to repeat).
+
+**Score configs.** Settings, Score configs (Admins edit) defines a score: a name, a type (`NUMERIC` with a range, `CATEGORICAL` with labelled values, or `BOOLEAN`) and a description. Scores named after a config are checked against it, and annotation queues and the Scores tab render inputs from it. Archive a config to retire it; its type and categories are locked once scores use it.
+
+**Scoring from code.**
+
+```python
+import traceloom_sdk
+
+with traceloom_sdk.start_span("answer") as span:
+    span.score("helpfulness", 4, comment="clear and correct")  # on the current trace
+traceloom_sdk.score("thumbs", True, trace_id="<trace id>", config_id="<config id>")
+```
+
+**Feedback snippet.** Mark a config `public feedback`, add your site under Settings, Evaluation, allowed feedback origins, and paste the `feedback.js` snippet shown there. It posts thumbs or ratings with the public key only (`POST /api/public/feedback`, rate limited by `TRACELOOM_RATE_FEEDBACK`); only configs marked public accept it.
+
+**Judge rules.** Evaluator templates plus rules (Evaluation, Evaluators) score new traces or observations with an LLM judge: a target, a filter, a sampling percentage, a delay (default 30 s) and a variable mapping. Results are `EVAL` scores with the reasoning as the comment. Rules apply to new data only; backfill is capped by `TRACELOOM_EVAL_BACKFILL_MAX` (1,000). Failed calls retry up to `TRACELOOM_EVAL_MAX_ATTEMPTS` (3). Judge traces live in `TRACELOOM_EVAL_ENVIRONMENT` and never trigger rules.
+
+**Daily cost cap.** Each project has a per-day (UTC) judge and experiment spend cap, `TRACELOOM_EVAL_DAILY_COST_CAP_USD` (default 10), which Admins can override in Settings, Evaluation. `0` pauses judges. A call that would exceed it is marked `capped`, not failed, and is not retried that day.
+
+**Datasets.** Datasets hold versioned items (input, expected output, metadata). Create them from a trace ("Add to dataset"), by CSV or JSON import, or through `/api/public/datasets`. A run records the dataset version it used, so results stay comparable after edits.
+
+**Experiments.**
+
+```python
+import traceloom_sdk
+from traceloom_sdk import Evaluation
+
+def task(item):
+    return my_app(item.input["question"])
+
+def exact(input, output, expected_output):
+    return Evaluation(name="exact", value=output == expected_output)
+
+result = traceloom_sdk.run_experiment(
+    traceloom_sdk.get_dataset("demo-support-questions"), task, evaluators=[exact], run_name="v2"
+)
+```
+
+Each item runs `task` in a trace linked to the run; evaluator results become `API` scores on that trace. A task error is recorded on the item and never stops the run. In the UI, "New experiment" on a dataset runs a prompt version over every item, and Compare shows up to four runs side by side with regressions highlighted.
+
 ## Tests
 
 ```

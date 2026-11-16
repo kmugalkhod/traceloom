@@ -1,0 +1,8 @@
+WARNING [traceloom.config] TRACELOOM_ENCRYPTION_KEY is not set; using an ephemeral key. Stored LLM connection keys and webhook secrets will not survive a restart.
+login 200 http://testserver/project/ec6dca56e3754ebeb0c7f3ff1081b194/traces
+settings/scores 200 3
+queues 200 4
+datasets 200 6
+/datasets/2ac5b0ea81a24a54a81811b168fb96ab
+200 [0, 0]
+runs 200 [1, 1]
