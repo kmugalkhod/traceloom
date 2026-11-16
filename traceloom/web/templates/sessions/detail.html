@@ -14,6 +14,7 @@
     <span class="menu-wrap">
       <button type="button" class="btn btn-icon" aria-label="More session actions" aria-haspopup="true" aria-expanded="false" data-menu-toggle="session-menu">{{ m.icon("i-more-h") }}</button>
       <span class="pop pop-right" id="session-menu" data-menu hidden role="menu" aria-label="Session actions">
+        {% if can("queues:write") %}<a class="item" role="menuitem" href="/project/{{ project.id }}/queues/add?session_id={{ session.session_id | urlencode }}" hx-get="/project/{{ project.id }}/queues/add?session_id={{ session.session_id | urlencode }}" hx-target="#queue-dialog-slot" hx-swap="innerHTML">{{ m.icon("i-sessions", "ico-sm") }}Add to annotation queue…</a>{% endif %}
         <button type="button" class="item" role="menuitem" data-copy="{{ session.session_id }}">{{ m.icon("i-copy", "ico-sm") }}Copy session id</button>
         {% for u in session.user_ids[:5] %}<a class="item" role="menuitem" href="/project/{{ project.id }}/users/{{ u | urlencode }}">{{ m.icon("i-user", "ico-sm") }}Open user <span class="mono trunc">{{ u }}</span></a>{% endfor %}
       </span>
@@ -45,5 +46,6 @@
     {% endfor %}
   </div>
 </div>
+{% if can("queues:write") %}<div id="queue-dialog-slot"></div><script src="/static/queue_add.js" defer></script>{% endif %}
 <div class="hint">Turns are in time order. Totals equal the sum of the {{ turns | length | plural("trace") }}: {% for t in turns %}{{ t.trace.total_cost | cost }}{{ " + " if not loop.last }}{% endfor %}.</div>
 {% endblock %}

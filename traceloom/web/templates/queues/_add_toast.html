@@ -1,0 +1,10 @@
+{# Result of an add: counts of added and skipped objects, naming the queue. #}
+<div class="toast toast-pos" role="status" data-queue-toast>
+  <span>
+    {%- if result.added and result.duplicates %}Added {{ result.added }} to {{ result.queue_name }}. {{ result.duplicates }} skipped, already in the queue.
+    {%- elif result.added %}Added {{ result.added }} to {{ result.queue_name }}.
+    {%- else %}All {{ result.duplicates }} were already in {{ result.queue_name }}, so nothing was added.{% endif %}
+    {%- if result.capped %} Only the first {{ result.total }} matches were taken (the bulk limit).{% endif %}</span>
+  <a href="{{ result.queue_url }}">View queue</a>
+  <button type="button" class="btn btn-ghost btn-icon btn-sm" aria-label="Dismiss" data-toast-close>×</button>
+</div>

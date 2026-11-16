@@ -23,12 +23,21 @@
   </div>
 {% endcall %}
 {% if sessions %}
+{% if can("queues:write") %}
+<div class="selbar" data-session-bar role="region" aria-label="Selected sessions" hidden>
+  <span data-session-count>0 selected</span><span class="grow"></span>
+  <button type="button" class="btn btn-sm" data-session-clear>Clear</button>
+  <a class="btn btn-sm solid" data-bulk-queue="/project/{{ project.id }}/queues/add" href="/project/{{ project.id }}/queues/add" hx-boost="false">{{ m.icon("i-sessions", "ico-sm") }}Add to queue</a>
+</div>
+<div id="queue-dialog-slot"></div><script src="/static/queue_add.js" defer></script>
+{% endif %}
 <div class="panel">
   <div class="rack">
     <table class="tbl keepcols" aria-label="Sessions">
       <thead>
         <tr>
           <th class="lvl"></th>
+          {% if can("queues:write") %}<th class="bulk-head"><span class="sr">Select</span></th>{% endif %}
           <th>Session</th>
           {% if "first_trace" in columns %}<th class="hide-m"><a class="sort-link" href="{{ sort_href('first_trace') }}"{% if sort == 'first_trace' %} aria-current="true"{% endif %}>First trace</a></th>{% endif %}
           {% if "last_trace" in columns %}<th><a class="sort-link" href="{{ sort_href('last_trace') }}"{% if sort == 'last_trace' %} aria-current="true"{% endif %}>Last trace</a></th>{% endif %}
@@ -44,6 +53,7 @@
         {% for s in sessions %}
         <tr data-row>
           <td class="lvl"></td>
+          {% if can("queues:write") %}<td class="bulk-cell"><input type="checkbox" data-session-box="{{ s.session_id }}" aria-label="Select session {{ s.session_id }}"></td>{% endif %}
           <td class="mono name"><a href="/project/{{ project.id }}/sessions/{{ s.session_id | urlencode }}">{{ s.session_id }}</a></td>
           {% if "first_trace" in columns %}<td class="mono muted hide-m">{{ s.first_trace_time | when }}</td>{% endif %}
           {% if "last_trace" in columns %}<td class="mono muted">{{ s.last_trace_time | when }}</td>{% endif %}
