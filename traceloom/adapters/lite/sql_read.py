@@ -47,7 +47,9 @@ def _score_sort(project_id: str, name: str, descending: bool) -> ColumnElement[A
         .where(
             Score.project_id == project_id,
             Score.trace_id == Trace.id,
-            Score.name == name,
+            # `+ ""` keeps SQLite on the (project_id, trace_id) index: with the name index it
+            # scans every score of that name once per trace (quadratic at tens of thousands).
+            Score.name + "" == name,
             Score.value.is_not(None),
         )
         .scalar_subquery()
