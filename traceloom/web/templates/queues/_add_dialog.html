@@ -1,0 +1,17 @@
+{# HTMX fragment loaded into #queue-dialog-slot: the dialog (opened by queue_add.js), or after a
+   successful add the result toast, which replaces it. #}
+{% import "_macros.html" as m with context %}
+{% if result %}
+  {% include "queues/_add_toast.html" %}
+{% else %}
+<dialog class="dlg" id="add-to-queue" aria-label="Add to annotation queue" data-autoopen>
+  <div class="dialog">
+    {{ m.dialog_head("Add all matching traces" if matching else "Add to annotation queue") }}
+    <form method="post" action="{{ action }}" hx-post="{{ action }}" hx-target="#queue-dialog-slot" hx-swap="innerHTML">
+      {{ m.csrf() }}
+      <div class="body">{% include "queues/_add_form.html" %}</div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary"{% if not options %} disabled{% endif %}>{% if matching %}Add {{ (match_count if not over_limit else bulk_max) | count }} traces{% else %}Add to queue{% endif %}</button></footer>
+    </form>
+  </div>
+</dialog>
+{% endif %}
