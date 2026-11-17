@@ -99,3 +99,17 @@ def test_import_and_add_to_dataset(live, session, events, tmp_path):
         d = service.get_dataset(db, project, ds_id)
         assert service.count_items(db, project, d) == 23  # 20 imported + 1 observation + 2 traces
     assert session.problems == []
+
+
+def test_dataset_detail_shows_item_count_not_method_repr(live, session):
+    a = live.account
+    with live.container.session_factory() as db:
+        project = db.get(Project, a.project_id)
+        user = db.query(User).filter_by(email=a.email).one()
+        ds = service.create_dataset(db, project, Actor.for_user(user, Role.OWNER), name="counts")
+        db.commit()
+        ds_id = ds.id
+    session.page.goto(f"{live.url}/project/{a.project_id}/datasets/{ds_id}")
+    body = session.page.locator("body")
+    expect(body).not_to_contain_text("built-in method")
+    expect(body).to_contain_text("0 active items")
