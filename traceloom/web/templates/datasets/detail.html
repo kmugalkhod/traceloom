@@ -6,7 +6,7 @@
 {% block content %}
 <div class="page-h">
   <div class="grow"><h1>{{ dataset.name }}</h1>
-    <p class="sub">{{ counts.items }} active item{{ "" if counts.items == 1 else "s" }} · version {{ version | date("%b %-d, %H:%M:%S") }}{% if dataset.description %} · {{ dataset.description }}{% endif %}</p></div>
+    <p class="sub">{{ counts.active }} active item{{ "" if counts.active == 1 else "s" }} · version {{ version | date("%b %-d, %H:%M:%S") }}{% if dataset.description %} · {{ dataset.description }}{% endif %}</p></div>
   <div class="row-wrap">
     {% if can_write %}<button type="button" class="btn" data-dialog-open="new-item">{{ m.icon("i-plus") }}Add item</button>{% endif %}
     {% if can_write or can_delete %}
@@ -27,7 +27,7 @@
 {% if not can_write %}<div><span class="rolebar">{{ m.icon("i-eye", "ico-sm") }}Read-only</span></div>{% endif %}
 
 <div class="ptabs" role="tablist" aria-label="Dataset sections">
-  <a href="{{ base }}" role="tab"{% if tab == "items" %} aria-current="page"{% endif %}>Items <span class="c2">{{ counts.items }}</span></a>
+  <a href="{{ base }}" role="tab"{% if tab == "items" %} aria-current="page"{% endif %}>Items <span class="c2">{{ counts.active }}</span></a>
   <a href="{{ base }}?tab=runs" role="tab"{% if tab == "runs" %} aria-current="page"{% endif %}>Runs <span class="c2">{{ counts.runs }}</span></a>
   <a href="{{ base }}?tab=history" role="tab"{% if tab == "history" %} aria-current="page"{% endif %}>History</a>
 </div>
@@ -35,7 +35,7 @@
 {% if tab == "items" %}
   <form class="toolbar" method="get" action="{{ base }}" role="search">
     <div class="seg" role="group" aria-label="Status">
-      <button type="submit" name="status" value="active" aria-pressed="{{ 'true' if status == 'active' else 'false' }}">Active <span class="c">{{ counts.items }}</span></button>
+      <button type="submit" name="status" value="active" aria-pressed="{{ 'true' if status == 'active' else 'false' }}">Active <span class="c">{{ counts.active }}</span></button>
       <button type="submit" name="status" value="archived" aria-pressed="{{ 'true' if status == 'archived' else 'false' }}">Archived <span class="c">{{ counts.archived }}</span></button>
     </div>
     <div class="input-wrap grow">{{ m.icon("i-search") }}<input class="input" name="q" value="{{ q }}" placeholder="Search input and expected output" aria-label="Search items"></div>

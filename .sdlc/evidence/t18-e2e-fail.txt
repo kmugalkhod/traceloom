@@ -1,0 +1,8 @@
+E                 - link "Edit":
+E                   - /url: /project/869e18c19cc548b0bf125f1aa9a4278d/datasets/f8956f36d9ef48cb9073d43c0bd2e9d7?item=f337f34defc243f9bfa70b97bef1abc0
+E         - text: 1 item
+
+tests/e2e/test_qa_t18_datasets_ui.py:192: AssertionError
+=========================== short test summary info ============================
+FAILED tests/e2e/test_qa_t18_datasets_ui.py::test_detail_counts_render_numbers
+1 failed, 3 passed in 12.56s
