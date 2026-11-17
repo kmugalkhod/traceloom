@@ -134,8 +134,11 @@ def render_detail(
     error: FormError | None = None,
     delete_error: str = "",
     bulk: tuple[int, int] | None = None,
+    experiment_form: Any = None,
     http_status: int = 200,
 ):
+    from traceloom.web.routers.dataset_runs import dialog_context
+
     project, actor = access.project, actor_of(access)
     tab = tab if tab in TABS else "items"
     base = f"{base_url(project.id)}/{dataset.id}"
@@ -222,6 +225,7 @@ def render_detail(
                     (v, names.get(v.actor, "API key" if v.actor else "")) for v in versions
                 ],
             }
+    ctx.update(dialog_context(request, db, access, dataset, experiment_form))
     ctx["trace_url"] = lambda tid: f"/project/{project.id}/traces/{tid}"
     context = page_context(db, access, active="datasets", **ctx)
     return render(request, "datasets/detail.html", context, status=http_status)

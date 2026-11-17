@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ run.name }}{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Datasets", "href": base | replace("/" ~ dataset.id, "")}, {"label": dataset.name, "href": base ~ "?tab=runs"}, {"label": run.name}]) }}{% endblock %}
+{% block content %}
+<div class="page-h">
+  <div class="grow"><h1>{{ run.name }}</h1>
+    <p class="sub">{% if config.prompt_name %}{{ config.prompt_name }} v{{ config.prompt_version }} · {{ config.model }} · {% endif %}dataset version {{ run.dataset_version | date("%b %-d, %H:%M:%S") }}{% if started_by %} · started by {{ started_by }}{% endif %}</p></div>
+  {% include "datasets/_run_status.html" %}
+
+</div>
+{% include "datasets/_run_progress.html" %}
+{% endblock %}
+{% block scripts %}<link rel="stylesheet" href="/static/dataset_runs.css"><script src="/static/charts.js" defer></script>{% endblock %}
