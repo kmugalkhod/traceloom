@@ -75,6 +75,11 @@ def test_experiment_end_to_end(client, container, sdk):
     items = client.get("/api/public/datasets/qa17/runs/live-run", headers=h)
     print(items.status_code, items.text[:2000])
     assert items.status_code == 200
+    body = items.json()
+    assert body["status"] == "completed"
+    failed = [ri for ri in body["runItems"] if ri["status"] == "failed"]
+    assert len(failed) == 1 and "boom" in failed[0]["error"]
+    assert sum(1 for ri in body["runItems"] if ri["status"] == "completed") == 2
     scores = client.get("/api/public/scores", headers=h)
     print(scores.status_code, scores.text[:2000])
     assert scores.status_code == 200
