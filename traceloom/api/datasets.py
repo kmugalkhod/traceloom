@@ -58,6 +58,12 @@ class RunItemBody(Body):
     dataset_name: str | None = None
     run_name: str | None = None
     observation_id: str | None = None
+    status: str = "completed"
+    error: str | None = None
+
+
+class RunStatusBody(Body):
+    status: str
 
 
 class Ctx:
@@ -269,6 +275,16 @@ def get_run(name: str, run_name: str, ctx: Ctx = Depends()):
     return {**run_json(run, dataset.name), "runItems": [run_item_json(i) for i in links]}
 
 
+@router.patch("/datasets/{name}/runs/{run_name}")
+def set_run_status(name: str, run_name: str, body: RunStatusBody, ctx: Ctx = Depends()):
+    dataset = _dataset(ctx, name)
+    run = runs.find_run(ctx.db, ctx.project, dataset, run_name)
+    if run is None:
+        raise HTTPException(404, "Not found.")
+    run = _call(runs.set_status, ctx.db, ctx.project, ctx.actor, run, body.status)
+    return run_json(run, dataset.name)
+
+
 # --- run items ------------------------------------------------------------------------------
 
 
@@ -301,6 +317,8 @@ def create_run_item(
         item,
         trace_id=trace.id,
         observation_id=body.observation_id,
+        status=body.status,
+        error=body.error,
         output=trace.output,
         latency_ms=trace.latency_ms,
         cost=trace.total_cost,
