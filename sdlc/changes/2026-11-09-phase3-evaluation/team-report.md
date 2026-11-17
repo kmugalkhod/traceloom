@@ -1,8 +1,8 @@
 # Team report: 2026-11-09-phase3-evaluation
 
-Integration branch: `team/2026-11-09-phase3-evaluation` · finished 2026-11-15T15:58:16Z
+Integration branch: `team/2026-11-09-phase3-evaluation` · finished 2026-11-17T05:17:46Z
 
-Tasks done: 18/34 · escalated: 3 · integration verify: PASS
+Tasks done: 26/34 · escalated: 0 · integration verify: FAIL
 
 | Task | Title | Developer | QA | QA rounds | Status |
 |---|---|---|---|---|---|
@@ -14,15 +14,15 @@ Tasks done: 18/34 · escalated: 3 · integration verify: PASS
 | T-6 | Public scores API and SDK score params | dev-1 | qa-1 | 0 | Done |
 | T-7 | Score filters, sorts and aggregates in the stores | dev-1 | qa-1 | 0 | Done |
 | T-8 | Public feedback endpoint (pk-only) | dev-1 | qa-1 | 0 | Done |
-| T-9 | Settings tabs: Score configs and Evaluation | dev-1 | qa-1 | 0 | Blocked |
-| T-10 | Score chips, config-driven inputs, Scores column and filter section | dev-2 | qa-1 | 2 | Blocked |
+| T-9 | Settings tabs: Score configs and Evaluation | dev-1 | qa-1 | 0 | Done |
+| T-10 | Score chips, config-driven inputs, Scores column and filter section | dev-2 | qa-1 | 0 | Done |
 | T-11 | Queue services and atomic claim | dev-2 | qa-1 | 0 | Done |
 | T-12 | Queue pages and review screen | dev-2 | qa-1 | 2 | Done |
-| T-13 | Add to queue from details, lists and filters | dev-1 | - | 0 | To Do |
-| T-14 | Dataset models | dev-1 | - | 0 | Blocked |
-| T-15 | Dataset service, versions, importer and runs | dev-1 | lead | 0 | In QA |
-| T-16 | Public datasets API | dev-2 | - | 0 | To Do |
-| T-17 | SDK datasets and run_experiment | dev-1 | - | 0 | To Do |
+| T-13 | Add to queue from details, lists and filters | dev-1 | qa-1 | 0 | Done |
+| T-14 | Dataset models | dev-1 | lead | 0 | In QA |
+| T-15 | Dataset service, versions, importer and runs | dev-1 | lead | 0 | Done |
+| T-16 | Public datasets API | dev-2 | qa-1 | 0 | Done |
+| T-17 | SDK datasets and run_experiment | dev-1 | qa-1 | 1 | In Progress |
 | T-18 | Dataset list, detail, item drawer and history pages | dev-1 | - | 0 | In Progress |
 | T-19 | Import wizard and Add to dataset | dev-1 | - | 0 | In Progress |
 | T-20 | Evaluation models | dev-2 | lead | 0 | Done |
@@ -32,18 +32,18 @@ Tasks done: 18/34 · escalated: 3 · integration verify: PASS
 | T-24 | Rule matching, sampling, ingest hook, backfill and sweeper | dev-2 | lead | 0 | Done |
 | T-25 | Evaluators UI: templates and rules | dev-2 | qa-1 | 0 | Done |
 | T-26 | Execution log and retry | dev-1 | qa-1 | 0 | Done |
-| T-27 | experiment_item handler | dev-1 | - | 0 | To Do |
+| T-27 | experiment_item handler | dev-2 | lead | 0 | Done |
 | T-28 | Run comparison logic | dev-2 | - | 0 | To Do |
 | T-29 | New experiment dialog and run detail with live progress | dev-1 | - | 0 | To Do |
 | T-30 | Run comparison page | dev-2 | - | 0 | To Do |
 | T-31 | Score analytics math | dev-2 | lead | 0 | Done |
 | T-32 | Score analytics page | dev-2 | qa-1 | 0 | Done |
-| T-33 | Permission sweep and performance tests | dev-1 | - | 0 | To Do |
-| T-34 | Seed demo data and documentation | dev-2 | - | 0 | To Do |
+| T-33 | Permission sweep and performance tests | dev-1 | qa-1 | 0 | Done |
+| T-34 | Seed demo data and documentation | dev-2 | qa-1 | 0 | Done |
 
 | Agent | Role | Runs | Cost (est.) |
 |---|---|---|---|
 | designer | designer | 0 | $0.00 |
-| dev-1 | developer | 10 | $2.16 |
-| dev-2 | developer | 7 | $4.95 |
-| qa-1 | qa | 10 | $4.41 |
+| dev-1 | developer | 17 | $6.20 |
+| dev-2 | developer | 11 | $7.66 |
+| qa-1 | qa | 20 | $8.62 |
