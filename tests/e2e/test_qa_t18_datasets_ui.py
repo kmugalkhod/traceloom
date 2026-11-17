@@ -1,4 +1,4 @@
-"""T-18 QA journey: dataset list/detail, item drawer with versions, history, archive, delete, roles."""
+"""T-18 QA journey: dataset list, detail, item drawer, history, archive, delete, roles."""
 
 from __future__ import annotations
 
