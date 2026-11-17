@@ -1,0 +1,7 @@
+python3 .sdlc/bin/sdlc.py verify (qa-1, branch qa/T-29 @ 3a6723d)
+2201 passed, 63 skipped in 373.68s  => test: PASS
+ruff check .: All checks passed! => lint: PASS
+QA journey: pytest tests/e2e/test_qa_t29_experiments.py tests/api/test_experiments_ui.py => 6 passed
+  - Member: two experiments (prompt v1, v2) with correctness on 20-item dataset, live progress without reload (window marker kept), "20 of 20", 20 Trace links, <script> escaped, trace page shows traceloom-experiment, no horizontal scroll at 390
+  - Viewer: no "New experiment" control, POST /experiments => 403
+Screenshots: t29-dialog-1280.png t29-run-v1-1280.png t29-run-v2-1280.png t29-run-390.png t29-runs-tab-390.png
