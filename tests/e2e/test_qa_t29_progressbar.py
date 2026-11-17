@@ -29,7 +29,8 @@ def test_progress_bar_fill_visible_when_complete(live_server, browser_page):  # 
         expect(page.locator("#run-live")).to_contain_text("Run completed", timeout=150000)
         info = page.evaluate(
             """() => { const d = document.querySelector('.prog .d');
-              const r = d.getBoundingClientRect(); const p = document.querySelector('.prog').getBoundingClientRect();
+              const r = d.getBoundingClientRect();
+              const p = document.querySelector('.prog').getBoundingClientRect();
               const c = getComputedStyle(d);
               return {w: r.width, pw: p.width, h: r.height, bg: c.backgroundColor, disp: c.display,
                 width: c.width, pdisp: getComputedStyle(d.parentElement).display,
