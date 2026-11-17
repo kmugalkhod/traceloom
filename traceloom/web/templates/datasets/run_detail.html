@@ -7,10 +7,8 @@
 <div class="page-h">
   <div class="grow"><h1>{{ run.name }}</h1>
     <p class="sub">{% if config.prompt_name %}{{ config.prompt_name }} v{{ config.prompt_version }} · {{ config.model }} · {% endif %}dataset version {{ run.dataset_version | date("%b %-d, %H:%M:%S") }}{% if started_by %} · started by {{ started_by }}{% endif %}</p></div>
-  <div class="row-wrap">
-    {% if not done %}<span class="live" role="status" aria-live="polite"><span class="dot"></span>Updating every {{ poll_seconds }} s</span>{% endif %}
-    {% if run.status == "completed" %}<span class="pill ok">{{ m.icon("i-check") }}Completed</span>{% elif run.status == "failed" %}<span class="pill err">{{ m.icon("i-error") }}Failed</span>{% else %}<span class="pill run"><span class="spin"></span>Running</span>{% endif %}
-  </div>
+  {% include "datasets/_run_status.html" %}
+
 </div>
 {% include "datasets/_run_progress.html" %}
 {% endblock %}

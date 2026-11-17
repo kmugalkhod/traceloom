@@ -1,5 +1,6 @@
 {# The polled part of the run page. Carries the polling trigger only while the run is going. #}
 {% import "_macros.html" as m with context %}
+{% if oob %}{% include "datasets/_run_status.html" %}{% endif %}
 <div id="run-live"{% if not done %} hx-get="{{ base }}/runs/{{ run.id }}/progress" hx-trigger="every {{ poll_seconds }}s" hx-swap="outerHTML"{% endif %} class="stackf">
   {% if done %}
     {% if run.status == "failed" %}{{ m.banner("err", "Run failed. " ~ finished ~ " of " ~ total ~ " items finished.") }}

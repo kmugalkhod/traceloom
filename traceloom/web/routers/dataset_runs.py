@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from starlette.datastructures import FormData
 
@@ -316,7 +316,17 @@ def run_context(db: Session, access: Access, dataset: Dataset, run: DatasetRun) 
                 "trace_url": f"/project/{project.id}/traces/{row.trace_id}" if row.trace_id else "",
             }
         )
-    done = run.status != "running"
+    open_evals = db.scalar(
+        select(func.count())
+        .select_from(EvalExecution)
+        .where(
+            EvalExecution.project_id == project.id,
+            EvalExecution.run_item_id.in_([r.id for r in rows] or [""]),
+            EvalExecution.status.in_(("pending", "running")),
+        )
+    )
+    # Keep polling until the run is over and its evaluator scores have landed.
+    done = run.status != "running" and not open_evals
     config = run.config or {}
     starter = db.get(User, run.created_by) if run.created_by else None
     return {
@@ -373,5 +383,7 @@ def run_progress(
 ):
     """The polled fragment. Once the run is done it carries no polling trigger, so polling stops."""
     dataset, run = _load_run(db, access, dataset_id, run_id)
-    context = page_context(db, access, active="datasets", **run_context(db, access, dataset, run))
+    context = page_context(
+        db, access, active="datasets", **run_context(db, access, dataset, run), oob=True
+    )
     return render(request, "datasets/_run_progress.html", context)

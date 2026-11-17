@@ -116,3 +116,33 @@ def test_run_page_is_project_scoped(client, login, world, env, db):
     run = runs.create_run(db, world.project, actor, dataset, name="sdk")
     db.commit()
     assert client.get(f"{base(world, dataset)}/runs/{run.id}", headers=HTML).status_code == 200
+
+
+def test_polling_continues_until_evals_land_and_header_follows(client, login, world, env, db):
+    from traceloom.db.models_datasets import DatasetRun
+    from traceloom.db.models_eval import EvalExecution, EvalTemplateVersion
+
+    connection, dataset = env
+    login(client, world.users[Role.MEMBER], csrf=False)
+    run_url = post_form(client, world, dataset, **form(connection)).headers["location"]
+    run = db.scalars(select(DatasetRun)).first()
+    item = db.scalars(select(DatasetRunItem)).first()
+    db.add(
+        EvalExecution(
+            project_id=world.project.id,
+            run_item_id=item.id,
+            template_version_id=db.scalars(select(EvalTemplateVersion.id)).first(),
+            object_type="trace",
+            object_id="t",
+            status="pending",
+        )
+    )
+    run.status = "completed"
+    db.commit()
+    pending = client.get(run_url + "/progress", headers=HTML)
+    assert "hx-trigger" in pending.text  # evals still outstanding: keep polling
+    assert 'id="run-status"' in pending.text and "Completed" in pending.text
+    db.query(EvalExecution).update({"status": "succeeded"})
+    db.commit()
+    final = client.get(run_url + "/progress", headers=HTML)
+    assert "hx-trigger" not in final.text and "Updating every" not in final.text
