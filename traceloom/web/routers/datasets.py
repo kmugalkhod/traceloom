@@ -147,7 +147,7 @@ def render_detail(
         "version": service.dataset_version(db, dataset),
         "tab": tab,
         "base": base,
-        "counts": {"items": len(active), "archived": len(archived)},
+        "counts": {"active": len(active), "archived": len(archived)},
         "can_write": actor.can(Perm.DATASETS_WRITE),
         "can_delete": actor.can(Perm.DATASETS_DELETE),
         "notice": NOTES.get(notice, "") or _bulk_notice(bulk),
