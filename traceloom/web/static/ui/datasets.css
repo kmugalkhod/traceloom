@@ -26,10 +26,10 @@
 .ver .v::before{content:"";position:absolute;left:-23px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--field-line)}
 .ver .v.cur::before{background:var(--accent-solid);border-color:var(--accent-solid)}
 .ver .v .m{font-size:12px;color:var(--ink-3);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.dl{font-family:var(--font-mono);font-size:12.5px;line-height:1.6;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.dl div{padding:0 12px;white-space:pre-wrap;word-break:break-word}
-.dl .add{background:var(--ok-bg);color:var(--ok)}
-.dl .del{background:var(--err-bg);color:var(--err)}
+.chg{font-family:var(--font-mono);font-size:12.5px;line-height:1.6;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.chg div{padding:0 12px;white-space:pre-wrap;word-break:break-word}
+.chg .add{background:var(--ok-bg);color:var(--ok)}
+.chg .del{background:var(--err-bg);color:var(--err)}
 .srcl{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2)}
 .srcl a{font-family:var(--font-mono);font-size:12.5px}
 .toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
@@ -84,3 +84,14 @@ dialog .dialog footer.foot-flat{border-top:0;padding-top:0;justify-content:flex-
 .ox-auto{overflow-x:auto}
 .err-text{color:var(--err)}
 .small{font-size:12px}
+/* mobile card rows for the dataset tables: name/input on its own line, the rest wrap beneath */
+@container app (max-width:760px){
+  .tbl.cardrows.dsrows tr{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+  .tbl.cardrows.dsrows td.c-name,.tbl.cardrows.dsrows td.m-full{flex:1 0 100%}
+  .tbl.cardrows.dsrows td.m-show{min-width:0;max-width:100%;overflow:visible}
+  .tbl.cardrows.dsrows td.menu{margin-left:auto}
+  .tbl.cardrows.dsrows .trunc{max-width:100%}
+}
+@container app (max-width:760px){
+  .tbl.cardrows.dsrows td[data-label]::before{content:attr(data-label) " ";color:var(--ink-3);font-size:12px;font-weight:500}
+}
