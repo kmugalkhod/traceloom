@@ -191,3 +191,31 @@ def test_detail_counts_render_numbers(live_server, browser_page):  # noqa: F811
     page.goto(f"{live_server.url}/project/{world['project_id']}/datasets/{ds_id}")
     expect(page.locator("body")).not_to_contain_text("built-in method")
     expect(page.locator(".page-h .sub")).to_contain_text("1 active item ·")
+
+
+def test_responsive_no_horizontal_scroll_and_screenshots(live_server, browser_page):  # noqa: F811
+    world = make_world(live_server)
+    page = browser_page
+    base = f"{live_server.url}/project/{world['project_id']}/datasets"
+    sign_in(page, live_server, world["member"], DEFAULT_PASSWORD)
+    page.goto(base)
+    page.click("button:has-text('New dataset') >> nth=0")
+    page.fill("#dn", "responsive-set")
+    page.click("button:has-text('Create dataset')")
+    expect(page.locator("h1")).to_have_text("responsive-set")
+    ds_url = page.url.split("?")[0]
+    page.click("button:has-text('Add item') >> nth=0")
+    page.fill("#ni-input", '{"q": "hello"}')
+    page.click("#new-item button[type=submit]")
+    for width in (1280, 390):
+        page.set_viewport_size({"width": width, "height": 900})
+        for url in (base, ds_url, ds_url + "?tab=history"):
+            page.goto(url)
+            overflow = page.evaluate(
+                "document.documentElement.scrollWidth - document.documentElement.clientWidth"
+            )
+            assert overflow <= 0, f"horizontal scroll {overflow}px at {width} on {url}"
+        page.goto(ds_url)
+        page.screenshot(path=f".sdlc/evidence/t18-detail-{width}.png", full_page=True)
+        page.goto(base)
+        page.screenshot(path=f".sdlc/evidence/t18-list-{width}.png", full_page=True)
