@@ -9,7 +9,7 @@
 .cmpt th.base{box-shadow:inset 0 -2px 0 var(--accent-solid)}
 .cmpt td.reg{background:var(--err-bg)}
 .cmpt td.reg .dl2{color:var(--err)}
-.cmpt .out{font-size:13px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;margin:0 0 8px}
+.cmpt .out{font-size:13px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word;margin:0 0 8px;min-height:0;padding:0}
 .cmpt .out.open,.cmpt .inp.open{display:block;-webkit-line-clamp:unset}
 .cmpt .meta{display:flex;gap:12px;flex-wrap:wrap;color:var(--ink-3);font-size:12px;font-variant-numeric:tabular-nums;margin-top:6px}
 .cmpt .inp{font-size:13px;line-height:1.5;margin:0 0 6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
@@ -34,7 +34,7 @@
 [data-theme=dark] .ltr{color:#111214}
 .ctlrow{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
 .ctlrow .field{flex-direction:row;align-items:center;gap:8px}
-.ctlrow .input{width:88px}
+.ctlrow .input{width:88px;padding-left:10px}
 @media (max-width:640px){
   .runpick{grid-template-columns:1fr}
   .cmpt th.stick,.cmpt td.stick{min-width:180px;max-width:180px}
