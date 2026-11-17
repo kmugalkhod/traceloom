@@ -1,5 +1,5 @@
 WARNING [traceloom.config] TRACELOOM_ENCRYPTION_KEY is not set; using an ephemeral key. Stored LLM connection keys and webhook secrets will not survive a restart.
-INFO:     Started server process [14450]
+INFO:     Started server process [58775]
 INFO:     Waiting for application startup.
 ERROR:    Traceback (most recent call last):
   File "/Users/kunal007/projects/Traceloom/.sdlc/worktrees/qa-1/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 2000, in _exec_single_context
