@@ -1,0 +1,50 @@
+{# The polled part of the run page. Carries the polling trigger only while the run is going. #}
+{% import "_macros.html" as m with context %}
+<div id="run-live"{% if not done %} hx-get="{{ base }}/runs/{{ run.id }}/progress" hx-trigger="every {{ poll_seconds }}s" hx-swap="outerHTML"{% endif %} class="stackf">
+  {% if done %}
+    {% if run.status == "failed" %}{{ m.banner("err", "Run failed. " ~ finished ~ " of " ~ total ~ " items finished.") }}
+    {% else %}<div class="banner ok" role="status">{{ m.icon("i-check") }}<div><b>Run completed.</b> {{ finished }} of {{ total }} items finished. {{ by_status.succeeded }} succeeded{% if by_status.failed %}, {{ by_status.failed }} failed{% endif %}{% if by_status.capped %}, {{ by_status.capped }} capped{% endif %}.</div><div class="acts"><a class="btn btn-sm" href="{{ base }}?tab=runs">Compare with another run</a></div></div>{% endif %}
+  {% endif %}
+  <section class="panel" aria-label="Progress"><div class="panel-b stackf">
+    <div class="row"><b class="bignum">{{ finished }} of {{ total }}</b><span class="muted">items finished</span></div>
+    <div class="prog" role="progressbar" aria-valuenow="{{ (finished / total * 100) | round | int if total else 0 }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ finished }} of {{ total }} items finished">
+      <i class="d" style="width:{{ percent.succeeded }}%"></i><i class="f" style="width:{{ percent.failed }}%"></i><i class="s" style="width:{{ percent.capped }}%"></i><i class="a" style="width:{{ percent.running }}%"></i></div>
+    <div class="progl">
+      <span><i style="background:var(--ok)"></i>{{ by_status.succeeded }} succeeded</span><span><i style="background:var(--err-bar)"></i>{{ by_status.failed }} failed</span><span><i style="background:var(--warn-bar)"></i>{{ by_status.capped }} capped</span><span><i style="background:var(--accent)"></i>{{ by_status.running }} running</span><span><i style="background:var(--sunken);border:1px solid var(--line-strong)"></i>{{ by_status.pending }} pending</span>
+    </div></div></section>
+  <div class="kpis">
+    <div class="stat"><span class="top">Mean latency<span class="chipi">{{ m.icon("i-clock", "ico-sm") }}</span></span><b>{{ mean_latency }}</b><span class="sub">p95 {{ p95_latency }}</span></div>
+    <div class="stat"><span class="top">Cost so far<span class="chipi ok">{{ m.icon("i-check", "ico-sm") }}</span></span><b>{{ cost }}</b><span class="sub">calculated</span></div>
+    {% for s in score_means[:1] %}<div class="stat"><span class="top">{{ s.name }}<span class="chipi">{{ m.icon("i-check", "ico-sm") }}</span></span><b>{{ s.mean }}</b><span class="sub">mean of {{ s.n }}</span></div>{% else %}<div class="stat"><span class="top">Scores<span class="chipi">{{ m.icon("i-check", "ico-sm") }}</span></span><b>-</b><span class="sub">no evaluator scores yet</span></div>{% endfor %}
+    <div class="stat"><span class="top">Success rate<span class="chipi ok">{{ m.icon("i-check", "ico-sm") }}</span></span><b>{{ success_rate }}</b><span class="sub">{{ by_status.succeeded }} of {{ finished }} finished</span></div>
+  </div>
+  <div class="panel"><div class="panel-b flush">
+    {% if not items %}{{ m.empty_state("i-flask", "No items", "This run has no items.") }}{% else %}
+    <table class="tbl stackm">
+      <thead><tr><th>Item</th><th>Output</th><th>Scores</th><th class="r">Latency</th><th class="r">Cost</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for it in items %}{% set st = it.status %}
+        <tr{% if st == "failed" %} class="err"{% endif %}>
+          <td><div class="trunc mw-240">{{ it.input }}</div></td>
+          <td>{% if st == "failed" %}<div class="errtxt trunc mw-260">{{ it.row.error }}</div>
+            {% elif st == "capped" %}<span class="muted">{{ it.row.error or "Daily cost cap reached" }}</span>
+            {% elif st == "running" and not it.output %}<span class="cursor"></span>
+            {% elif it.output %}<div class="trunc mw-260">{{ it.output }}</div>
+            {% else %}<span class="muted">-</span>{% endif %}</td>
+          <td>{% for sc in it.scores %}<span class="sc eval"><span class="n">{{ sc.name }}:</span> <b>{{ sc.value }}</b></span> {% else %}<span class="muted">-</span>{% endfor %}</td>
+          <td class="num r">{{ it.latency }}</td>
+          <td class="num r">{% if it.row.cost %}${{ "%.4f" | format(it.row.cost) }}{% else %}<span class="muted">-</span>{% endif %}</td>
+          <td>{% if st == "succeeded" %}<span class="pill ok">{{ m.icon("i-check") }}Succeeded</span>
+            {% elif st == "failed" %}<span class="pill err">{{ m.icon("i-error") }}Failed</span>
+            {% elif st == "capped" %}<span class="pill capd">{{ m.icon("i-warn") }}Capped</span>
+            {% elif st == "running" %}<span class="pill run"><span class="spin"></span>Running</span>
+            {% else %}<span class="pill pend">{{ m.icon("i-clock") }}Pending</span>{% endif %}
+            {% if it.trace_url %}<a class="btn btn-ghost btn-sm" href="{{ it.trace_url }}">Trace</a>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% if more %}<p class="hint pad">Showing the first {{ items | length }} of {{ total }} items.</p>{% endif %}
+    {% endif %}
+  </div></div>
+</div>

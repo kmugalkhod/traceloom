@@ -1,0 +1,37 @@
+{# New experiment dialog (Member). Needs `experiment` (from dataset_runs.dialog_context), `dataset`, `base`, `counts`. #}
+{% import "_macros.html" as m with context %}
+{% set x = experiment %}{% set v = x.values %}
+<dialog class="dlg dialog-wide" id="new-experiment" aria-label="New experiment"{% if x.form.error %} data-autoopen{% endif %}>
+  <div class="dialog">
+    {{ m.dialog_head("New experiment on " ~ dataset.name) }}
+    <form method="post" action="{{ base }}/experiments" id="exp-form" data-spec="{{ x.spec | forceescape }}">
+      {{ m.csrf() }}
+      <div class="body">
+        {% if x.form.error %}<div class="field-error" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ x.form.error }}</span></div>{% endif %}
+        {% if not x.connections %}<div class="banner err" role="alert">{{ m.icon("i-error") }}<div><b>No LLM connection.</b> An Admin needs to add one in Settings, LLM connections.</div></div>{% endif %}
+        {% if not x.prompts %}<div class="banner" role="status">{{ m.icon("i-info") }}<div><b>No prompts yet.</b> Create a prompt first, then run it on this dataset.</div></div>{% endif %}
+        <div class="field"><label for="xn">Run name</label><input id="xn" class="input" name="name" value="{{ v.name }}" required maxlength="200" autocomplete="off"><span class="hint">Unique within this dataset.</span></div>
+        <div class="fgrid">
+          <div class="field"><label for="xp">Prompt</label><select id="xp" class="select" name="prompt" required>{% for p in x.prompts %}<option value="{{ p.name }}"{% if v.prompt == p.name %} selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
+          <div class="field"><label for="xv">Version or label</label><select id="xv" class="select" name="ref" data-selected="{{ v.ref }}"></select></div>
+        </div>
+        <div class="fgrid">
+          <div class="field"><label for="xc">LLM connection</label><select id="xc" class="select" name="connection_id" required>{% for c in x.connections %}<option value="{{ c.id }}"{% if v.connection_id == c.id %} selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
+          <div class="field"><label for="xm">Model</label><select id="xm" class="select" name="model" required data-selected="{{ v.model }}"></select></div>
+        </div>
+        <div class="field"><label>Variable mapping <span class="muted">prompt variable ← item key, e.g. input.question</span></label>
+          <div id="xmap" class="xmap" data-values="{{ (v.mapping or {}) | tojson | forceescape }}"></div>
+        </div>
+        <div class="field"><label>Evaluators <span class="muted">optional. They judge each item's output.</span></label>
+          <div class="stackf">
+            {% for e in x.evaluators %}<label class="cbl"><input type="checkbox" name="evaluator" value="{{ e.id }}"{% if e.id in (v.evaluators or []) %} checked{% endif %}>{{ e.name }} {% if e.builtin %}<span class="pill builtin">Built-in</span>{% else %}<span class="pill lab">v{{ e.version }}</span>{% endif %}</label>
+            {% else %}<span class="muted">No evaluator templates yet.</span>{% endfor %}
+          </div>
+        </div>
+        {% if x.cap_reached %}<div class="banner" role="status">{{ m.icon("i-warn") }}<div><b>Daily cost cap reached.</b> Items would be marked Capped. Raise the cap in Settings, or start anyway.</div></div>
+        {% else %}<div class="banner info" role="status">{{ m.icon("i-info") }}<div>{{ counts.active }} item{{ "" if counts.active == 1 else "s" }} · the chosen model receives each item's input, and evaluators also receive its output. Counts toward the daily cost cap.</div></div>{% endif %}
+      </div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary"{% if not x.connections or not x.prompts %} disabled{% endif %}>{% if x.cap_reached %}Start anyway{% else %}Start experiment{% endif %}</button></footer>
+    </form>
+  </div>
+</dialog>

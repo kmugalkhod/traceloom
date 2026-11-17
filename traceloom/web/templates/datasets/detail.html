@@ -8,6 +8,7 @@
   <div class="grow"><h1>{{ dataset.name }}</h1>
     <p class="sub">{{ counts.active }} active item{{ "" if counts.active == 1 else "s" }} · version {{ version | date("%b %-d, %H:%M:%S") }}{% if dataset.description %} · {{ dataset.description }}{% endif %}</p></div>
   <div class="row-wrap">
+    {% if experiment %}<button type="button" class="btn btn-primary" data-dialog-open="new-experiment">{{ m.icon("i-flask") }}New experiment</button>{% endif %}
     {% if can_write %}<button type="button" class="btn" data-dialog-open="new-item">{{ m.icon("i-plus") }}Add item</button>{% endif %}
     {% if can_write or can_delete %}
     <div class="menu-wrap">
@@ -74,7 +75,7 @@
 
 {% elif tab == "runs" %}
   {% if not runs %}
-  <div class="panel">{{ m.empty_state("i-flask", "No runs yet", "A run records which version of this dataset it read. Create one with the SDK's run_experiment.") }}</div>
+  <div class="panel">{{ m.empty_state("i-flask", "No runs yet", "A run records which version of this dataset it read. Start one with New experiment or the SDK's run_experiment.") }}</div>
   {% else %}
   <div class="panel"><div class="rack">
     <table class="tbl cardrows dsrows">
@@ -82,7 +83,7 @@
       <tbody>
       {% for r, n in runs %}
         <tr>
-          <td class="c-name m-show"><div class="cell2"><b>{{ r.name }}</b><span>{{ r.description }}</span></div></td>
+          <td class="c-name m-show"><div class="cell2"><b><a href="{{ base }}/runs/{{ r.id }}">{{ r.name }}</a></b><span>{{ r.description }}</span></div></td>
           <td class="m-show">
             {% if r.status == "completed" %}<span class="pill ok">{{ m.icon("i-check") }}Completed</span>
             {% elif r.status == "failed" %}<span class="pill err">{{ m.icon("i-error") }}Failed</span>
@@ -124,6 +125,7 @@
 {% endblock %}
 
 {% block dialogs %}
+{% if experiment %}{% include "datasets/_new_experiment.html" %}{% endif %}
 {% if can_write %}
 {% set add_err = error if error and error.scope == "new" else none %}
 <dialog class="dlg dialog-wide" id="new-item" aria-label="Add item"{% if add_err %} data-autoopen{% endif %}>
@@ -145,3 +147,4 @@
 {% endif %}
 {% if drawer %}{% include "datasets/_item_drawer.html" %}{% endif %}
 {% endblock %}
+{% block scripts %}{% if experiment %}<link rel="stylesheet" href="/static/dataset_runs.css"><script src="/static/dataset_runs.js" defer></script>{% endif %}{% endblock %}
