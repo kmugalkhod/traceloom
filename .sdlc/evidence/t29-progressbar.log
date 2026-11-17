@@ -1,0 +1,41 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________________ test_progress_bar_fill_visible_when_complete _________________
+
+live_server = Live(url='http://127.0.0.1:52047', app=<fastapi.applications.FastAPI object at 0x10746a660>)
+browser_page = <Page url='http://127.0.0.1:52047/project/3baf7899a3194a8e87f8e7b0a1301bf3/datasets/fd4c542852494575a8dc8a966fbef5e4/runs/d714e58aea36417aa6386fb852007f8b'>
+
+    def test_progress_bar_fill_visible_when_complete(live_server, browser_page):  # noqa: F811
+        providers.register("fake", SlowFake())
+        try:
+            world = _seed(live_server)
+            page = browser_page
+            sign_in(page, live_server, world["member"], DEFAULT_PASSWORD)
+            page.goto(
+                f"{live_server.url}/project/{world['project_id']}/datasets/{world['dataset_id']}?tab=runs"
+            )
+            _start(page, "bar", "v:1")
+            page.wait_for_url(re.compile(r"/runs/"))
+            expect(page.locator("#run-live")).to_contain_text("Run completed", timeout=150000)
+            info = page.evaluate(
+                """() => { const d = document.querySelector('.prog .d');
+                  const r = d.getBoundingClientRect(); const p = document.querySelector('.prog').getBoundingClientRect();
+                  const c = getComputedStyle(d);
+                  return {w: r.width, pw: p.width, h: r.height, bg: c.backgroundColor, disp: c.display,
+                    width: c.width, pdisp: getComputedStyle(d.parentElement).display,
+                    pbox: getComputedStyle(d.parentElement).boxSizing}; }"""
+            )
+            print(info, page.evaluate("document.querySelector('.prog').outerHTML"))
+>           assert info["w"] > info["pw"] * 0.9, info
+E           AssertionError: {'w': 0, 'pw': 916, 'h': 8, 'bg': 'rgb(23, 104, 58)', ...}
+E           assert 0 > (916 * 0.9)
+
+tests/e2e/test_qa_t29_progressbar.py:39: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{'w': 0, 'pw': 916, 'h': 8, 'bg': 'rgb(23, 104, 58)', 'disp': 'block', 'width': '0px', 'pdisp': 'flex', 'pbox': 'border-box'} <div class="prog" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" aria-label="20 of 20 items finished">
+      <i class="d" style="width:100.0%"></i><i class="f" style="width:0.0%"></i><i class="s" style="width:0.0%"></i><i class="a" style="width:0.0%"></i></div>
+------------------------------ Captured log call -------------------------------
+WARNING  traceloom.cost:tokenizers.py:30 tokenizer tiktoken:o200k_base unavailable: network access attempted in tests: ('57.150.192.193', 443)
+=========================== short test summary info ============================
+FAILED tests/e2e/test_qa_t29_progressbar.py::test_progress_bar_fill_visible_when_complete
+1 failed in 8.56s
