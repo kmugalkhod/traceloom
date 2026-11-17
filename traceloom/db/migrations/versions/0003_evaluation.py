@@ -17,6 +17,58 @@ def _utc() -> sa.DateTime:
     return sa.DateTime(timezone=True)
 
 
+_SCORES_INDEX = "ix_scores_project_name_timestamp"
+_BACKFILL_BATCH = 5000
+
+
+def _create_scores_name_index() -> None:
+    columns = ["project_id", "name", "timestamp"]
+    if op.get_bind().dialect.name == "postgresql":
+        # Scores can be large: build without blocking writes (outside the transaction).
+        with op.get_context().autocommit_block():
+            op.create_index(
+                _SCORES_INDEX, "scores", columns, postgresql_concurrently=True, if_not_exists=True
+            )
+        return
+    with op.batch_alter_table("scores", schema=None) as batch_op:
+        batch_op.create_index(_SCORES_INDEX, columns, unique=False)
+
+
+def _drop_scores_name_index() -> None:
+    if op.get_bind().dialect.name == "postgresql":
+        with op.get_context().autocommit_block():
+            op.drop_index(_SCORES_INDEX, "scores", postgresql_concurrently=True, if_exists=True)
+        return
+    with op.batch_alter_table("scores", schema=None) as batch_op:
+        batch_op.drop_index(_SCORES_INDEX)
+
+
+def _backfill_annotation_source() -> None:
+    """Scores written from the UI (they carry an author) are ANNOTATION; the rest stay API."""
+    conn = op.get_bind()
+    scores = sa.table(
+        "scores",
+        sa.column("project_id", sa.String),
+        sa.column("id", sa.String),
+        sa.column("source", sa.String),
+        sa.column("author_id", sa.String),
+    )
+    while True:
+        keys = conn.execute(
+            sa.select(scores.c.project_id, scores.c.id)
+            .where(scores.c.author_id.is_not(None), scores.c.source != "ANNOTATION")
+            .limit(_BACKFILL_BATCH)
+        ).all()
+        if not keys:
+            return
+        for project_id, score_id in keys:
+            conn.execute(
+                sa.update(scores)
+                .where(scores.c.project_id == project_id, scores.c.id == score_id)
+                .values(source="ANNOTATION")
+            )
+
+
 def upgrade() -> None:
     op.create_table(
         "score_configs",
@@ -278,12 +330,8 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column("queue_id", sa.String(32), nullable=True))
         batch_op.add_column(sa.Column("execution_id", sa.String(32), nullable=True))
         batch_op.add_column(sa.Column("channel", sa.String(32), nullable=True))
-        batch_op.create_index(
-            "ix_scores_project_name_timestamp", ["project_id", "name", "timestamp"], unique=False
-        )
-
-    # Scores written from the UI (they carry an author) are ANNOTATION; the rest stay API.
-    op.execute("UPDATE scores SET source = 'ANNOTATION' WHERE author_id IS NOT NULL")
+    _create_scores_name_index()
+    _backfill_annotation_source()
 
     op.create_table(
         "datasets",
@@ -454,8 +502,8 @@ def downgrade() -> None:
     op.drop_table("eval_template_versions")
     op.drop_table("eval_templates")
 
+    _drop_scores_name_index()
     with op.batch_alter_table("scores", schema=None) as batch_op:
-        batch_op.drop_index("ix_scores_project_name_timestamp")
         batch_op.drop_column("channel")
         batch_op.drop_column("execution_id")
         batch_op.drop_column("queue_id")
