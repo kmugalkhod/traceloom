@@ -14,8 +14,8 @@
 .jsonv{margin:0;font-family:var(--font-mono);font-size:12.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;color:var(--ink)}
 .mono-sm{font-family:var(--font-mono);font-size:12px}
 .jed{border:1px solid var(--field-line);border-radius:10px;background:var(--surface);overflow:hidden}
-.jed .bar{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--surface-2);font-size:12px;font-weight:600;color:var(--ink-2)}
-.jed .bar .right{margin-left:auto;font-weight:500;color:var(--ink-3)}
+.jed .jed-bar{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--surface-2);font-size:12px;font-weight:600;color:var(--ink-2)}
+.jed .jed-bar .right{margin-left:auto;font-weight:500;color:var(--ink-3)}
 .jed textarea,.jed pre{display:block;width:100%;margin:0;padding:12px;border:0;background:transparent;color:var(--ink);font-family:var(--font-mono);font-size:12.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;resize:vertical;min-height:88px}
 .jed textarea:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .jed.bad{border-color:var(--err)}
@@ -26,10 +26,10 @@
 .ver .v::before{content:"";position:absolute;left:-23px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--field-line)}
 .ver .v.cur::before{background:var(--accent-solid);border-color:var(--accent-solid)}
 .ver .v .m{font-size:12px;color:var(--ink-3);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.dl{font-family:var(--font-mono);font-size:12.5px;line-height:1.6;border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.dl div{padding:0 12px;white-space:pre-wrap;word-break:break-word}
-.dl .add{background:var(--ok-bg);color:var(--ok)}
-.dl .del{background:var(--err-bg);color:var(--err)}
+.chg{font-family:var(--font-mono);font-size:12.5px;line-height:1.6;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.chg div{padding:0 12px;white-space:pre-wrap;word-break:break-word}
+.chg .add{background:var(--ok-bg);color:var(--ok)}
+.chg .del{background:var(--err-bg);color:var(--err)}
 .srcl{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2)}
 .srcl a{font-family:var(--font-mono);font-size:12.5px}
 .toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
@@ -57,9 +57,12 @@ td.wcell{background:var(--warn-bg)!important}
 dialog.drawer{margin:0 0 0 auto;max-width:min(520px,100vw);height:100vh;max-height:100vh;width:100%;padding:0;border:0;background:transparent;color:var(--ink)}
 dialog.drawer::backdrop{background:var(--scrim)}
 dialog.drawer .dialog{height:100%;width:100%;border-radius:20px 0 0 20px;border-right:0;overflow:hidden}
-dialog.drawer .dialog>form{display:flex;flex-direction:column;min-height:0;flex:1}
+dialog.drawer .dialog>form.drawer-form{display:flex;flex-direction:column;min-height:0;flex:1}
+dialog.drawer .dialog>form.drawer-form>footer{flex-wrap:nowrap}
+dialog.drawer .dialog>form.archive-form{display:none}
+.drawer-archive{margin-top:16px}
 dialog.drawer .dialog>form>.body,dialog.drawer .dialog>.body{overflow-y:auto;flex:1}
-dialog.drawer footer .l{margin-right:auto;color:var(--ink-3);font-size:12px}
+dialog.drawer footer .l{margin-right:auto;flex:1;min-width:0;color:var(--ink-3);font-size:12px}
 .rolebar{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--ink-2);padding:2px 10px;border-radius:999px;border:1px dashed var(--line-strong);background:var(--surface)}
 @media (max-width:760px){
   .fgrid{grid-template-columns:1fr}
@@ -84,3 +87,14 @@ dialog .dialog footer.foot-flat{border-top:0;padding-top:0;justify-content:flex-
 .ox-auto{overflow-x:auto}
 .err-text{color:var(--err)}
 .small{font-size:12px}
+/* mobile card rows for the dataset tables: name/input on its own line, the rest wrap beneath */
+@container app (max-width:760px){
+  .tbl.cardrows.dsrows tr{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+  .tbl.cardrows.dsrows td.c-name,.tbl.cardrows.dsrows td.m-full{flex:1 0 100%}
+  .tbl.cardrows.dsrows td.m-show{min-width:0;max-width:100%;overflow:visible}
+  .tbl.cardrows.dsrows td.menu{margin-left:auto}
+  .tbl.cardrows.dsrows .trunc{max-width:100%}
+}
+@container app (max-width:760px){
+  .tbl.cardrows.dsrows td[data-label]::before{content:attr(data-label) " ";color:var(--ink-3);font-size:12px;font-weight:500}
+}

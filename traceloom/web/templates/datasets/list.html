@@ -18,14 +18,14 @@
 </div>
 {% else %}
 <div class="panel"><div class="rack">
-  <table class="tbl cardrows">
+  <table class="tbl cardrows dsrows">
     <thead><tr><th>Dataset</th><th class="r">Items</th><th class="r">Runs</th><th>Last run</th><th class="hide-m">Updated</th><th class="r menu"><span class="sr">Actions</span></th></tr></thead>
     <tbody>
     {% for s in summaries %}
       <tr>
         <td class="c-name m-show"><div class="cell2"><b><a href="{{ base }}/{{ s.dataset.id }}">{{ s.dataset.name }}</a></b><span>{{ s.dataset.description or "No description" }}</span></div></td>
-        <td class="num r m-show">{{ s.item_count }}</td>
-        <td class="num r m-show">{{ s.run_count }}</td>
+        <td class="num r m-show" data-label="Items">{{ s.item_count }}</td>
+        <td class="num r m-show" data-label="Runs">{{ s.run_count }}</td>
         <td class="m-show">
           {% if s.last_run_status == "completed" %}<span class="pill ok">{{ m.icon("i-check") }}Completed</span> <small class="muted">{{ s.last_run_at | ago }}</small>
           {% elif s.last_run_status == "running" %}<span class="pill run">{{ m.icon("i-clock") }}Running</span> <small class="muted">{{ s.last_run_at | ago }}</small>
