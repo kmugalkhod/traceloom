@@ -20,6 +20,7 @@ class Api:
     def __init__(self, n_items=3):
         self.events = []
         self.links = []
+        self.run_status = None
         self.runs = []
         self.items = [
             {"id": f"i{n}", "input": {"q": n}, "expectedOutput": n * 2, "metadata": None}
@@ -51,6 +52,9 @@ class Api:
                 return httpx.Response(404, json={})
             self.links.append(body)
             return httpx.Response(201, json={"id": "ri"})
+        if path.startswith("/api/public/datasets/qa/runs/") and request.method == "PATCH":
+            self.run_status = body["status"]
+            return httpx.Response(200, json={"id": "r1"})
         return httpx.Response(404, json={})
 
     def scores(self):
@@ -119,6 +123,10 @@ def test_task_error_recorded_not_raised(api, sdk):
     assert list(result.errors) == ["i1"] and "boom" in result.errors["i1"]
     assert result.outputs["i0"] == "i0" and result.outputs["i2"] == "i2"
     assert len(api.links) == 3  # the failed item is linked to its trace too
+    failed = [link for link in api.links if link["datasetItemId"] == "i1"][0]
+    assert failed["status"] == "failed" and "boom" in failed["error"]
+    assert all("status" not in link for link in api.links if link is not failed)
+    assert api.run_status == "completed"
     assert len(api.scores()) == 2  # but not scored
     errored = [
         e["body"] for e in api.events if e["type"] == "span-update" and e["body"].get("level")

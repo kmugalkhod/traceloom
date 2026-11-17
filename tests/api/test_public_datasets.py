@@ -134,3 +134,24 @@ def test_other_projects_key_is_isolated(client, auth, make_key, make_project, wo
     )
     body = {"runId": run["id"], "datasetItemId": item["id"], "traceId": "t1"}
     assert client.post("/api/public/dataset-run-items", json=body, headers=other).status_code == 404
+
+
+def test_run_item_records_error_and_run_status_can_finish(client, auth, container, world, dataset):
+    seed_trace(container, world.project.id, "t1")
+    item = add_item(client, auth)
+    run = client.post(f"{DS}/qa/runs", json={"name": "r1"}, headers=auth).json()
+    body = {
+        "runId": run["id"],
+        "datasetItemId": item["id"],
+        "traceId": "t1",
+        "status": "failed",
+        "error": "ValueError: boom",
+    }
+    link = client.post("/api/public/dataset-run-items", json=body, headers=auth).json()
+    assert link["status"] == "failed" and link["error"] == "ValueError: boom"
+    r = client.patch(f"{DS}/qa/runs/r1", json={"status": "completed"}, headers=auth)
+    assert r.status_code == 200 and r.json()["status"] == "completed"
+    assert r.json()["finishedAt"]
+    assert (
+        client.patch(f"{DS}/qa/runs/r1", json={"status": "bogus"}, headers=auth).status_code == 400
+    )

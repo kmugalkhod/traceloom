@@ -136,7 +136,7 @@ def run_experiment(
         if not res.trace_id:
             res.error = res.error or "could not start a trace"
             return res
-        res.linked = _link(client, run_id, item.id, res.trace_id)
+        res.linked = _link(client, run_id, item.id, res.trace_id, res.error)
         if res.error is None:
             for evaluator in evaluators:
                 name = getattr(evaluator, "__name__", "evaluator")
@@ -158,13 +158,26 @@ def run_experiment(
     with ThreadPoolExecutor(max_workers=max(1, max_concurrency)) as pool:
         result.items = list(pool.map(work, dataset.items))
     client.flush()
+    failed = sum(1 for r in result.items if r.error)
+    status = "failed" if result.items and failed == len(result.items) else "completed"
+    run_path = (
+        f"{DATASETS_PATH}/{quote(dataset.name, safe='')}/runs/{quote(result.run_name, safe='')}"
+    )
+    try:
+        request(client, "PATCH", run_path, json={"status": status})
+    except DatasetError as exc:
+        log.warning("Traceloom: could not finish run %s: %s", run_name, exc)
     return result
 
 
-def _link(client: Traceloom, run_id: str, item_id: str, trace_id: str) -> bool:
+def _link(
+    client: Traceloom, run_id: str, item_id: str, trace_id: str, error: str | None = None
+) -> bool:
     """Link the item to its trace; retried while the trace is still being ingested."""
     client.flush()
-    body = {"runId": run_id, "datasetItemId": item_id, "traceId": trace_id}
+    body: dict[str, Any] = {"runId": run_id, "datasetItemId": item_id, "traceId": trace_id}
+    if error:
+        body.update(status="failed", error=error)
     for attempt in range(LINK_ATTEMPTS):
         try:
             request(client, "POST", RUN_ITEMS_PATH, json=body)
