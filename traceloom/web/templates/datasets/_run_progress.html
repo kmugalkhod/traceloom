@@ -9,9 +9,9 @@
   <section class="panel" aria-label="Progress"><div class="panel-b stackf">
     <div class="row"><b class="bignum">{{ finished }} of {{ total }}</b><span class="muted">items finished</span></div>
     <div class="prog" role="progressbar" aria-valuenow="{{ (finished / total * 100) | round | int if total else 0 }}" aria-valuemin="0" aria-valuemax="100" aria-label="{{ finished }} of {{ total }} items finished">
-      <i class="d" style="width:{{ percent.succeeded }}%"></i><i class="f" style="width:{{ percent.failed }}%"></i><i class="s" style="width:{{ percent.capped }}%"></i><i class="a" style="width:{{ percent.running }}%"></i></div>
+      <i class="d" data-w="{{ percent.succeeded }}"></i><i class="f" data-w="{{ percent.failed }}"></i><i class="s" data-w="{{ percent.capped }}"></i><i class="a" data-w="{{ percent.running }}"></i></div>
     <div class="progl">
-      <span><i style="background:var(--ok)"></i>{{ by_status.succeeded }} succeeded</span><span><i style="background:var(--err-bar)"></i>{{ by_status.failed }} failed</span><span><i style="background:var(--warn-bar)"></i>{{ by_status.capped }} capped</span><span><i style="background:var(--accent)"></i>{{ by_status.running }} running</span><span><i style="background:var(--sunken);border:1px solid var(--line-strong)"></i>{{ by_status.pending }} pending</span>
+      <span><i class="d"></i>{{ by_status.succeeded }} succeeded</span><span><i class="f"></i>{{ by_status.failed }} failed</span><span><i class="s"></i>{{ by_status.capped }} capped</span><span><i class="a"></i>{{ by_status.running }} running</span><span><i class="p"></i>{{ by_status.pending }} pending</span>
     </div></div></section>
   <div class="kpis">
     <div class="stat"><span class="top">Mean latency<span class="chipi">{{ m.icon("i-clock", "ico-sm") }}</span></span><b>{{ mean_latency }}</b><span class="sub">p95 {{ p95_latency }}</span></div>
