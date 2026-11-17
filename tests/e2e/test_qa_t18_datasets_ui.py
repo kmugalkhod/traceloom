@@ -36,6 +36,7 @@ def _only_real_problems(page):
 
 
 def test_member_dataset_item_versions_history_archive_xss(live_server, browser_page):  # noqa: F811
+    browser_page.set_viewport_size({"width": 1280, "height": 900})
     world = make_world(live_server)
     page = browser_page
     base = f"{live_server.url}/project/{world['project_id']}/datasets"
@@ -78,6 +79,19 @@ def test_member_dataset_item_versions_history_archive_xss(live_server, browser_p
     expect(versions).to_have_count(3)
     expect(versions.first).to_contain_text("Current")
     page.screenshot(path=".sdlc/evidence/t18-drawer.png", full_page=True)
+
+    # layout: footer pinned to the drawer bottom, versions visible, no stray header bars
+    box = lambda sel: page.locator(sel).first.bounding_box()  # noqa: E731
+    dlg, foot, ver, h2 = (
+        box("#item-drawer .dialog"),
+        box("#item-drawer footer"),
+        box("#item-drawer .ver .v"),
+        box("#item-drawer h2"),
+    )
+    assert abs((foot["y"] + foot["height"]) - (dlg["y"] + dlg["height"])) <= 1
+    assert ver["y"] + ver["height"] <= foot["y"]
+    assert all(b["y"] > h2["y"] for b in [box("#item-drawer .jed-bar")])
+    assert foot["height"] < 90
 
     # invalid JSON is rejected with an inline error and creates no version
     page.locator("#it-input").fill("{bad")

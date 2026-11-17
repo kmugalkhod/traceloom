@@ -57,7 +57,7 @@
         <tr>
           <td class="c-name m-show mw-280"><div class="trunc mono-sm">{{ compact(v.input) }}</div></td>
           <td class="m-show mw-260">{% if v.expected_output is none %}<span class="muted">None</span>{% else %}<div class="trunc mono-sm">{{ compact(v.expected_output) }}</div>{% endif %}</td>
-          <td class="hide-m">{% if v.source_trace_id %}<span class="srcl">{{ m.icon("i-link", "ico-sm") }}<a href="{{ trace_url(v.source_trace_id) }}">{{ v.source_trace_id[:12] }}</a></span>{% else %}<span class="muted">Imported</span>{% endif %}</td>
+          <td class="hide-m">{% if v.source_trace_id %}<span class="srcl">{{ m.icon("i-link", "ico-sm") }}<a href="{{ trace_url(v.source_trace_id) }}">{{ v.source_trace_id[:12] }}</a></span>{% else %}<span class="muted">Manual</span>{% endif %}</td>
           <td class="num r m-show" data-label="Version">v{{ v.version }}</td>
           <td class="hide-m">{{ v.created_at | date("%b %-d, %H:%M") }}</td>
           <td class="menu r m-show"><a class="btn btn-ghost btn-sm" href="{{ base }}?item={{ v.id }}">{{ m.icon("i-pencil", "ico-sm") }}{{ "Edit" if can_write and v.status == "active" else "View" }}</a></td>
