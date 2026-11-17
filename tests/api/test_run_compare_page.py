@@ -98,3 +98,11 @@ def test_unknown_run_is_not_found(client, login, world, env):
 def test_no_runs_shows_empty_state(client, login, world, env):
     dataset, *_ = env
     assert "Pick runs to compare" in page(client, login, world, dataset, "").text
+
+
+def test_no_inline_styles_for_csp(client, login, world, env):
+    dataset, _, (v1, v2, _) = env
+    r = page(client, login, world, dataset, f"runs={v1.id},{v2.id}")
+    assert r.status_code == 200
+    assert "style=" not in r.text.split("<body", 1)[1]
+    assert 'class="dlt up"' in r.text

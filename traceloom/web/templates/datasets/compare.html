@@ -30,14 +30,14 @@
   </div>
 
   {% if not result %}
-  <div class="panel" style="margin-top:16px">
+  <div class="panel mt16">
     {{ m.empty_state("i-flask", "Pick runs to compare", "Choose a baseline and up to three more runs of " ~ dataset.name ~ ".") }}
-    <div class="acts" style="padding:0 16px 16px;text-align:center"><button class="btn btn-primary" type="submit">Compare</button></div>
+    <div class="acts cmp-acts"><button class="btn btn-primary" type="submit">Compare</button></div>
   </div>
   {% else %}
-  <div class="row" style="margin-top:8px"><button class="btn btn-sm" type="submit">Update comparison</button></div>
+  <div class="row mt8"><button class="btn btn-sm" type="submit">Update comparison</button></div>
 
-  <section class="panel" aria-label="Aggregates" style="margin-top:16px"><div class="panel-h"><h2>Aggregates</h2></div>
+  <section class="panel mt16" aria-label="Aggregates"><div class="panel-h"><h2>Aggregates</h2></div>
     <div class="panel-b flush cmpwrap"><table class="tbl agg cmpt">
       <thead><tr><th class="stick">Metric</th>
         {% for c in columns %}<th{% if c.i == 0 %} class="base"{% endif %}><div class="runh"><b><span class="ltr {{ c.letter | lower }}">{{ c.letter }}</span>{{ c.name }}</b><small>{% if c.i == 0 %}Baseline · {% endif %}{{ c.agg.items }} item{{ "" if c.agg.items == 1 else "s" }}</small></div></th>{% endfor %}</tr></thead>
@@ -55,13 +55,13 @@
     </table></div>
   </section>
 
-  <section class="panel" aria-label="Items" style="margin-top:16px"><div class="panel-h"><h2>Items <span class="u">{{ result.total_items }}</span></h2></div>
-    <div class="panel-b" style="border-bottom:1px solid var(--line)"><div class="ctlrow">
+  <section class="panel mt16" aria-label="Items"><div class="panel-h"><h2>Items <span class="u">{{ result.total_items }}</span></h2></div>
+    <div class="panel-b bb-line"><div class="ctlrow">
       <span class="row"><button type="button" class="switch" role="switch" id="regT" aria-labelledby="regL" aria-checked="{{ 'true' if only_regressed else 'false' }}" data-regressed-switch></button><b id="regL">Only regressed</b></span>
       <input type="hidden" name="regressed" value="{{ '1' if only_regressed else '' }}" data-regressed-input>
-      <div class="field"><label for="th">Threshold</label><input id="th" class="input num" style="text-align:left" name="threshold" value="{{ threshold_text }}" inputmode="decimal" aria-describedby="thh" data-autosubmit></div>
+      <div class="field"><label for="th">Threshold</label><input id="th" class="input num tl" name="threshold" value="{{ threshold_text }}" inputmode="decimal" aria-describedby="thh" data-autosubmit></div>
       <span class="hint" id="thh">An item regresses when a score drops by more than this. 0 means any drop; true to false always counts.</span>
-      <div class="field right"><label for="so">Sort</label><select id="so" class="select" name="sort" style="width:200px" data-autosubmit><option value="item"{% if sort == "item" %} selected{% endif %}>Item order</option><option value="delta"{% if sort == "delta" %} selected{% endif %}>Biggest drop first</option></select></div>
+      <div class="field right"><label for="so">Sort</label><select id="so" class="select w200" name="sort" data-autosubmit><option value="item"{% if sort == "item" %} selected{% endif %}>Item order</option><option value="delta"{% if sort == "delta" %} selected{% endif %}>Biggest drop first</option></select></div>
       {% if sort == "delta" and result.score_names | length > 1 %}<div class="field"><label for="sc">By score</label><select id="sc" class="select" name="score" data-autosubmit>{% for n in result.score_names %}<option value="{{ n }}"{% if n == sort_score %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></div>{% endif %}
     </div></div>
 
@@ -83,7 +83,7 @@
           {% else %}<td{% if cell.reg %} class="reg"{% endif %}>
             <p class="out">{{ cell.output }}</p>
             {% if cell.long %}<button type="button" class="btn btn-ghost btn-sm" data-expand aria-expanded="false">Show more</button>{% endif %}
-            <span class="scs">{% for chip in cell.chips %}<span class="sc"><span class="n">{{ chip.name }}:</span> <b>{{ chip.value }}</b></span> {% endfor %}{% for text, bad in cell.deltas %}<span class="dlt dn dl2" {% if not bad %}style="color:var(--ok)"{% endif %}>{{ m.icon("i-down" if bad else "i-up") }}{{ text }}</span> {% endfor %}</span>
+            <span class="scs">{% for chip in cell.chips %}<span class="sc"><span class="n">{{ chip.name }}:</span> <b>{{ chip.value }}</b></span> {% endfor %}{% for text, bad in cell.deltas %}<span class="dlt {{ "dn dl2" if bad else "up" }}">{{ m.icon("i-down" if bad else "i-up") }}{{ text }}</span> {% endfor %}</span>
             {% if cell.latency or cell.cost %}<div class="meta">{% if cell.latency %}<span>{{ cell.latency }}</span>{% endif %}{% if cell.cost %}<span>{{ cell.cost }}</span>{% endif %}</div>{% endif %}
           </td>{% endif %}
           {% endfor %}
@@ -92,7 +92,7 @@
       </tbody>
     </table></div>
     {% endif %}
-    <div class="panel-b row" style="border-top:1px solid var(--line)"><span class="muted" style="font-size:12px">Showing {{ rows | length }} {{ "regressed " if only_regressed }}item{{ "" if rows | length == 1 else "s" }}{% if result.pages > 1 %}, page {{ result.page }} of {{ result.pages }}{% endif %}. 100 per page.</span><span class="grow"></span>
+    <div class="panel-b row bt-line"><span class="muted fs12">Showing {{ rows | length }} {{ "regressed " if only_regressed }}item{{ "" if rows | length == 1 else "s" }}{% if result.pages > 1 %}, page {{ result.page }} of {{ result.pages }}{% endif %}. 100 per page.</span><span class="grow"></span>
       {% if prev_url %}<a class="btn btn-sm" href="{{ prev_url }}">Previous</a>{% else %}<button type="button" class="btn btn-sm" disabled>Previous</button>{% endif %}
       {% if next_url %}<a class="btn btn-sm" href="{{ next_url }}">Next</a>{% else %}<button type="button" class="btn btn-sm" disabled>Next</button>{% endif %}
     </div>

@@ -40,3 +40,8 @@
   .cmpt th.stick,.cmpt td.stick{min-width:180px;max-width:180px}
   .ctlrow .field.right{margin-left:0}
 }
+.mt16{margin-top:16px}.mt8{margin-top:8px}
+.cmp-acts{padding:0 16px 16px;text-align:center}
+.bb-line{border-bottom:1px solid var(--line)}.bt-line{border-top:1px solid var(--line)}
+.input.tl{text-align:left}.select.w200{width:200px}.fs12{font-size:12px}
+@media (max-width:640px){.select.w200{width:100%}}
