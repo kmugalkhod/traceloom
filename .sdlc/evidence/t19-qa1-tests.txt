@@ -1,0 +1,41 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.5, pytest-9.2.0, pluggy-1.7.0 -- /Users/kunal007/projects/Traceloom/.sdlc/worktrees/qa-1/.venv/bin/python3.13
+rootdir: /Users/kunal007/projects/Traceloom/.sdlc/worktrees/qa-1
+configfile: pyproject.toml
+plugins: langsmith-0.14.17, playwright-0.10.0, anyio-4.16.0, asyncio-1.4.1.post1, respx-0.23.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
+collecting ... collected 31 items
+
+tests/e2e/test_qa_t19_dataset_import_add.py::test_import_and_add_to_dataset PASSED [  3%]
+tests/e2e/test_qa_t19_dataset_import_add.py::test_dataset_detail_shows_item_count_not_method_repr PASSED [  6%]
+tests/api/test_dataset_import_ui.py::test_wizard_previews_and_imports_csv_with_bad_json_cell PASSED [  9%]
+tests/api/test_dataset_import_ui.py::test_mapping_needs_exactly_one_input PASSED [ 12%]
+tests/api/test_dataset_import_ui.py::test_upload_limits_and_bad_files PASSED [ 16%]
+tests/api/test_dataset_import_ui.py::test_unknown_token_is_404 PASSED    [ 19%]
+tests/api/test_dataset_import_ui.py::test_viewer_cannot_import PASSED    [ 22%]
+tests/api/test_dataset_import_ui.py::test_add_observation_to_dataset_prefills_and_links_source PASSED [ 25%]
+tests/api/test_dataset_import_ui.py::test_add_trace_prefills_its_input_and_output PASSED [ 29%]
+tests/api/test_dataset_import_ui.py::test_invalid_json_keeps_the_form_open PASSED [ 32%]
+tests/api/test_dataset_import_ui.py::test_bulk_add_two_traces_and_new_dataset PASSED [ 35%]
+tests/api/test_dataset_import_ui.py::test_viewer_cannot_add_and_pages_show_the_controls PASSED [ 38%]
+tests/api/test_dataset_import_ui.py::test_qa_bulk_add_skips_a_trace_from_another_project PASSED [ 41%]
+tests/api/test_dataset_import_ui.py::test_qa_import_without_csrf_token_is_rejected PASSED [ 45%]
+tests/api/test_dataset_import.py::test_csv_malformed_json_kept_as_string_with_warning PASSED [ 48%]
+tests/api/test_dataset_import.py::test_preview_is_first_five_rows_only PASSED [ 51%]
+tests/api/test_dataset_import.py::test_row_limit PASSED                  [ 54%]
+tests/api/test_dataset_import.py::test_size_limit_and_bad_files PASSED   [ 58%]
+tests/api/test_dataset_import.py::test_json_and_jsonl_values_are_typed PASSED [ 61%]
+tests/api/test_dataset_import.py::test_mapping_must_name_real_columns PASSED [ 64%]
+tests/api/test_dataset_import.py::test_script_cell_stays_literal_text PASSED [ 67%]
+tests/api/test_dataset_import.py::test_import_saves_valid_rows PASSED    [ 70%]
+tests/api/test_public_datasets.py::test_rejects_missing_and_pk_only_auth PASSED [ 74%]
+tests/api/test_public_datasets.py::test_dataset_create_get_list_and_duplicate PASSED [ 77%]
+tests/api/test_public_datasets.py::test_items_latest_version_and_archive_excluded PASSED [ 80%]
+tests/api/test_public_datasets.py::test_item_without_input_is_400 PASSED [ 83%]
+tests/api/test_public_datasets.py::test_duplicate_run_name_is_409 PASSED [ 87%]
+tests/api/test_public_datasets.py::test_run_item_links_trace_and_takes_output_latency_cost PASSED [ 90%]
+tests/api/test_public_datasets.py::test_run_item_unknown_trace_or_run PASSED [ 93%]
+tests/api/test_public_datasets.py::test_other_projects_key_is_isolated PASSED [ 96%]
+tests/api/test_public_datasets.py::test_run_item_records_error_and_run_status_can_finish PASSED [100%]
+
+============================== 31 passed in 5.81s ==============================
