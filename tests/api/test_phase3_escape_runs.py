@@ -34,3 +34,14 @@ def test_outputs_errors_and_inputs_are_escaped(client, login, world, env, db, ma
     for suffix in ("", "/progress"):
         text = client.get(f"{base(world, dataset)}/runs/{run.id}{suffix}", headers=HTML).text
         assert PAYLOAD not in text and ESCAPED in text
+
+
+def test_run_templates_have_no_inline_styles():
+    """The CSP blocks inline styles, so the experiment templates must not use them."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2] / "traceloom/web/templates/datasets"
+    names = ("_new_experiment.html", "run_detail.html", "_run_progress.html", "_run_status.html")
+    for path in [root / n for n in names] + sorted(root.glob("_run*.html")):
+        if path.exists():
+            assert "style=" not in path.read_text(), path.name
