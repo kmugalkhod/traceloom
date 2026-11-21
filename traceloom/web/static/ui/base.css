@@ -109,3 +109,25 @@ select.select:not([multiple]){appearance:none;-webkit-appearance:none;padding-ri
 .dialog>header{padding:16px 24px;border-bottom:1px solid var(--line)}
 .dialog>.body{padding:24px}
 .dialog>footer{padding:16px 24px}
+
+/* Shell metrics from the approved mockup (DESIGN.md v3.2 frames): desktop only */
+body{line-height:1.5}
+@container app (min-width:761px){
+  .side{padding:16px 12px;gap:12px}
+  .brand{font-size:16px;font-weight:700;gap:10px}
+  .brand .tile{width:32px;height:32px;border-radius:10px}
+  .side .picker{height:36px;font-size:13px;font-weight:600}
+  .sidenav a{height:36px;font-size:14px;gap:8px;padding:0 12px}
+  .sidenav .cap{padding:12px 8px 4px}
+  .usercard{padding:8px;gap:8px}
+  .btn{font-size:13px;gap:8px}
+  .sidenav a{border:0;border-radius:12px;box-shadow:none}
+  .sidenav a:hover:not([aria-current=page]){background:var(--surface-2);color:var(--ink)}
+  .sidenav a[aria-current=page]{background:var(--surface-2);color:var(--ink);font-weight:600;border:0;box-shadow:inset 0 0 0 1px var(--line)}
+  .sidenav a[aria-current=page] .ico{color:var(--accent)}
+  .sidenav .nav-btn{height:36px;font-size:14px;gap:8px;padding:0 12px;border-radius:12px}
+  .side .picker small{color:var(--ink-3);font-weight:500;font-size:12px}
+  .usercard{background:transparent;box-shadow:none;border:1px solid var(--line);border-radius:12px}
+  .usercard b{font-size:13px;line-height:1.2}.usercard small{font-size:12px;color:var(--ink-3)}
+}
+.brand .tile .ico{width:16px;height:16px}

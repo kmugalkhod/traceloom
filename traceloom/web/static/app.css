@@ -1,11 +1,9 @@
 /* Self-hosted fonts (SIL OFL 1.1: Inter, JetBrains Mono). CSP allows only same-origin files. */
-@font-face{font-family:"Inter";font-weight:400;font-style:normal;font-display:swap;src:url(/static/fonts/inter-400.woff2) format("woff2")}
-@font-face{font-family:"Inter";font-weight:500;font-style:normal;font-display:swap;src:url(/static/fonts/inter-500.woff2) format("woff2")}
-@font-face{font-family:"Inter";font-weight:600;font-style:normal;font-display:swap;src:url(/static/fonts/inter-600.woff2) format("woff2")}
-@font-face{font-family:"Inter";font-weight:700;font-style:normal;font-display:swap;src:url(/static/fonts/inter-700.woff2) format("woff2")}
-@font-face{font-family:"JetBrains Mono";font-weight:400;font-style:normal;font-display:swap;src:url(/static/fonts/jetbrains-mono-400.woff2) format("woff2")}
-@font-face{font-family:"JetBrains Mono";font-weight:500;font-style:normal;font-display:swap;src:url(/static/fonts/jetbrains-mono-500.woff2) format("woff2")}
-@font-face{font-family:"JetBrains Mono";font-weight:600;font-style:normal;font-display:swap;src:url(/static/fonts/jetbrains-mono-600.woff2) format("woff2")}
+/* Inter 4 and JetBrains Mono variable fonts (same files the approved mockup loads), self-hosted */
+@font-face{font-family:"Inter";font-weight:100 900;font-style:normal;font-display:swap;src:url(/static/fonts/inter-var-latin.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"Inter";font-weight:100 900;font-style:normal;font-display:swap;src:url(/static/fonts/inter-var-latin-ext.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:"JetBrains Mono";font-weight:100 800;font-style:normal;font-display:swap;src:url(/static/fonts/jetbrains-mono-var-latin.woff2) format("woff2");unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:"JetBrains Mono";font-weight:100 800;font-style:normal;font-display:swap;src:url(/static/fonts/jetbrains-mono-var-latin-ext.woff2) format("woff2");unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
 /* ===== Traceloom design tokens (see DESIGN.md) ===== */
 :root,[data-theme="light"]{
   --font-ui:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -48,7 +46,7 @@
 *{box-sizing:border-box}
 html{background:var(--bg)}
 body{margin:0;font-family:var(--font-ui);font-size:var(--fs-base);line-height:1.4;color:var(--ink);background:var(--bg)}
-.ico{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.ico{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .ico-sm{width:14px;height:14px}.ico-lg{width:20px;height:20px}
 .fill{fill:currentColor;stroke:none}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
@@ -393,7 +391,7 @@ kbd{font-family:var(--font-mono);font-size:11px;min-width:18px;height:18px;paddi
 
 /* ===== v2: soft, rounded, professional (reference-driven) ===== */
 html,body{-webkit-font-smoothing:antialiased}
-body{letter-spacing:-.003em}
+body{letter-spacing:normal}
 .frame .app{border-radius:var(--r-3)}
 .shell{display:grid;grid-template-columns:244px 1fr;grid-template-rows:1fr;min-height:var(--h,640px);padding:12px;gap:12px;background:var(--bg)}
 .side{display:flex;flex-direction:column;gap:var(--sp-5);padding:var(--sp-5) var(--sp-4);min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh-1)}
@@ -404,7 +402,7 @@ body{letter-spacing:-.003em}
 .sidenav{background:transparent;border:0;padding:0;gap:2px;flex:1}
 .sidenav .cap{padding:12px 12px 6px}
 .sidenav a{height:40px;padding:0 12px;border-radius:12px;font-size:var(--fs-md);font-weight:500;gap:12px;border:1px solid transparent}
-.sidenav a .ico{width:18px;height:18px}
+.sidenav a .ico{width:16px;height:16px}
 .sidenav a[aria-current=page]{background:var(--surface);border-color:var(--line);box-shadow:var(--sh-1);color:var(--ink);font-weight:600}
 .sidenav a[aria-current=page] .ico{color:var(--ink)}
 .sidenav .sep{margin:10px 8px}

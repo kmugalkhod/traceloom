@@ -73,8 +73,11 @@
   .score-filters .frow .btn-icon{grid-column:3;grid-row:1}
 }
 /* List cell: room for two chips per line so rows stay two lines tall */
-.panel[data-tl] .tbl td.c:has(.scs){min-width:228px;width:228px}
-.panel[data-tl] .tbl td.c .scs{max-width:228px;justify-content:flex-start}
-.panel[data-tl] .tbl td.c-name{max-width:190px}
+.panel[data-tl] .tbl td.c .scs{max-width:240px;justify-content:flex-start}
+.panel[data-tl] .tbl td.c-name{max-width:160px}
 .panel[data-tl] .tbl td.c-name .cell2>*{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .panel[data-tl] .tbl td.c .sc{font-size:11.5px;padding:0 6px 0 5px}
+/* Narrow desktops: tags wrap so the Scores column keeps room for its chips */
+.panel[data-tl] .tbl td:has(> .chip){max-width:96px;white-space:normal;line-height:22px}
+.panel[data-tl] .tbl td.c:has(.scs){min-width:160px}
+.panel[data-tl] .tbl td:has(> .row > .avatar){max-width:104px}.panel[data-tl] .tbl td:has(> .row > .avatar) .row{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
