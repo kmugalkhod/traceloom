@@ -14,11 +14,13 @@
 .input-wrap .ico{left:12px}
 .input-wrap .input{padding-left:36px}
 .picker{padding:0 12px}
-.seg{display:inline-flex;align-items:center;height:var(--ctl-h);padding:2px;gap:2px;flex:none}
+.seg{display:inline-flex;align-items:center;height:var(--ctl-h);padding:2px;gap:2px;flex:none;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);box-shadow:var(--sh-1)}
 .seg button,.seg a{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:var(--ctl-h-sm);padding:0 12px;border:0;border-radius:9px;white-space:nowrap}
 .seg a{font-weight:500;font-size:13px;color:var(--ink-2)}
 .seg a:hover:not([aria-pressed=true]):not([aria-selected=true]){background:transparent;color:var(--ink)}
-.seg a[aria-pressed=true],.seg a[aria-selected=true]{background:var(--seg-on);color:var(--ink);font-weight:600;box-shadow:var(--sh-1)}
+.seg a[aria-pressed=true],.seg a[aria-selected=true]{background:var(--accent-solid);color:var(--on-accent);font-weight:600}
+.seg a:hover:not([aria-pressed=true]):not([aria-selected=true]){background:var(--surface-2)}
+.seg a[aria-pressed=true] .c,.seg a[aria-selected=true] .c,.seg a[aria-pressed=true] .cnt,.seg a[aria-selected=true] .cnt{color:inherit;opacity:.75}
 
 /* S2 spacing: 24px between sections, 52px panel headers with 16px side padding */
 .main{gap:var(--sp-7)}
@@ -59,7 +61,7 @@
 .crumbs{gap:var(--sp-4);font-size:13px;color:var(--ink-3)}
 .crumbs a{color:var(--ink-2);font-weight:500}
 .crumbs [aria-current]{color:var(--ink);font-weight:600}
-.crumbs .crumb-sep{color:var(--ink-3)}
+.crumbs .crumb-sep{color:var(--ink-3);display:inline-flex}.crumbs .crumb-sep .ico{width:12px;height:12px}
 .main{padding-top:var(--sp-7)}
 
 /* S8 page header: 24px title, muted subtitle, actions centred on the title block */
@@ -100,3 +102,10 @@
 /* crumbs shown in the page body on mobile only; the desktop copy lives in the context bar */
 .crumbs-m{display:none}
 @container app (max-width:760px){.crumbs-m{display:block}}
+
+/* Mockup fidelity: native selects get the app chevron; dialog head is a ruled bar */
+select.select:not([multiple]){appearance:none;-webkit-appearance:none;padding-right:32px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238d908d' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;cursor:pointer}
+.select-wrap select.select{background-image:none}
+.dialog>header{padding:16px 24px;border-bottom:1px solid var(--line)}
+.dialog>.body{padding:24px}
+.dialog>footer{padding:16px 24px}

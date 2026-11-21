@@ -78,7 +78,7 @@ def histogram(values: Sequence[float], bins: int = HISTOGRAM_BINS) -> dict[str, 
     }
 
 
-def _bucket_start(ts: datetime, bucket: Literal["hour", "day"]) -> datetime:
+def bucket_start(ts: datetime, bucket: Literal["hour", "day"]) -> datetime:
     if bucket == "hour":
         return ts.replace(minute=0, second=0, microsecond=0)
     if bucket == "day":
@@ -96,7 +96,7 @@ def trend(
     step = timedelta(hours=1) if bucket == "hour" else timedelta(days=1)
     groups: dict[datetime, list[float]] = defaultdict(list)
     for ts, v in points:
-        groups[_bucket_start(ts, bucket)].append(v)
+        groups[bucket_start(ts, bucket)].append(v)
     cur, last = min(groups), max(groups)
     out = []
     while cur <= last:

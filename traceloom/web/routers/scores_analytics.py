@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -151,8 +151,14 @@ def _card(name: str, rows: list[Score]) -> dict[str, Any]:
     return card
 
 
-def _trend(rows: list[Score], hourly: bool) -> dict[str, Any] | None:
-    """Mean per bucket for each source with enough points; None when none qualifies."""
+def _trend(
+    rows: list[Score], hourly: bool, window: tuple[datetime, datetime] | None = None
+) -> dict[str, Any] | None:
+    """Mean per bucket for each source with enough points; None when none qualifies.
+
+    With a window, the axis has every bucket in it, so data on one day still draws a
+    week-wide axis instead of a single label.
+    """
     by_source: dict[str, list[tuple[datetime, float]]] = defaultdict(list)
     for r in rows:
         if r.value is not None:
@@ -167,6 +173,12 @@ def _trend(rows: list[Score], hourly: bool) -> dict[str, Any] | None:
         starts.update(p["start"] for p in result["points"])
     if not series:
         return None
+    if window:
+        step = timedelta(hours=1) if hourly else timedelta(days=1)
+        cur, last = (analytics.bucket_start(t, bucket) for t in window)
+        while cur <= last:
+            starts.add(cur)
+            cur += step
     axis = sorted(starts)
     cols = []
     for source, result in series:
@@ -336,7 +348,13 @@ def _pick_source(raw: str, default: str) -> str:
     return raw.upper() if raw.upper() in SOURCE_LABELS else default
 
 
-def build_view(rows: list[Score], params: Any, hourly: bool, feedback: bool) -> dict[str, Any]:
+def build_view(
+    rows: list[Score],
+    params: Any,
+    hourly: bool,
+    feedback: bool,
+    window: tuple[datetime, datetime] | None = None,
+) -> dict[str, Any]:
     by_name: dict[str, list[Score]] = defaultdict(list)
     for r in rows:
         by_name[r.name].append(r)
@@ -356,7 +374,7 @@ def build_view(rows: list[Score], params: Any, hourly: bool, feedback: bool) -> 
     if trend_name:
         trend_rows = shown.get(trend_name, [])
         if trend_rows and trend_rows[0].data_type in ("NUMERIC", "BOOLEAN"):
-            trend = _trend(trend_rows, hourly)
+            trend = _trend(trend_rows, hourly, window)
 
     # Compare. The preset (annotation vs eval on the same score) is the default.
     custom = bool(params.get("a") or params.get("b")) and params.get("preset") != "human-judge"
@@ -402,7 +420,7 @@ def analytics_page(
     env = resolve_env(params, saved_env(db, access.user.id, access.project.id))
     feedback = params.get("feedback", "1") != "0"
     rows = _load(db, access.project.id, start, end, env, feedback)
-    view = build_view(rows, params, range_key in ("1h", "24h"), feedback)
+    view = build_view(rows, params, range_key in ("1h", "24h"), feedback, (start, end))
     path = request.url.path
     keep = {k: v for k, v in params.items() if k != "preset"}
 

@@ -210,3 +210,20 @@ def test_other_projects_scores_are_not_shown(client, login, world, db, make_proj
     db.query(Score).filter_by(id="z").update({"project_id": other.id})
     db.commit()
     assert "foreign-score" not in page(client, login, world).text
+
+
+def test_trend_axis_spans_the_whole_range_when_data_is_on_one_day(client, login, world, db):
+    """Data on one day must not leave a one-label axis (the chart then widened to years)."""
+    for i in range(12):
+        add(db, world, f"d{i}", "helpfulness", f"d{i}", "API", value=0.7, ago=timedelta(hours=1))
+    db.commit()
+    r = page(client, login, world, "?score=helpfulness&range=7d")
+    raw = re.search(r"data-an-chart='([^']*\"kind\": \"trend\"[^']*)'", r.text).group(1)
+    import html
+    import json
+
+    labels = json.loads(html.unescape(raw))["labels"]
+    days = [datetime.strptime(s, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC) for s in labels]
+    assert len(days) >= 7
+    assert days[0] <= NOW - timedelta(days=6)
+    assert days[-1] >= NOW - timedelta(days=1)

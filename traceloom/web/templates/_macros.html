@@ -52,8 +52,8 @@
 {% macro crumbs(items) -%}
 <nav class="crumbs" aria-label="Breadcrumb">
   {%- for item in items %}
-  {%- if not loop.last and item.href %}<a href="{{ item.href }}">{{ item.label }}</a><span class="crumb-sep" aria-hidden="true">/</span>
-  {%- else %}<span{% if loop.last %} aria-current="page"{% endif %}>{{ item.label }}</span>{% if not loop.last %}<span class="crumb-sep" aria-hidden="true">/</span>{% endif %}
+  {%- if not loop.last and item.href %}<a href="{{ item.href }}">{{ item.label }}</a><span class="crumb-sep" aria-hidden="true"><svg class="ico ico-sm"><use href="#i-chev-r"/></svg></span>
+  {%- else %}<span{% if loop.last %} aria-current="page"{% endif %}>{{ item.label }}</span>{% if not loop.last %}<span class="crumb-sep" aria-hidden="true"><svg class="ico ico-sm"><use href="#i-chev-r"/></svg></span>{% endif %}
   {%- endif %}
   {%- endfor %}
 </nav>

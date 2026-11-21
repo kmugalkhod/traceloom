@@ -396,11 +396,11 @@ html,body{-webkit-font-smoothing:antialiased}
 body{letter-spacing:-.003em}
 .frame .app{border-radius:var(--r-3)}
 .shell{display:grid;grid-template-columns:244px 1fr;grid-template-rows:1fr;min-height:var(--h,640px);padding:12px;gap:12px;background:var(--bg)}
-.side{display:flex;flex-direction:column;gap:var(--sp-5);padding:var(--sp-4) var(--sp-3);min-width:0}
+.side{display:flex;flex-direction:column;gap:var(--sp-5);padding:var(--sp-5) var(--sp-4);min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh-1)}
 .brand{width:auto;font-family:var(--font-ui);font-weight:600;font-size:21px;letter-spacing:-.02em;gap:10px}
 .brand .tile{width:34px;height:34px;border-radius:10px;background:var(--ink);color:var(--surface);display:grid;place-items:center}
 .brand svg{color:inherit}
-.side .picker{height:40px;width:100%;max-width:none;background:var(--surface);border-color:var(--line);box-shadow:var(--sh-1);justify-content:space-between}
+.side .picker{height:40px;width:100%;max-width:none;background:var(--surface-2);border-color:var(--line);box-shadow:none;justify-content:space-between}
 .sidenav{background:transparent;border:0;padding:0;gap:2px;flex:1}
 .sidenav .cap{padding:12px 12px 6px}
 .sidenav a{height:40px;padding:0 12px;border-radius:12px;font-size:var(--fs-md);font-weight:500;gap:12px;border:1px solid transparent}
@@ -436,7 +436,7 @@ body{letter-spacing:-.003em}
 .field>label,.lbl{font-size:13px;font-weight:500;color:var(--ink)}
 .seg{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:3px;gap:2px;box-shadow:none}
 .seg button{height:28px;border:0;border-radius:9px;padding:0 12px;font-weight:500;font-size:13px;color:var(--ink-2)}
-.seg button[aria-pressed=true],.seg button[aria-selected=true]{background:var(--seg-on);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12),0 0 0 1px var(--line)}
+.seg button[aria-pressed=true],.seg button[aria-selected=true]{background:var(--accent-solid);color:var(--on-accent);font-weight:600}
 .seg button:hover:not([aria-pressed=true]):not([aria-selected=true]){background:transparent;color:var(--ink)}
 .cap{font-family:var(--font-ui);font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ink-3)}
 kbd{border-radius:6px;font-family:var(--font-ui);font-weight:500}
@@ -519,7 +519,7 @@ kbd{border-radius:6px;font-family:var(--font-ui);font-weight:500}
 }
 @container app (max-width:760px){
   .shell{grid-template-columns:1fr;padding:0;gap:0;grid-template-rows:auto 1fr auto;background:var(--main)}
-  .side{padding:10px 12px;flex-direction:row;align-items:center}
+  .side{padding:10px 12px;flex-direction:row;align-items:center;border:0;border-bottom:1px solid var(--line);border-radius:0;box-shadow:none}
   .side .picker{width:auto;flex:1;height:36px}
   .side .nav-wrap,.side .usercard,.sidenav{display:none}
   .side .brand .word{display:none}
@@ -542,7 +542,7 @@ kbd{border-radius:6px;font-family:var(--font-ui);font-weight:500}
 .page-h>.row-wrap{margin-left:auto}
 .tbar{display:flex;align-items:center;gap:var(--sp-5);flex-wrap:wrap;padding:14px 16px}
 .cnt{margin-left:6px;font-size:11.5px;font-weight:500;min-width:20px;height:18px;padding:0 6px;border-radius:999px;background:var(--surface-2);color:var(--ink-3);display:inline-grid;place-items:center}
-.seg button[aria-selected=true] .cnt,.seg button[aria-pressed=true] .cnt{background:var(--sunken);color:var(--ink-2)}
+.seg button[aria-selected=true] .cnt,.seg button[aria-pressed=true] .cnt{background:none;color:inherit;opacity:.75}
 .cell2{display:flex;flex-direction:column;gap:1px;line-height:1.25;min-width:0}
 .cell2 b{font-weight:500;font-size:var(--fs-base);overflow:hidden;text-overflow:ellipsis}
 .cell2 span{font-size:12px;color:var(--ink-3)}
@@ -1063,7 +1063,7 @@ dialog.dlg .dialog{width:100%}
 .vsplit.editor{grid-template-columns:minmax(0,7fr) minmax(0,4fr)}
 .seg.radios input{position:absolute;opacity:0;width:0;height:0}
 .seg.radios label{display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:9px;font-weight:500;font-size:13px;color:var(--ink-2);cursor:pointer}
-.seg.radios input:checked+label{background:var(--seg-on);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12),0 0 0 1px var(--line)}
+.seg.radios input:checked+label{background:var(--accent-solid);color:var(--on-accent);font-weight:600}
 .seg.radios input:focus-visible+label{outline:2px solid var(--focus);outline-offset:2px}
 .check input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent-solid)}
 .check.is-locked{color:var(--ink-3)}

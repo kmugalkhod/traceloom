@@ -28,10 +28,10 @@ BUILD_NAV = (
     ("playground", "Playground", "i-play", "playground"),
 )
 EVAL_NAV = (
-    ("scores", "Scores", "i-dash", "scores/analytics"),
-    ("queues", "Annotation queues", "i-sessions", "queues"),
-    ("evaluators", "Evaluators", "i-flask", "evals"),
-    ("datasets", "Datasets", "i-folder", "datasets"),
+    ("scores", "Scores", "i-chart", "scores/analytics"),
+    ("queues", "Annotation queues", "i-queue", "queues"),
+    ("evaluators", "Evaluators", "i-judge", "evals"),
+    ("datasets", "Datasets", "i-db", "datasets"),
 )
 # Phone bottom bar: four destinations and a "More" sheet holding the rest.
 BOTTOM_NAV = ("traces", "prompts", "playground", "dashboard")
