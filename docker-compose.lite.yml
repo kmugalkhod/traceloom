@@ -5,6 +5,9 @@ services:
     build: .
     ports:
       - "8000:8000"
+    env_file:  # optional: TRACELOOM_ENCRYPTION_KEY, TRACELOOM_BASE_URL, SMTP_* and other settings
+      - path: .env
+        required: false
     environment:
       TRACELOOM_MODE: lite
       TRACELOOM_ENV: ${TRACELOOM_ENV:-dev}
