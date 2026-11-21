@@ -1,0 +1,37 @@
+{# One score config form (create and edit). Needs prefix, vals, locked, used, err (message or ""). #}
+{% import "_macros.html" as m with context %}
+<div class="body cfg-form">
+  {% if used %}<div class="banner info">{{ m.icon("i-lock") }}<div>{{ "{:,}".format(used) }} score{{ "" if used == 1 else "s" }} use this config, so its data type and categories are locked. You can still change the name, description and range.</div></div>{% endif %}
+  {% if err %}<div class="banner err" role="alert">{{ m.icon("i-error") }}<div>{{ err }}</div></div>{% endif %}
+  <div class="field">
+    <label for="{{ prefix }}-name">Name</label>
+    <input id="{{ prefix }}-name" class="input" name="name" value="{{ vals.name }}" maxlength="200" autocomplete="off" required>
+    <span class="hint">Unique among active configs in this project.</span>
+  </div>
+  <div class="field"><label id="{{ prefix }}-type">Data type</label>
+    <div class="segr" role="radiogroup" aria-labelledby="{{ prefix }}-type">
+      {% for key, label in type_labels.items() %}
+      <label><input type="radio" name="data_type" value="{{ key }}"{% if vals.data_type == key %} checked{% endif %}{% if locked and vals.data_type != key %} disabled{% endif %}><span>{{ label }}</span></label>
+      {% endfor %}
+    </div>
+    {% if locked %}<input type="hidden" name="data_type" value="{{ vals.data_type }}">{% endif %}
+  </div>
+  <div class="fgrid cfg-num">
+    <div class="field"><label for="{{ prefix }}-min">Minimum <span class="muted">optional</span></label><input id="{{ prefix }}-min" class="input" name="min_value" value="{{ vals.min_value }}" inputmode="decimal" autocomplete="off"></div>
+    <div class="field"><label for="{{ prefix }}-max">Maximum <span class="muted">optional</span></label><input id="{{ prefix }}-max" class="input" name="max_value" value="{{ vals.max_value }}" inputmode="decimal" autocomplete="off"></div>
+  </div>
+  <div class="field cfg-cat"><label>Categories <span class="muted">2 to 20, each with a numeric value</span></label>
+    {% set rows = [vals.categories | length, min_category_rows] | max + 1 %}
+    {% for i in range(rows) %}
+      {% set cat = vals.categories[i] if i < (vals.categories | length) else ("", "") %}
+      <div class="cat-row"{% if i >= vals.categories | length and i >= min_category_rows %} hidden{% endif %}>
+        <input class="input" name="cat_label" value="{{ cat[0] }}" placeholder="Label" aria-label="Label {{ i + 1 }}"{% if locked %} readonly{% endif %}>
+        <input class="input" name="cat_value" value="{{ cat[1] }}" placeholder="0" inputmode="decimal" aria-label="Value {{ i + 1 }}"{% if locked %} readonly{% endif %}>
+        {% if not locked %}<button type="button" class="btn btn-icon btn-ghost" aria-label="Remove category {{ i + 1 }}" data-remove-category>{{ m.icon("i-x", "ico-sm") }}</button>{% else %}<span></span>{% endif %}
+      </div>
+    {% endfor %}
+    {% if not locked %}<button type="button" class="btn btn-sm self-start" data-add-category{% if rows <= (vals.categories | length) %} hidden{% endif %}>{{ m.icon("i-plus", "ico-sm") }}Add category</button>{% endif %}
+  </div>
+  <div class="field"><label for="{{ prefix }}-desc">Description</label><textarea id="{{ prefix }}-desc" class="textarea" name="description" rows="2">{{ vals.description }}</textarea></div>
+  <label class="switch-row"><input type="checkbox" class="switch-cb" role="switch" name="public_feedback" value="1"{% if vals.public_feedback %} checked{% endif %}><span><b>Allow public feedback</b><span class="hint block">Lets your app send this score with the public key. Set allowed origins in the Evaluation tab.</span></span></label>
+</div>

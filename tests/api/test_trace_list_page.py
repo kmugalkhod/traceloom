@@ -139,6 +139,17 @@ def test_page_lists_traces_with_kpis_tabs_and_pills(client, world, login, seeded
     assert 'class="sidenav"' in html and 'aria-current="page"' in html
 
 
+def test_numeric_and_score_columns_are_aligned_and_error_rows_calm(client, world, login, seeded):
+    login(client, world.user(Role.VIEWER))
+    html = client.get(url(world), headers=H).text
+    for name in ("Latency", "Cost"):
+        assert re.search(rf'<th class="r"[^>]*><a [^>]*>{name}', html)
+    assert 'class="num r"' in html and 'class="num r c-cost"' in html
+    assert '<th class="c">Scores</th>' in html and '<td class="c">' in html
+    assert "err-text" not in html  # error rows keep marker and pill, no red numbers
+    assert 'class="lv ERROR"' in html
+
+
 def test_outsiders_get_404_and_anonymous_are_sent_to_login(client, world, make_user, login, seeded):
     assert client.get(url(world), follow_redirects=False).status_code == 303
     login(client, make_user())
@@ -540,3 +551,40 @@ def test_avatar_initials(user, initials):
     from traceloom.web.trace_list import user_initials
 
     assert user_initials(user) == initials
+
+
+def test_parse_score_filter_forms():
+    from traceloom.ports import ScoreFilter
+    from traceloom.web.trace_list import parse_score_filter, parse_score_filters
+
+    assert parse_score_filter("quality:>=:0.5") == ScoreFilter("quality", ">=", 0.5)
+    assert parse_score_filter("tone:in:ok, great") == ScoreFilter("tone", "in", ["ok", "great"])
+    assert parse_score_filter("correct:missing") == ScoreFilter("correct", "missing")
+    assert parse_score_filter("a:b:=:x") == ScoreFilter("a:b", "=", "x")
+    filters, errors = parse_score_filters(["quality:>=:high", "junk", "ok:exists"])
+    assert [f.name for f in filters] == ["ok"] and len(errors) == 2
+
+
+def test_score_filter_round_trips_in_state_and_chips():
+    from starlette.datastructures import QueryParams
+
+    from traceloom.web.trace_list import canonical_params, parse_state
+
+    params = QueryParams("score=quality%3A%3E%3D%3A0.5&sort=score%3Aquality%3Aasc")
+    state = parse_state(params, "/p/traces", None)
+    assert state.query.score_filters[0].value == 0.5
+    assert state.query.sort == "score:quality" and not state.query.descending
+    assert state.form["scores"] == [{"name": "quality", "op": ">=", "value": "0.5"}]
+    assert "score=quality" in state.filter_query
+    assert any("quality" in c.label for c in state.chips)
+    form = QueryParams("sf_name=quality&sf_op=%3E%3D&sf_value=0.5&sf_name=&sf_op=%3D&sf_value=")
+    assert canonical_params(form) == [("score", "quality:>=:0.5")]
+
+
+def test_invalid_score_filter_is_reported_not_raised():
+    from starlette.datastructures import QueryParams
+
+    from traceloom.web.trace_list import parse_state
+
+    state = parse_state(QueryParams("score=quality%3A%3E%3Dhigh"), "/p/traces", None)
+    assert state.query.score_filters == () and state.score_errors

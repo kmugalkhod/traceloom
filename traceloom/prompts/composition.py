@@ -105,16 +105,25 @@ class _Resolution:
         self.expansions = 0
 
     def text(self, text: str, stack: tuple[tuple[str, int], ...]) -> str:
-        def replace(match: re.Match[str]) -> str:
-            return self._include(parse_reference(match.group(0)), stack)
+        parts: list[str] = []
+        size = pos = 0
 
-        out = _REF_RE.sub(replace, text)
-        if len(out) > MAX_EXPANDED_CHARS:
-            raise CompositionError(
-                f"The prompt is longer than {MAX_EXPANDED_CHARS:,} characters once its "
-                "references are expanded"
-            )
-        return out
+        def add(piece: str) -> None:  # fails as soon as the running total passes the cap
+            nonlocal size
+            parts.append(piece)
+            size += len(piece)
+            if size > MAX_EXPANDED_CHARS:
+                raise CompositionError(
+                    f"The prompt is longer than {MAX_EXPANDED_CHARS:,} characters once its "
+                    "references are expanded"
+                )
+
+        for match in _REF_RE.finditer(text):
+            add(text[pos : match.start()])
+            add(self._include(parse_reference(match.group(0)), stack))
+            pos = match.end()
+        add(text[pos:])
+        return "".join(parts)
 
     def _include(self, ref: Reference, stack: tuple[tuple[str, int], ...]) -> str:
         # `stack` holds the prompts being expanded; the top-level content is depth 0.

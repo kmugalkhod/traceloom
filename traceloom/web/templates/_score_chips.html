@@ -1,0 +1,19 @@
+{# Score chips, tinted by source with a source icon (ann = a person, eval = a judge, api = API key
+   or SDK). Names and comments are escaped by Jinja autoescape; `archived` is a set of config ids
+   whose chips render dashed. `mini` drops the name (tree rows) and keeps it in the title. #}
+{% macro src_class(s) -%}
+{{ 'ann' if s.source == 'ANNOTATION' else ('eval' if s.source == 'EVAL' else 'api') }}
+{%- endmacro %}
+{% macro src_icon(s) -%}
+<svg class="ico" aria-hidden="true"><use href="#{{ 'i-user' if s.source == 'ANNOTATION' else ('i-judge' if s.source == 'EVAL' else ('i-users' if s.channel == 'public_feedback' else 'i-key')) }}"/></svg>
+{%- endmacro %}
+{% macro chip(s, archived=(), mini=false) -%}
+<span class="sc {{ src_class(s) }}{{ ' mini' if mini }}{{ ' arch' if s.config_id and s.config_id in archived }}{{ ' fb' if s.channel == 'public_feedback' }}" title="{{ s.name }} · {{ s.source | lower }}{% if s.comment %}: {{ s.comment }}{% endif %}">{{ src_icon(s) }}{% if not mini %}<span class="n">{{ s.name }}:</span> {% endif %}<b>{{ s | score_value }}</b></span>
+{%- endmacro %}
+{# The source pill in the Scores tab table: icon plus the source in words. #}
+{% macro source_pill(s) -%}
+<span class="sc {{ src_class(s) }} src{{ ' fb' if s.channel == 'public_feedback' }}">{{ src_icon(s) }}{{ 'Annotation' if s.source == 'ANNOTATION' else ('Eval' if s.source == 'EVAL' else 'API') }}</span>
+{%- endmacro %}
+{% macro chips(scores, archived=(), limit=0, mini=false) -%}
+<span class="scs">{% for s in scores %}{% if not limit or loop.index <= limit %}{{ chip(s, archived, mini) }}{% endif %}{% endfor %}{% if limit and scores | length > limit %}<span class="sc-more">+{{ scores | length - limit }}</span>{% endif %}</span>
+{%- endmacro %}

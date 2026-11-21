@@ -1,0 +1,83 @@
+/* Score chips (T-10): extends .sc from queues.css with the source icon, API tint, archived,
+   feedback and name parts. Copied from the approved mockup (section "scores"). */
+.sc{padding:0 8px 0 6px;max-width:100%}
+.sc .ico{width:12px;height:12px;flex:none}
+.sc .n{overflow:hidden;text-overflow:ellipsis}
+.sc.api{background:var(--surface-2);border-color:var(--line);color:var(--ink-2)}
+.sc.arch{border-style:dashed;background:transparent}
+.sc.fb::after{content:"feedback";font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);margin-left:2px}
+.sc.mini{padding:0 6px;gap:3px}
+.sc-more{display:inline-flex;align-items:center;height:22px;padding:0 6px;border-radius:6px;font-size:12px;font-weight:600;color:var(--ink-3);font-variant-numeric:tabular-nums}
+/* Kept as before for other .sin users (queue review); the Scores tab scopes its own below. */
+.sin{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,260px);align-items:center;gap:12px}
+.tree-pane .nm .scs{flex-wrap:nowrap;margin-left:8px;overflow:hidden;flex:none;max-width:45%}
+
+/* Traces list, Scores column: chips wrap inside the cell (at most 3, then "+N"). */
+.panel[data-tl] .tbl td.c{white-space:normal;max-width:none;overflow:visible;padding-top:6px;padding-bottom:6px}
+.panel[data-tl] .tbl td.c .scs{justify-content:center;min-width:0;max-width:280px;margin:0 auto}
+.panel[data-tl] .tbl th.c a .ico{color:var(--ink-2)}
+.panel[data-tl] .tbl th.c[aria-sort=ascending] a .ico,.panel[data-tl] .tbl th.c[aria-sort=descending] a .ico{color:var(--accent)}
+
+/* Filter tray: header and the Score section (.frow rows with remove buttons). */
+.pop .hd.tray-hd{display:flex;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:14px;font-weight:600;color:var(--ink);padding:0 0 4px}
+.tray-hd .muted{font-size:12px;font-weight:400;color:var(--ink-3)}
+.tray-hd .btn{margin-left:auto}
+.score-filters{border:0;padding:0;margin:0;display:flex;flex-direction:column;gap:8px;min-width:0}
+.score-filters legend.sect{font-size:11px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);padding:0 0 8px;border:0}
+.score-filters .sf-rows{display:flex;flex-direction:column;gap:8px}
+.score-filters .frow{display:grid;grid-template-columns:minmax(0,1.2fr) 88px minmax(0,1fr) 36px;gap:8px;align-items:center;margin-bottom:0}
+.score-filters .frow .input,.score-filters .frow .select{height:36px}
+.score-filters .frow .btn-icon{width:36px;height:36px}
+.score-filters .frow .nov{display:none;font-size:12px;color:var(--ink-3)}
+.score-filters .frow[data-op-none] .input{display:none}
+.score-filters .frow[data-op-none] .nov{display:block}
+.score-filters .field-error .ico{margin-top:1px}
+.score-filters .input[aria-invalid=true]{border-color:var(--err);background:color-mix(in srgb,var(--err) 8%,var(--surface))}
+.score-filters .sf-add{align-self:flex-start}
+.score-filters .hint{padding-top:4px}
+
+/* Trace detail, Scores tab: chip summary, scores table, config inputs, comment, free-form. */
+#scores .sc-sum{gap:6px}
+#scores .sc-tbl-wrap{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+#scores .sc-tbl{width:100%;margin:0}
+#scores .sc-tbl td{white-space:normal}
+#scores .sc-tbl th{text-align:left}
+#scores .sc-tbl td.num{text-align:left;font-family:var(--font-ui);font-size:inherit;font-variant-numeric:tabular-nums}
+#scores .sc-tbl .sc-name{font-weight:500;word-break:break-word}
+#scores .sc-tbl .by{display:block}
+#scores .sc-tbl .when{display:block;font-size:12px;color:var(--ink-3)}
+#scores .sc-tbl tr.sc-note td{height:auto;padding:0 16px 10px}
+#scores .sc-tbl tr:has(+ tr.sc-note) td{border-bottom:0}
+#scores .reason{padding:12px;border-left:3px solid var(--t-generation);background:var(--surface-2);border-radius:0 10px 10px 0;font-size:13.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
+#scores .sect.sc-add{font-size:11px;font-weight:500;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);padding-top:8px;border:0}
+#scores .sform{display:flex;flex-direction:column}
+#scores .sin{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,220px) auto;align-items:center;gap:8px 12px;min-height:var(--row-h);padding:8px 0;border-bottom:1px solid var(--line);margin:0}
+#scores .sin .nm{font-weight:600;font-size:14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+#scores .sin .nm small{font-weight:400;color:var(--ink-3);font-size:12px}
+#scores .sin .ctl{min-width:0}
+#scores .sin .ctl .input,#scores .sin .ctl .select{height:36px}
+#scores .sin .ctl .input[aria-invalid=true],#scores .sin .ctl .select[aria-invalid=true]{border-color:var(--err);background:color-mix(in srgb,var(--err) 8%,var(--surface))}
+#scores .sin .field-error{grid-column:1/-1}
+#scores .sin.stack{grid-template-columns:1fr;gap:8px;padding:16px 0;border-bottom:0}
+#scores .sin.stack .textarea{min-height:56px}
+#scores .sc-free>summary{width:max-content;list-style:none;cursor:pointer;font-size:13px}
+#scores .sc-free>summary::-webkit-details-marker{display:none}
+#scores .sc-free>summary::before{content:"+";font-weight:600;margin-right:2px}
+#scores .sc-free[open]>summary::before{content:"−"}
+@container app (max-width:760px){
+  #scores .sin{grid-template-columns:minmax(0,1fr) auto}
+  #scores .sin .ctl{grid-column:1/-1;grid-row:2}
+  #scores .sin .btn{grid-column:2;grid-row:1}
+  .score-filters .frow{grid-template-columns:minmax(0,1fr) 80px 36px}
+  .score-filters .frow .input,.score-filters .frow .nov{grid-column:1/3}
+  .score-filters .frow .btn-icon{grid-column:3;grid-row:1}
+}
+/* List cell: room for two chips per line so rows stay two lines tall */
+.panel[data-tl] .tbl td.c .scs{max-width:240px;justify-content:flex-start}
+.panel[data-tl] .tbl td.c-name{max-width:160px}
+.panel[data-tl] .tbl td.c-name .cell2>*{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.panel[data-tl] .tbl td.c .sc{font-size:11.5px;padding:0 6px 0 5px}
+/* Narrow desktops: tags wrap so the Scores column keeps room for its chips */
+.panel[data-tl] .tbl td:has(> .chip){max-width:96px;white-space:normal;line-height:22px}
+.panel[data-tl] .tbl td.c:has(.scs){min-width:160px}
+.panel[data-tl] .tbl td:has(> .row > .avatar){max-width:104px}.panel[data-tl] .tbl td:has(> .row > .avatar) .row{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}

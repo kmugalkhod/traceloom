@@ -41,10 +41,12 @@ def test_missing_anthropic_ids_are_synthesised_on_both_sides():
 
 def test_a_tool_result_with_no_call_to_answer_becomes_a_user_message():
     """Old demo traces: `assistant: calling search` then a bare tool message."""
-    out = messages_from([
-        {"role": "user", "content": "q"},
-        {"role": "assistant", "content": "calling search"},
-        {"role": "tool", "content": "search -> ok"},
-    ])
+    out = messages_from(
+        [
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "content": "calling search"},
+            {"role": "tool", "content": "search -> ok"},
+        ]
+    )
     assert out[2]["role"] == "user" and "search -> ok" in out[2]["content"]
     assert all(m["role"] != "tool" for m in out)

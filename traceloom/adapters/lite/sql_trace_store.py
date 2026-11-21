@@ -136,6 +136,25 @@ class SqlTraceStore(SqlReadMixin, SqlAnalyticsMixin):
     def add_score(self, project_id: str, score: ScoreRow) -> None:
         self.upsert(project_id, [], [], [score])
 
+    def delete_score(self, project_id: str, score_id: str) -> bool:
+        with self.session_factory.begin() as s:
+            return bool(
+                s.execute(
+                    delete(Score).where(Score.project_id == project_id, Score.id == score_id)
+                ).rowcount
+            )
+
+    def config_has_scores(self, project_id: str, config_id: str) -> bool:
+        with self.session_factory() as s:
+            return (
+                s.scalar(
+                    select(Score.id)
+                    .where(Score.project_id == project_id, Score.config_id == config_id)
+                    .limit(1)
+                )
+                is not None
+            )
+
     def get_existing(
         self, project_id: str, ids_by_kind: Mapping[str, Sequence[str]]
     ) -> dict[str, dict[str, Any]]:

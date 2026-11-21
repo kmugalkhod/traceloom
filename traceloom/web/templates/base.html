@@ -9,6 +9,20 @@
 <title>{% block title %}Traceloom{% endblock %} · Traceloom</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="/static/ui/base.css">
+<link rel="stylesheet" href="/static/ui/traces.css">
+<link rel="stylesheet" href="/static/ui/trace-detail.css">
+<link rel="stylesheet" href="/static/ui/trace-tree.css">
+<link rel="stylesheet" href="/static/ui/trace-io.css">
+<link rel="stylesheet" href="/static/ui/dashboard.css">
+<link rel="stylesheet" href="/static/ui/prompts.css">
+<link rel="stylesheet" href="/static/ui/playground.css">
+<link rel="stylesheet" href="/static/ui/settings.css">
+<link rel="stylesheet" href="/static/ui/datasets.css">
+<link rel="stylesheet" href="/static/ui/queues.css">
+<link rel="stylesheet" href="/static/ui/evals.css">
+<link rel="stylesheet" href="/static/ui/scores.css">
+<link rel="stylesheet" href="/static/ui/evaluation.css">
 <script src="/static/app.js"></script>
 </head>
 <body hx-boost="false">
@@ -21,7 +35,7 @@
 
     <div class="rel grow-none">
       <button type="button" class="picker" aria-haspopup="true" aria-expanded="false" data-menu-toggle="picker-menu">
-        <span class="trunc">{% if org %}{{ org.name }}{% if project %} <small>/</small> {{ project.name }}{% endif %}{% else %}No organization{% endif %}</span>
+        <span class="trunc">{% if org %}{{ org.name }}{% if project %} <small>/ {{ project.name }}</small>{% endif %}{% else %}No organization{% endif %}</span>
         {{ m.icon("i-chev-d", "ico-sm") }}
       </button>
       <div class="pop pop-picker" id="picker-menu" data-menu hidden>
@@ -46,6 +60,12 @@
       {% for item in build_nav %}
         <a href="{{ item.href }}" data-nav="{{ item.key }}"{% if item.current %} aria-current="page"{% endif %}>{{ m.icon(item.icon) }}{{ item.label }}</a>
       {% endfor %}
+      {% if eval_nav %}
+      <div class="cap">Evaluation</div>
+      {% for item in eval_nav %}
+        <a href="{{ item.href }}" data-nav="{{ item.key }}"{% if item.current %} aria-current="page"{% endif %}>{{ m.icon(item.icon) }}{{ item.label }}</a>
+      {% endfor %}
+      {% endif %}
       <div class="cap">Project</div>
       <a href="{{ settings.href }}" data-nav="settings"{% if settings.current %} aria-current="page"{% endif %}>{{ m.icon("i-settings") }}Settings</a>
       <button type="button" class="nav-btn" data-help-open>{{ m.icon("i-kbd") }}Shortcuts<kbd class="right">?</kbd></button>
@@ -79,6 +99,7 @@
 
   <div class="card">
     <div class="ctxbar">
+      {% block crumbs %}{% endblock %}
       {% include "_env_switcher.html" ignore missing %}
       {% block daterange %}{% endblock %}
       <button type="button" class="btn btn-icon" aria-label="Keyboard shortcuts (?)" data-help-open>{{ m.icon("i-kbd") }}</button>

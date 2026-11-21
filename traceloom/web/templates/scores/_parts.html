@@ -1,0 +1,16 @@
+{# Small pieces shared by the analytics page and its compare panel. #}
+{% macro nd() %}<div class="an-nd"><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><div>{{ caller() }}</div></div>{% endmacro %}
+{% macro table_fb(head, rows) %}
+<details class="an-tbl"><summary><svg class="ico" aria-hidden="true"><use href="#i-chev-r"/></svg>View as table</summary>
+  <table class="tbl"><thead><tr>{% for h in head %}<th{% if loop.last %} class="r"{% endif %}>{{ h }}</th>{% endfor %}</tr></thead>
+  <tbody>{% for r in rows %}<tr>{% for c in r %}<td{% if loop.last %} class="num r"{% endif %}>{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+</details>
+{% endmacro %}
+{# The query state a form must carry so a change in one control keeps the others. #}
+{% macro carry(skip=[]) %}
+  <input type="hidden" name="range" value="{{ range_key }}">
+  {% if env_param %}<input type="hidden" name="env" value="{{ env_param }}">{% endif %}
+  {% if view.source_key != "all" %}<input type="hidden" name="source" value="{{ view.source_key }}">{% endif %}
+  {% if view.selected and "score" not in skip %}<input type="hidden" name="score" value="{{ view.selected }}">{% endif %}
+  {% if "feedback" not in skip %}<input type="hidden" name="feedback" value="{{ '1' if feedback else '0' }}">{% endif %}
+{% endmacro %}

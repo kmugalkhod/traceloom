@@ -22,6 +22,9 @@ from urllib.parse import parse_qs, urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from board import Board  # noqa: E402
+from review import Review  # noqa: E402
+from review_page import REVIEW_PAGE  # noqa: E402
+from sdlc_core import PHASE_KEYS, git, load_config, phase_models, read_controls, write_controls, yolo  # noqa: E402
 
 PAGE = r"""<!doctype html>
 <html lang="en">
@@ -73,6 +76,48 @@ h1{margin:0;font-size:15px;font-weight:700;letter-spacing:-.01em;white-space:now
 .pill b{color:var(--text);font-weight:600}
 .pill.alert{color:var(--pink);border-color:color-mix(in srgb,var(--pink) 45%,var(--line));background:color-mix(in srgb,var(--pink) 10%,var(--panel2));cursor:pointer}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
+.tabs{display:flex;gap:2px;padding:2px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);flex:none}
+.tab{display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 13px;border:0;border-radius:8px;background:none;color:var(--muted);
+  font:600 12.5px/1 inherit;cursor:pointer}
+.tab:hover{color:var(--text)} .tab[aria-selected="true"]{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.25),inset 0 0 0 1px var(--line)}
+.tab .cnt{min-width:18px;height:18px;padding:0 5px;border-radius:99px;background:var(--pink);color:#fff;font-size:10.5px;font-weight:800;
+  display:inline-grid;place-items:center}
+#reviewView{flex:1;min-height:0;width:100%;border:0;display:block;background:var(--bg)}
+#reviewView[hidden]{display:none}
+.runsel{height:30px;max-width:260px;border-radius:9px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font:600 12px/1 inherit;padding:0 8px}
+.yolo{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 10px 0 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);
+  color:var(--muted);font:700 12px/1 inherit;cursor:pointer;flex:none;letter-spacing:.04em}
+.yolo i{width:30px;height:18px;border-radius:99px;background:var(--line2);position:relative;transition:background .15s}
+.yolo i:after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s}
+.yolo[aria-checked="true"]{color:var(--amber);border-color:var(--amber);background:color-mix(in srgb,var(--amber) 10%,var(--panel2))}
+.yolo[aria-checked="true"] i{background:var(--amber)} .yolo[aria-checked="true"] i:after{left:14px}
+.stages{display:flex;align-items:center;gap:0;padding:10px 24px;border-bottom:1px solid var(--line);overflow-x:auto;background:var(--panel)}
+.stages:empty{display:none}
+.stg{display:flex;align-items:center;gap:8px;flex:none;font-size:12.5px;color:var(--muted);padding:5px 10px;border-radius:9px;border:1px solid transparent;background:none}
+.stg .ic{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;border:1.5px solid var(--line2);flex:none}
+.stg small{color:var(--faint);font-size:11px}
+.stg.done{color:var(--text)} .stg.done .ic{background:var(--green);border-color:var(--green);color:#04210f}
+.stg.active{color:var(--text);font-weight:700} .stg.active .ic{border-color:var(--blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 25%,transparent)}
+.stg.active .ic:after{content:"";width:7px;height:7px;border-radius:50%;background:var(--blue);animation:pulse 1.4s infinite}
+.stg.waiting{color:var(--amber);font-weight:700;border-color:color-mix(in srgb,var(--amber) 45%,transparent);background:color-mix(in srgb,var(--amber) 9%,transparent);cursor:pointer}
+.stg.waiting .ic{border-color:var(--amber);background:var(--amber);color:#2a1a00}
+.stg.skipped{opacity:.45} .stg.skipped .ic{border-style:dashed}
+.sep{width:22px;height:1.5px;background:var(--line2);flex:none} .sep.done{background:var(--green)}
+@keyframes pulse{50%{opacity:.35}}
+.pre{grid-column:1/-1;align-self:start;max-width:620px;margin:40px auto;padding:26px 28px;border:1px solid var(--line);border-radius:16px;background:var(--panel);text-align:left}
+.pre h3{margin:0 0 6px;font-size:18px} .pre p{color:var(--muted);margin:0 0 14px;font-size:13.5px;line-height:1.5}
+.pre ul{list-style:none;padding:0;margin:0 0 16px;display:grid;gap:8px} .pre li{display:flex;gap:10px;font-size:13px;align-items:center}
+.pre li b{min-width:110px} .pre li span{color:var(--muted)}
+body.hist .compose,body.hist #banner,body.hist .yolo{display:none}
+.histnote{margin:12px 24px 0;padding:10px 14px;border-radius:12px;border:1px dashed var(--line2);color:var(--muted);font-size:13px}
+.histnote:empty{display:none}
+.mtable{width:100%;border-collapse:collapse;font-size:13px} .mtable td{padding:9px 6px;border-bottom:1px solid var(--line)}
+.mtable select{height:32px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:0 8px;min-width:150px}
+.mtable .def{color:var(--faint);font-size:12px}
+.allrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:4px 0 14px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line2);border-radius:12px;padding:10px 16px;
+  font-size:13px;box-shadow:var(--shadow);z-index:50;max-width:min(560px,92vw)} .toast:empty{display:none}
+body.rv #banner,body.rv #now,body.rv .shell,body.rv .search{display:none}
 .dot.running,.dot.working{background:var(--green);animation:pulse 1.4s infinite}
 .dot.helping{background:var(--violet);animation:pulse 1.4s infinite}
 .dot.designing{background:var(--pink);animation:pulse 1.4s infinite}
@@ -176,13 +221,17 @@ select{background:var(--panel2);border:1px solid var(--line);border-radius:9px;h
 .prog-meta .ok{color:var(--green)}
 .tag{font-size:11px;height:20px;display:inline-flex;align-items:center;padding:0 7px;border-radius:6px;white-space:nowrap;max-width:140px;overflow:hidden;text-overflow:ellipsis;
   background:color-mix(in srgb,var(--sc) 14%,transparent);color:var(--sc);border:1px solid color-mix(in srgb,var(--sc) 30%,transparent)}
+.costbox{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1;padding:0 6px;cursor:help}
+.costbox b{font-size:15px;font-variant-numeric:tabular-nums}
+.costbox span{font-size:10.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em}
+.chip.cost{font-variant-numeric:tabular-nums;color:var(--text)}
 .chip{font-size:11px;height:20px;display:inline-flex;align-items:center;gap:3px;padding:0 6px;border-radius:6px;color:var(--muted);border:1px solid var(--line);white-space:nowrap}
 .chip.red{color:var(--red);border-color:color-mix(in srgb,var(--red) 40%,var(--line))}
 .chip.amber{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 40%,var(--line))}
 .chip.pink{color:var(--pink);border-color:color-mix(in srgb,var(--pink) 40%,var(--line))}
 .av{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-weight:800;font-size:11px;color:#0a0c10;flex:none}
 .av.developer{background:var(--blue)} .av.qa{background:var(--green)} .av.planner,.av.helper{background:var(--violet)}
-.av.human,.av.lead{background:var(--amber)} .av.designer{background:var(--pink)} .av.sync{background:var(--teal)}
+.av.human,.av.lead{background:var(--amber)} .av.designer{background:var(--pink)} .av.architect,.av.planner{background:var(--violet)} .av.sync{background:var(--teal)}
 .av.mini{width:20px;height:20px;border-radius:6px;font-size:9px}
 .empty{color:var(--faint);font-size:12px;text-align:center;padding:22px 8px}
 .empty.big{padding:60px 20px;font-size:13px}
@@ -266,6 +315,10 @@ pre.desc{white-space:pre-wrap;margin:0;font:inherit;color:var(--muted)}
   <div class="brand"><div class="logo" aria-hidden="true">
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5"/></svg></div>
     <div style="min-width:0"><h1 id="title">Team Board</h1><div class="sub" id="subtitle">loading…</div></div></div>
+  <nav class="tabs" role="tablist" aria-label="Board or review">
+    <button class="tab" role="tab" data-tab="board" aria-selected="true">Board</button>
+    <button class="tab" role="tab" data-tab="review" aria-selected="false">Review <span class="cnt" id="rvcount" hidden></span></button></nav>
+  <select id="runSel" class="runsel" aria-label="Which run" title="Runs: the live one and earlier ones"></select>
   <div class="pills">
     <span class="pill"><span class="dot" id="rundot"></span><b id="runstate">—</b></span>
     <span class="pill">tracker <b id="tracker">internal</b></span>
@@ -273,14 +326,21 @@ pre.desc{white-space:pre-wrap;margin:0;font:inherit;color:var(--muted)}
     <span class="pill alert" id="needs" hidden></span>
   </div>
   <div class="grow"></div>
+  <div class="costbox" id="costTotal" hidden></div>
   <div class="prog" title="Tasks done"><div class="bar"><i id="progbar" style="width:0"></i></div><b id="progtxt">0/0</b></div>
   <label class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
     <input id="q" placeholder="Search tasks, stories, agents…" aria-label="Search"><kbd>/</kbd></label>
+  <button class="yolo" id="yolo" role="switch" aria-checked="false" title="YOLO: no approvals are asked. Pushes to main and production deploys still need you.">YOLO <i></i></button>
+  <button class="icon-btn" id="settings" title="Models per phase" aria-label="Models per phase">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></button>
   <button class="icon-btn" id="theme" title="Toggle light / dark" aria-label="Toggle light or dark theme">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
 </header>
+<div class="stages" id="stages" aria-label="Where the run is"></div>
+<div class="histnote" id="histnote"></div>
 <div id="banner"></div>
 <div id="now" class="now" aria-live="polite"></div>
+<iframe id="reviewView" title="Review room" hidden></iframe>
 <div class="shell">
   <aside class="pane side" aria-label="Epics and stories">
     <div class="ph">Epics &amp; stories <span class="n" id="sidecount"></span></div>
@@ -316,6 +376,14 @@ pre.desc{white-space:pre-wrap;margin:0;font:inherit;color:var(--muted)}
     </form>
   </aside>
 </div>
+<dialog id="setdlg"><div class="dh"><div><div class="sub">Run settings</div><h2 style="margin:4px 0 0;font-size:18px">Models per phase</h2></div>
+  <button class="icon-btn" id="setclose" aria-label="Close">✕</button></div>
+  <div class="db"><p class="sub" style="margin:0 0 12px">Every agent the kit starts for a phase uses this model, from its next run on. "Config" keeps
+  <span class="mono">.sdlc/config.json</span>. In <span class="mono">/sdlc:loop</span> the intent, spec and plan are written by your own Claude Code session: switch that with <span class="mono">/model</span>.</p>
+  <div class="allrow"><b style="font-size:13px">All phases:</b><span id="allbtns"></span></div>
+  <table class="mtable" id="mtable"></table>
+  <div class="allrow" style="margin-top:16px"><button class="btn ok" id="msave">Save</button><span class="sub" id="mnote"></span></div></div></dialog>
+<div class="toast" id="toast" role="status"></div>
 <dialog id="dlg"><div class="dh"><div style="min-width:0"><div class="sub mono" id="dkey"></div><h2 id="dtitle" style="margin:4px 0 0;font-size:18px;letter-spacing:-.01em"></h2></div>
   <button class="icon-btn" id="dclose" aria-label="Close">✕</button></div><div class="db" id="dbody"></div></dialog>
 <script>
@@ -323,7 +391,7 @@ const COLS=[["todo","To Do","var(--muted)"],["in_progress","In Progress","var(--
 const LABEL=Object.assign(Object.fromEntries(COLS.map(c=>[c[0],c[1]])),{in_qa:"In QA",review:"Needs approval"});
 const COLOF=st=>st==="review"?"in_qa":st;
 const STORY_COLORS=["var(--violet)","var(--teal)","var(--amber)","var(--blue)","var(--pink)","var(--green)","var(--red)"];
-let S={items:[],agents:[],events:[],messages:[],meta:{},progress:{},live:{},now:0},since=0,view="board",openKey=null,fstory="",lastSig="";
+let S={review:{},stages:{},controls:{},runs:[],items:[],agents:[],events:[],messages:[],meta:{},progress:{},live:{},cost:{},now:0},since=0,view="board",openKey=null,fstory="",lastSig="";
 const closedEpics=new Set(),closedGroups=new Set();
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -345,6 +413,9 @@ const BUSY=["working","helping","designing"];
 function curKey(a){const j=((S.meta.tl||{}).jobs||{})[a.name];if(!j||!(j.keys||[]).length)return a.item_key;
   if(j.kind!=="developer")return j.keys[0];
   return j.keys.find(k=>(S.items.find(i=>i.key===k)||{}).status==="in_progress")||j.keys[j.keys.length-1]}
+function agentCost(a){const lc=(S.cost||{}).agents||{};const v=lc[a.name]!=null?lc[a.name]:a.cost;
+  return v?`${a.runs?a.runs+" runs<br>":""}$${v.toFixed(2)}`:""}
+function cardCost(t){const v=((S.cost||{}).tasks||{})[t.key];return v>=0.005?`<span class="chip cost" title="API-equivalent cost of the work on this card so far">$${v.toFixed(2)}</span>`:""}
 function liveOn(t){const key=t.key,jobs=(S.meta.tl||{}).jobs;
   if(jobs){for(const [name,j] of Object.entries(jobs)){if(!(j.keys||[]).includes(key))continue;
       const a=S.agents.find(x=>x.name===name)||{name,status:"working",activity:""};
@@ -377,26 +448,45 @@ function keepScroll(fn){const ids=["nav","list","team","feed"];const pos={};
 /* header + banner */
 function renderHeader(){const m=S.meta,ts=items("task"),d=ts.filter(t=>t.status==="done").length;
   $("title").textContent=m.project?`${m.project} · team board`:"Team Board";
-  const cost=S.agents.reduce((s,a)=>s+(a.cost||0),0);
-  $("subtitle").textContent=(m.change||"no change loaded")+(cost?` · $${cost.toFixed(2)} est.`:"");
+  const lc=S.cost||{},cost=lc.total||S.agents.reduce((s,a)=>s+(a.cost||0),0);
+  $("subtitle").textContent=(m.change||"no change loaded")+(cost?` · $${cost.toFixed(2)} API-equivalent`:"");
+  $("subtitle").title=cost?`What this run would cost on the Claude API (on a subscription you pay the plan).\n`+
+    Object.entries(lc.agents||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}: $${v.toFixed(2)}`).join("\n")+
+    (lc.calls?`\n${lc.calls} model calls · ${Math.round(100*(lc.cache_share||0))}% from cache`:""):"";
+  const ct=$("costTotal");if(ct){ct.hidden=!cost;ct.innerHTML=`<b>$${(cost||0).toFixed(2)}</b><span>total cost</span>`;ct.title=$("subtitle").title}
   $("runstate").textContent=m.status||"idle";$("rundot").className="dot "+(m.status||"");
   $("tracker").textContent=m.tracker||"internal";$("branch").textContent=m.integration_branch||"—";
   $("progtxt").textContent=`${d}/${ts.length}`;$("progbar").style.width=(ts.length?100*d/ts.length:0)+"%";
-  const esc_=(m.escalated||[]).length,rev=S.items.filter(i=>i.type==="design"&&i.status==="review").length,n=esc_+rev;
-  $("needs").hidden=!n;$("needs").textContent=n?`● ${n} need${n===1?"s":""} you`:"";document.title=(n?`(${n}) `:"")+"Team Board"}
-function renderBanner(){const d=S.items.find(i=>i.type==="design"&&i.status==="review");
+  const esc_=(m.escalated||[]).length,rev=S.items.filter(i=>i.type==="design"&&i.status==="review").length,n=S.review.count??(esc_+rev);
+  $("rvcount").hidden=!n;$("rvcount").textContent=n;
+  $("needs").hidden=!n;$("needs").textContent=n?`● ${n} need${n===1?"s":""} you`:"";document.title=(n?`(${n}) `:"")+"Team Board";
+  renderStages();renderControls();renderRuns()}
+const STICON={done:"✓",waiting:"!",skipped:"–",pending:"",active:""};
+function renderStages(){const st=(S.stages||{}).stages||[];
+  $("stages").innerHTML=st.map((x,i)=>`${i?`<span class="sep ${st[i-1].state==="done"?"done":""}"></span>`:""}<button class="stg ${x.state}" ${x.state==="waiting"?`data-stage="${esc(x.key)}"`:""}
+    title="${esc(x.label)}: ${esc(x.state)}${x.note?" · "+esc(x.note):""}"><span class="ic">${STICON[x.state]||""}</span>${esc(x.label)}${x.note?` <small>${esc(x.note)}</small>`:""}</button>`).join("");
+  $("histnote").textContent=S.view?`You are looking at an earlier run (${S.view}). It is read-only — pick the live run above to act.`:""}
+function renderControls(){const c=S.controls||{};$("yolo").setAttribute("aria-checked",!!c.yolo)}
+function renderRuns(){const sel=$("runSel"),rs=S.runs||[],sig=JSON.stringify(rs)+(S.view||"");if(sel.dataset.sig===sig)return;sel.dataset.sig=sig;
+  sel.innerHTML=(rs.length?"":`<option value="">no runs yet</option>`)+rs.map(r=>`<option value="${r.live?"":esc(r.change)}" ${(r.live&&!S.view)||S.view===r.change?"selected":""}>${r.live?"● live · ":""}${esc(r.change)} — ${esc(r.stage)}</option>`).join("")}
+function renderBanner(){const d=S.items.find(i=>i.type==="design"&&i.status==="review"&&!String(i.qa_by||"").startsWith("approved"));
+  const fa=S.review.first||"";
+  if(!d&&fa==="file:sdlc/ARCHITECTURE.md"){$("banner").innerHTML=`<div class="banner" role="region" aria-label="Architecture approval"><div class="ic" aria-hidden="true">🏛</div>
+   <div class="grow" style="min-width:0"><b>The architecture is waiting for your approval</b><div class="sub">Nothing is planned until you approve it. Read it and ask the architect in Review.</div></div>
+   <button class="btn ok" data-review="${esc(fa)}">Open in Review</button></div>`;return}
   if(!d){$("banner").innerHTML="";return}
   const last=[...S.events].reverse().find(e=>e.item_key===d.key&&e.actor==="designer"&&e.kind==="status");
   $("banner").innerHTML=`<div class="banner" role="region" aria-label="Design approval"><div class="ic" aria-hidden="true">🎨</div>
    <div class="grow" style="min-width:0"><b>Design ${esc(d.key)} is ready for your review</b><div class="sub">${esc(last?last.text.split(": ").slice(1).join(": "):d.title)}</div></div>
    <a class="btn ghost" href="design/${esc(d.key)}" target="_blank" rel="noopener">Open mockup ↗</a>
+   <button class="btn ghost" data-review="design:${esc(d.key)}">Review &amp; ask</button>
    <button class="btn ok" data-design="approve" data-dkey="${esc(d.key)}">Approve</button>
    <button class="btn warn" data-design="changes" data-dkey="${esc(d.key)}">Request changes</button></div>`}
 
 /* sidebar */
 function renderNav(){const epics=items("epic"),stories=items("story"),tasks=items("task");
   $("sidecount").textContent=epics.length?`${epics.length} epic${epics.length>1?"s":""} · ${stories.length} stories`:"";
-  if(!epics.length){$("nav").innerHTML=`<div class="empty">No epics yet.<br>Run <span class="mono">team.py plan</span></div>`;return}
+  if(!epics.length){$("nav").innerHTML=`<div class="empty">No epics yet.<br>They appear once the plan is made.</div>`;return}
   let h=`<div class="navall${fstory?"":" on"}" data-story="" role="button" tabindex="0">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
     <span class="grow">All work</span><span class="sub">${tasks.length} tasks</span></div>`;
@@ -428,7 +518,7 @@ function card(t){const live=liveOn(t);
      <div class="top"><span class="mono">🎨 ${esc(t.key)}</span><span class="grow"></span><span class="chip pink">${esc(dm.mode||"design")}</span></div>
      <div class="ttl">${esc(t.title)}</div>
      <div class="foot"><span class="av mini designer" title="designer">DS</span>
-      ${t.status==="review"?`<span class="chip pink">Needs your approval</span>`:""}
+      ${t.status==="review"&&!String(t.qa_by||"").startsWith("approved")?`<span class="chip pink" role="button" data-review="design:${esc(t.key)}" title="Open in Review">Needs your approval</span>`:""}
       ${t.qa_rounds?`<span class="chip amber">changes ×${t.qa_rounds}</span>`:""}
       ${t.status!=="todo"?`<a class="chip" href="design/${esc(t.key)}" target="_blank" rel="noopener">mockup ↗</a>`:""}</div>
      ${live?`<div class="livebar pink">● designer · ${esc(live.activity||"designing")}</div>`:""}</div>`}
@@ -444,7 +534,8 @@ function card(t){const live=liveOn(t);
      ${t.assignee?`<span class="av mini ${roleOf(t.assignee)}" title="developer ${esc(t.assignee)}">${ini(t.assignee)}</span>`:""}
      ${qaName&&t.status!=="todo"&&!qaName.startsWith("approved")?`<span class="av mini qa" title="QA ${esc(qaName)}">${ini(qaName)}</span>`:""}
      ${t.qa_rounds?`<span class="chip red" title="sent back by QA">↺ ${t.qa_rounds}</span>`:""}
-     ${escd?`<span class="chip red" title="escalated to you">⚑ needs you</span>`:""}
+     ${escd?`<span class="chip red" role="button" data-review="escalated:${esc(t.key)}" title="escalated to you: open in Review">⚑ needs you</span>`:""}
+     ${cardCost(t)}
      ${waiting.length&&t.status==="todo"?`<span class="chip amber" title="waiting on">🔒 ${esc(waiting.join(", "))}</span>`:""}
    </div>
    ${progressBlock(t)}
@@ -459,7 +550,14 @@ function progressBlock(t){const p=(S.progress||{})[t.key];if(!p||t.status!=="in_
   return `<div class="prog-card"><div class="bar"><i style="width:${p.committed?100:Math.max(4,pc)}%"></i></div>
     <div class="prog-meta"><span>${p.files_total?`${p.files_done}/${p.files_total} files`:`${p.changed} files changed`}</span>
     ${p.committed?`<span class="ok">✓ committed</span>`:""}<span class="grow"></span><span title="last change in the worktree">${esc(ago)}</span></div></div>`}
+function preRun(){const st=(S.stages||{}).stages||[],cur=st.find(x=>x.state==="waiting")||st.find(x=>x.state==="active")||st.find(x=>x.state==="pending");
+  const w=st.filter(x=>x.state==="waiting").length;
+  return `<div class="pre"><h3>${!cur?"Nothing running yet":cur.state==="waiting"?`Now: ${esc(cur.label)} — waiting for you`:cur.state==="active"?`Now: ${esc(cur.label)}`:`Next: ${esc(cur.label)}`}</h3>
+    <p>${S.view?"This run has no saved task board. Its documents are in the Review tab.":"Tasks appear here once the plan is approved. Until then, the stages above show where the run is, and the Review tab has every document the team wrote so far."}</p>
+    <ul>${st.map(x=>`<li><span class="stg ${x.state}" style="padding:0"><span class="ic">${STICON[x.state]||""}</span></span><b>${esc(x.label)}</b><span>${esc(x.note||x.state)}</span></li>`).join("")}</ul>
+    <button class="btn ${w?"ok":"ghost"}" data-tab="review">${w?`Review &amp; approve (${w})`:"Open Review"}</button></div>`}
 function renderBoard(){const ts=work();
+  if(!S.items.length){$("board").innerHTML=preRun();return}
   $("board").innerHTML=COLS.map(([k,l,c])=>{const cs=ts.filter(t=>COLOF(t.status)===k);
     return `<section class="col" style="--c:${c}" aria-label="${l}"><div class="colh"><span class="sw"></span>${l}<span class="n">${cs.length}</span></div>
       <div class="cards scroll" data-col="${k}">${cs.map(card).join("")||`<div class="empty">Nothing here</div>`}</div></section>`}).join("")}
@@ -492,7 +590,7 @@ function renderTeam(){const ag=S.agents.filter(a=>a.role!=="planner"||a.status==
      <div class="act" title="${esc(a.activity)}">${["working","helping","designing"].includes(a.status)?
         `${t?`<a href="#" data-key="${esc(t.key)}" class="mono">${esc(t.key)}</a> `:""}${esc(liveText(a,ck))}`:
         `<span class="sub">idle</span>${a.activity?` · ${esc(a.activity)}`:""}`}</div></div>
-     <div class="cost">${a.runs||a.cost?`${a.runs||0} runs<br>$${(a.cost||0).toFixed(2)}`:""}</div></div>`}).join("")||`<div class="empty">No agents yet</div>`;
+     <div class="cost">${agentCost(a)}</div></div>`}).join("")||`<div class="empty">No agents yet</div>`;
   const opts=["all","developer","qa",...S.agents.map(a=>a.name)];const cur=$("to").value;
   $("to").innerHTML=opts.map(o=>`<option value="${esc(o)}">@${esc(o)}</option>`).join("");$("to").value=opts.includes(cur)?cur:"all";
   const fw=$("fwho").value;$("fwho").innerHTML=`<option value="">Everyone</option>`+S.agents.filter(a=>a.role!=="planner").map(a=>`<option>${esc(a.name)}</option>`).join("");$("fwho").value=fw}
@@ -524,8 +622,8 @@ function detail(key){const t=S.items.find(i=>i.key===key);if(!t)return;openKey=k
    ${(t.files||[]).length?`<dt>Files</dt><dd class="mono" style="font-size:12px">${t.files.map(esc).join("<br>")}</dd>`:""}
    ${t.ext_url?`<dt>${esc(S.meta.tracker)}</dt><dd><a href="${esc(t.ext_url)}" target="_blank" rel="noopener">${esc(t.ext_key)} ↗</a></dd>`:""}
    ${t.type==="design"&&t.status!=="todo"?`<dt>Mockup</dt><dd><a href="design/${esc(t.key)}" target="_blank" rel="noopener">open mockup ↗</a> · <a href="design/${esc(t.key)}/notes" target="_blank" rel="noopener">design notes</a></dd>`:""}
-   ${t.type==="design"&&t.status==="review"?`<dt>Decision</dt><dd><button class="btn ok" data-design="approve" data-dkey="${esc(t.key)}">Approve</button> <button class="btn warn" data-design="changes" data-dkey="${esc(t.key)}">Request changes</button></dd>`:""}
-   ${(S.meta.escalated||[]).includes(t.key)?`<dt>Escalated</dt><dd><button class="btn warn" data-resume="${esc(t.key)}">Resume with guidance</button></dd>`:""}</dl>
+   ${t.type==="design"&&t.status==="review"?`<dt>Decision</dt><dd><button class="btn ok" data-design="approve" data-dkey="${esc(t.key)}">Approve</button> <button class="btn warn" data-design="changes" data-dkey="${esc(t.key)}">Request changes</button> <button class="btn ghost" data-review="design:${esc(t.key)}">Review &amp; ask</button></dd>`:""}
+   ${(S.meta.escalated||[]).includes(t.key)?`<dt>Escalated</dt><dd><button class="btn warn" data-resume="${esc(t.key)}">Resume with guidance</button> <button class="btn ghost" data-review="escalated:${esc(t.key)}">Open in Review</button></dd>`:""}</dl>
    ${t.description?`<div class="sec">Description</div><pre class="desc">${esc(t.description)}</pre>`:""}
    ${(t.acceptance||[]).length?`<div class="sec">Acceptance criteria</div><ul class="ac">${t.acceptance.map(a=>`<li>${esc(a)}</li>`).join("")}</ul>`:""}
    ${kids.length?`<div class="sec">${t.type==="epic"?"Stories":"Tasks"}</div>${kids.map(k=>`<div class="kid" data-key="${esc(k.key)}"><span class="mono sub">${esc(k.key)}</span><span class="grow">${esc(k.title)}</span>${badge(k.status)}</div>`).join("")}`:""}
@@ -534,23 +632,35 @@ function detail(key){const t=S.items.find(i=>i.key===key);if(!t)return;openKey=k
 
 function render(){keepScroll(()=>{renderHeader();renderBanner();renderNow();renderNav();renderCrumb();renderTeam();
   view==="board"?renderBoard():renderList();renderFeed();if($("dlg").open&&openKey)detail(openKey)})}
-async function poll(){try{const r=await fetch("api/board?since="+since);const d=await r.json();
-    S.items=d.items;S.agents=d.agents;S.meta=d.meta;S.messages=d.messages;S.progress=d.progress||{};S.live=d.live||{};S.now=d.now||Date.now()/1000;
+async function poll(){try{if(S.view){const h=await (await fetch("api/history?change="+encodeURIComponent(S.view))).json();
+      Object.assign(S,{items:h.items||[],agents:h.agents||[],meta:h.meta||{},messages:h.messages||[],events:h.events||[],progress:{},live:{},
+        cost:h.cost||{},review:{},stages:h.stages||{},controls:h.controls||S.controls,runs:h.runs||S.runs});
+      const sig=JSON.stringify([h.items,h.stages,S.view]);if(sig!==lastSig){lastSig=sig;render()}return}
+    const r=await fetch("api/board?since="+since);const d=await r.json();S.stages=d.stages||{};S.controls=d.controls||{};S.runs=d.runs||[];
+    S.items=d.items;S.agents=d.agents;S.meta=d.meta;S.messages=d.messages;S.progress=d.progress||{};S.live=d.live||{};S.cost=d.cost||{};S.review=d.review||{};S.now=d.now||Date.now()/1000;
     if(d.events.length){S.events=since?S.events.concat(d.events).slice(-800):d.events;since=d.events[d.events.length-1].id}
-    const sig=JSON.stringify([d.items,d.agents,d.meta,since,d.progress,d.live]);if(sig!==lastSig){lastSig=sig;render()}
+    const sig=JSON.stringify([d.items,d.agents,d.meta,since,d.progress,d.live,d.cost,d.review,d.stages,d.controls,d.runs]);if(sig!==lastSig){lastSig=sig;render()}
   }catch(e){$("runstate").textContent="offline";$("rundot").className="dot needs-human"}finally{setTimeout(poll,1500)}}
 
 /* events */
 function setView(v){view=v;document.querySelectorAll(".seg button").forEach(b=>b.setAttribute("aria-selected",b.dataset.view===v));
   $("board").hidden=v!=="board";$("list").hidden=v!=="list";store.set("sdlc-board-view",v);render()}
 document.addEventListener("click",e=>{
+  const rv=e.target.closest("[data-review]");if(rv){e.preventDefault();e.stopPropagation();if($("dlg").open)$("dlg").close();setTab("review",rv.dataset.review);return}
+  const tb=e.target.closest("[data-tab]");if(tb){setTab(tb.dataset.tab);return}
   const da=e.target.closest("[data-design]");if(da){designAction(da.dataset.dkey,da.dataset.design);return}
   const rs=e.target.closest("[data-resume]");if(rs){resumeTask(rs.dataset.resume);return}
   const sv=e.target.closest(".seg button");if(sv){setView(sv.dataset.view);return}
   const ep=e.target.closest("[data-epic]");if(ep&&!e.target.closest("a")){const k=ep.dataset.epic;closedEpics.has(k)?closedEpics.delete(k):closedEpics.add(k);render();return}
   const gp=e.target.closest("[data-group]");if(gp){const k=gp.dataset.group;closedGroups.has(k)?closedGroups.delete(k):closedGroups.add(k);render();return}
   const st=e.target.closest("[data-story]");if(st){fstory=st.dataset.story;render();return}
-  if(e.target.closest("#needs")){const d=S.items.find(i=>i.type==="design"&&i.status==="review");detail(d?d.key:(S.meta.escalated||[])[0]);return}
+  if(e.target.closest("#needs")){setTab("review",S.review.first||"");return}
+  const sg=e.target.closest("[data-stage]");if(sg){setTab("review",STAGE_DOC(sg.dataset.stage));return}
+  if(e.target.closest("#yolo")){toggleYolo();return}
+  if(e.target.closest("#settings")){openSettings();return}
+  if(e.target.closest("#setclose")){$("setdlg").close();return}
+  const ab=e.target.closest("[data-all]");if(ab){document.querySelectorAll("#mtable select").forEach(s=>s.value=ab.dataset.all);return}
+  if(e.target.closest("#msave")){saveModels();return}
   const k=e.target.closest("[data-key]");if(k&&!e.target.closest("a[target]")){e.preventDefault();detail(k.dataset.key)}});
 document.addEventListener("keydown",e=>{
   if(e.key==="/"&&document.activeElement.tagName!=="INPUT"){e.preventDefault();$("q").focus();return}
@@ -571,7 +681,32 @@ $("compose").onsubmit=async e=>{e.preventDefault();const text=$("msg").value.tri
 (function theme(){const saved=store.get("sdlc-board-theme");if(saved)document.documentElement.dataset.theme=saved;
   $("theme").onclick=()=>{const cur=document.documentElement.dataset.theme||(matchMedia("(prefers-color-scheme: light)").matches?"light":"dark");
     const nx=cur==="light"?"dark":"light";document.documentElement.dataset.theme=nx;store.set("sdlc-board-theme",nx)}})();
+const STAGE_DOC=k=>{const c=(S.stages||{}).change||"";return k==="architecture"?"file:sdlc/ARCHITECTURE.md":
+  ["intent","spec","plan","review"].includes(k)&&c?`file:sdlc/changes/${c}/${k}.md`:(S.review.first||"")};
+function toast(t){$("toast").textContent=t;clearTimeout(toast.t);toast.t=setTimeout(()=>$("toast").textContent="",6000)}
+async function postJSON(u,b){const r=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});return r.json()}
+async function toggleYolo(){const on=$("yolo").getAttribute("aria-checked")!=="true";
+  const r=await postJSON("api/controls",{yolo:on});if(r.error){toast(r.error);return}S.controls=r;renderControls();lastSig="";
+  toast(on?"YOLO on: nothing waits for your approval from now on (also what is waiting right now). Pushes to main and production deploys still need you."
+          :"YOLO off: approvals come to the Review tab again.")}
+function openSettings(){const c=S.controls||{},ch=c.choices||[];
+  $("allbtns").innerHTML=ch.map(m=>`<button class="btn ghost" data-all="${esc(m)}">${esc(m)}</button>`).join(" ")+` <button class="btn ghost" data-all="">config</button>`;
+  $("mtable").innerHTML=(c.models||[]).map(m=>`<tr><td><b>${esc(m.label)}</b></td><td><select data-phase="${esc(m.phase)}"><option value="">config (${esc(m.default)})</option>
+    ${ch.map(x=>`<option value="${esc(x)}" ${m.override===x?"selected":""}>${esc(x)}</option>`).join("")}</select></td><td class="def">now: ${esc(m.model)}</td></tr>`).join("");
+  $("mnote").textContent="";$("setdlg").showModal()}
+async function saveModels(){const models={};document.querySelectorAll("#mtable select").forEach(s=>models[s.dataset.phase]=s.value);
+  const r=await postJSON("api/controls",{models});if(r.error){$("mnote").textContent=r.error;return}S.controls=r;openSettings();$("mnote").textContent="Saved. New agent runs use these models.";lastSig=""}
+$("runSel").addEventListener("change",e=>{S.view=e.target.value||null;since=0;lastSig="";S.events=[];document.body.classList.toggle("hist",!!S.view);
+  rvLoaded=false;if(document.body.classList.contains("rv"))setTab("review")});
+let rvLoaded=false;
+function setTab(t,id){document.body.classList.toggle("rv",t==="review");
+  document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
+  const f=$("reviewView");f.hidden=t!=="review";
+  if(t==="review"){if(!rvLoaded){f.src="review"+(S.view?"?change="+encodeURIComponent(S.view):"")+(id?"#"+encodeURIComponent(id):"");rvLoaded=true}
+    else if(id){try{f.contentWindow.location.hash=encodeURIComponent(id)}catch(e){f.src="review#"+encodeURIComponent(id)}}}
+  history.replaceState(null,"",t==="review"?"#review"+(id?"="+encodeURIComponent(id):""):location.pathname+location.search)}
 if(store.get("sdlc-board-view")==="list")setView("list");
+if(location.hash.startsWith("#review"))setTab("review",decodeURIComponent(location.hash.slice(8)));
 poll();
 </script>
 </body>
@@ -627,13 +762,56 @@ def live_progress(board: Board, root: Path, cfg: dict) -> dict:
                     newest, newest_file = m, c
             for t in ts:
                 planned = [f.replace("\\", "/") for f in (t.get("files") or [])]
-                done = [f for f in planned if f in changed or any(c.startswith(f.rstrip("/") + "/") for c in changed)]
+                hit = lambda f: f in changed or any(c.startswith(f.rstrip("/") + "/") for c in changed)
+                done = [f for f in planned if hit(f)]
+                committed = any(sub.startswith(t["key"] + ":") for sub in subjects)
+                others = {f.replace("\\", "/") for o in ts if o is not t for f in (o.get("files") or [])}
+                if not committed and not any(hit(f) for f in planned if f not in others):
+                    done = []  # only files another task of this developer also changes: not started yet
                 out[t["key"]] = {"files_done": len(done), "files_total": len(planned), "changed": len(changed),
-                                 "committed": any(sub.startswith(t["key"] + ":") for sub in subjects),
+                                 "committed": committed,
                                  "last_change": newest, "last_file": newest_file}
     except Exception:
         pass
     _PROGRESS.update(at=time.time(), data=out)
+    return out
+
+
+_COST = {"at": 0.0, "data": {}}
+
+
+def live_cost(board: Board, root: Path) -> dict:
+    """API-equivalent cost of this run, read from Claude Code's session records (also on a subscription): the total,
+    per teammate, per model and per card (each call split over the cards its agent was assigned at that moment)."""
+    if time.time() - _COST["at"] < 15:
+        return _COST["data"]
+    out: dict = {}
+    try:
+        import cost_report
+        from datetime import datetime
+        created = board.meta().get("created_at") or ""
+        try:
+            since = datetime.strptime(created, "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=__import__("datetime").timezone.utc).timestamp() - 3600  # the planning before the board, too
+        except ValueError:
+            since = time.time() - 24 * 3600
+        calls = cost_report.collect(root, since)
+        with board.conn() as c:
+            rows = c.execute("SELECT ts, text FROM events WHERE kind='assign' AND actor='lead' ORDER BY id").fetchall()
+        assigns = []
+        for r in rows:
+            m = re.match(r"^(\S+) ← \S+ (.+)$", r["text"] or "")
+            if m:
+                try:
+                    ts = datetime.strptime(r["ts"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                        tzinfo=__import__("datetime").timezone.utc).timestamp()
+                except ValueError:
+                    continue
+                assigns.append((ts, m.group(1), [k.strip() for k in m.group(2).split(",") if k.strip()]))
+        out = {**cost_report.summary(calls), "tasks": cost_report.by_task(calls, assigns)}
+    except Exception as e:  # cost is a convenience: never break the board
+        out = {"error": str(e)[:200]}
+    _COST.update(at=time.time(), data=out)
     return out
 
 
@@ -740,10 +918,39 @@ def live_activity(root: Path) -> dict:
     return out
 
 
+class QuietServer(ThreadingHTTPServer):
+    """A browser that refreshes or closes the tab mid-poll drops the connection; that is normal, not an error."""
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        if isinstance(sys.exc_info()[1], (ConnectionError, TimeoutError)):  # aborted / reset / broken pipe
+            return
+        super().handle_error(request, client_address)
+
+
 class Handler(BaseHTTPRequestHandler):
     board: Board = None  # set in main
     root: Path = None
     cfg: dict = {}
+    review: Review = None
+
+    def _send(self, body: bytes, ctype: str, extra: dict | None = None):
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        for k, v in (extra or {}).items():
+            self.send_header(k, v)
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _body(self) -> dict | None:
+        n = int(self.headers.get("Content-Length") or 0)
+        try:
+            d = json.loads(self.rfile.read(min(n, 20000)) or b"{}")
+        except json.JSONDecodeError:
+            return None
+        return d if isinstance(d, dict) else None
 
     def design_file(self, name: str) -> Path | None:
         """The design file from the designer's worktree (latest) or the integration branch (approved)."""
@@ -792,18 +999,124 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
+        elif u.path == "/review":
+            self._send(REVIEW_PAGE.encode(), "text/html; charset=utf-8")
+        elif u.path.startswith("/api/review"):
+            self.review_get(u.path, {k: v[0] for k, v in parse_qs(u.query).items()})
         elif u.path == "/api/board":
             since = int((parse_qs(u.query).get("since") or ["0"])[0] or 0)
             snap = self.board.snapshot(since=since)
+            cur = self.review.current_change() if self.review else ""
+            if cur and snap["meta"].get("change") and snap["meta"]["change"] != cur:
+                # the board still holds an earlier, finished run: show the new run (stages + documents) live; the
+                # earlier one stays under the run picker
+                snap = {"meta": {"change": cur, "project": snap["meta"].get("project", ""), "status": "starting"},
+                        "items": [], "agents": [], "events": [], "messages": [], "board_change": snap["meta"]["change"]}
+            elif cur and not snap["meta"].get("change"):
+                snap["meta"] = {**snap["meta"], "change": cur, "status": snap["meta"].get("status") or "starting"}
+            if self.root:
+                snap["meta"] = {"project": self.root.name, **snap["meta"]}
             snap["progress"] = live_progress(self.board, self.root, self.cfg) if self.root else {}
             snap["live"] = live_activity(self.root) if self.root else {}
+            snap["cost"] = live_cost(self.board, self.root) if self.root else {}
+            snap["review"] = self.review_summary()
+            snap.update(self.run_info())
             snap["now"] = time.time()
             self._json(snap)
+        elif u.path == "/api/history":
+            ch = (parse_qs(u.query).get("change") or [""])[0]
+            if not self.review or not self.review.change_dir(ch) or self.review.change_dir(ch).name != ch:
+                return self._json({"error": "unknown run"}, 404)
+            snap = self.review.snapshot(ch) or {"meta": {"change": ch}, "items": [], "agents": [], "events": [], "messages": []}
+            snap.update(self.run_info(ch))
+            self._json(snap)
+        elif u.path == "/api/controls":
+            self._json(self.controls())
         else:
             self._json({"error": "not found"}, 404)
 
+    def run_info(self, change: str | None = None) -> dict:
+        if not self.review:
+            return {}
+        try:
+            return {"stages": self.review.stages(change), "runs": self.review.runs(), "controls": self.controls()}
+        except Exception as e:  # never break the board over this
+            return {"stages": {}, "runs": [], "controls": self.controls(), "run_error": str(e)[:200]}
+
+    def controls(self) -> dict:
+        if not self.root:
+            return {}
+        c = read_controls(self.root)
+        return {"yolo": bool(c.get("yolo")), "models": phase_models(self.root), "choices": load_config(self.root).get("model_choices") or [],
+                "updated_by": c.get("updated_by", ""), "updated_at": c.get("updated_at", "")}
+
+    def review_summary(self) -> dict:
+        try:
+            needs = [a["id"] for a in self.review.artifacts() if a["needs"]] if self.review else []
+        except Exception:
+            needs = []
+        return {"count": len(needs), "first": needs[0] if needs else ""}
+
+    def review_get(self, path: str, q: dict):
+        if not self.review:
+            return self._json({"error": "review needs a project folder"}, 404)
+        ch = q.get("change") or None
+        if path == "/api/review":
+            arts = self.review.artifacts(change=ch)
+            return self._json({"artifacts": arts, "count": sum(a["needs"] for a in arts), "yolo": yolo(self.root)})
+        if path == "/api/review/doc":
+            d = self.review.doc(q.get("id", ""), q.get("ver", ""), ch)
+            return self._json(d) if d else self._json({"error": "unknown document"}, 404)
+        if path == "/api/review/chat":
+            if not self.review.find(q.get("id", ""), ch):
+                return self._json({"error": "unknown document"}, 404)
+            return self._json(self.review.chat(q["id"]))
+        if path == "/api/review/file":
+            p = self.review.file(q.get("path", ""))
+            if not p:
+                return self._json({"error": "not found"}, 404)
+            types = {".png": "image/png", ".svg": "image/svg+xml", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+            return self._send(p.read_bytes(), types[p.suffix.lower()],
+                              {"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+                               "X-Content-Type-Options": "nosniff"})
+        return self._json({"error": "not found"}, 404)
+
     def do_POST(self):
         path = urlparse(self.path).path
+        if path == "/api/controls":
+            if not self.root:
+                return self._json({"error": "no project"}, 404)
+            d = self._body()
+            if d is None:
+                return self._json({"error": "bad json"}, 400)
+            ch, upd = load_config(self.root).get("model_choices") or [], {}
+            if "yolo" in d:
+                upd["yolo"] = bool(d["yolo"])
+            if isinstance(d.get("models"), dict):
+                bad = [f"{k}={v}" for k, v in d["models"].items() if k not in PHASE_KEYS or (v and v not in ch)]
+                if bad:
+                    return self._json({"error": f"unknown phase or model: {', '.join(bad)}"}, 400)
+                upd["models"] = {k: v or "" for k, v in d["models"].items()}
+            if not upd:
+                return self._json({"error": "nothing to change"}, 400)
+            write_controls(self.root, by=((git(self.root, "config", "user.name") or "").strip() or "human") + " on the board", **upd)
+            return self._json(self.controls())
+        if path in ("/api/review/chat", "/api/review/decide"):
+            if not self.review:
+                return self._json({"error": "review needs a project folder"}, 404)
+            d = self._body()
+            if d is None:
+                return self._json({"error": "bad json"}, 400)
+            id_, text = str(d.get("id") or ""), str(d.get("text") or "").strip()
+            if path == "/api/review/chat":
+                if not text:
+                    return self._json({"error": "empty"}, 400)
+                r = self.review.post(id_, text[:4000], str(d.get("quote") or "")[:600], str(d.get("section") or "")[:120],
+                                     str(d.get("change") or "") or None)
+            else:
+                r = self.review.decide(id_, str(d.get("action") or ""), text, str(d.get("change") or "") or None,
+                                       ((git(self.root, "config", "user.name") or "").strip() or "human") + " on the board")
+            return self._json(r, 400 if r.get("error") else 200)
         if path == "/api/design":
             n = int(self.headers.get("Content-Length") or 0)
             try:
@@ -868,7 +1181,18 @@ def main() -> None:
         Handler.cfg = load_config(Handler.root) if (Handler.root / ".sdlc" / "config.json").is_file() else {}
     except Exception:
         Handler.root = Handler.board.path.parent.parent.parent
-    srv = ThreadingHTTPServer((a.host, port), Handler)
+    if Handler.root and (Handler.root / ".git").exists():
+        Handler.review = Review(Handler.root, Handler.cfg, Handler.board)
+    try:
+        srv = QuietServer((a.host, port), Handler)
+    except OSError:  # started twice (e.g. by /sdlc:loop and again by /sdlc:team): the one running is fine
+        import urllib.request
+        try:
+            with urllib.request.urlopen(f"http://{a.host}:{port}/api/controls", timeout=3):
+                print(f"team board: http://{a.host}:{port}   (already running)", flush=True)
+                return
+        except Exception:
+            sys.exit(f"port {port} is taken by another program; pass --port N (or set team.board_port)")
     print(f"team board: http://{a.host}:{port}   (db {Handler.board.path})", flush=True)
     try:
         srv.serve_forever()

@@ -70,6 +70,12 @@ def test_pinned_ip_returned_for_the_request():
     assert v6.connect_url == "http://[2606:4700::1]:80/" and v6.host_header == "h.example"
 
 
+def test_an_ipv6_literal_host_is_bracketed_in_the_host_header():
+    t = resolve_target("http://[::1]:8080/v1", allow_private=True)
+    assert t.host_header == "[::1]:8080"
+    assert resolve_target("https://[2606:4700::1]/").host_header == "[2606:4700::1]"
+
+
 @pytest.mark.parametrize(
     "url",
     [

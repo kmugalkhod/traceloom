@@ -8,11 +8,12 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from traceloom.ingest.schemas import EventError, parse_event
+from traceloom.ingest.schemas import EventError, ScoreBody, parse_event
 from traceloom.ports import BlobStore, BlobStoreError, Queue
 
 log = logging.getLogger("traceloom.ingest")
@@ -35,6 +36,14 @@ class BatchTooLarge(IngestError):  # -> 413
 
 class StorageUnavailable(IngestError):  # -> 503
     pass
+
+
+# (project_id, score body) -> why the score is invalid, or None
+ScoreCheck = Callable[[str, ScoreBody], str | None]
+
+# Set only by the server (judge jobs): a client cannot claim an annotation queue, a judge
+# execution (source=EVAL) or the public-feedback channel.
+SERVER_SCORE_FIELDS = ("queue_id", "execution_id", "channel")
 
 
 @dataclass(frozen=True)
@@ -68,11 +77,20 @@ def accept_batch(
     blobs: BlobStore,
     queue: Queue,
     limits: IngestLimits,
+    score_check: ScoreCheck | None = None,
+    *,
+    trusted: bool = False,
 ) -> AcceptResult:
     """Validate each event, store the valid ones as one pending blob and enqueue it.
 
     Raises BatchTooLarge (413), InvalidBatch (400) or StorageUnavailable (503). A failed
     enqueue is not an error: the blob stays pending and the sweeper replays it.
+
+    `score_check(project_id, body)` returns an error message for a score that breaks its config
+    (FR-S2); that event gets a per-event 400 and the rest of the batch is stored.
+
+    A score that sets a server-owned field (`SERVER_SCORE_FIELDS`) gets a per-event 400 unless
+    the caller is the server itself (`trusted`, e.g. the judge worker).
     """
     if len(raw) > limits.max_bytes:
         raise BatchTooLarge(f"Request body exceeds {limits.max_bytes} bytes.")
@@ -93,7 +111,21 @@ def accept_batch(
         event_id = item.get("id") if isinstance(item, dict) else None
         label = event_id if isinstance(event_id, str) and event_id else f"index-{index}"
         try:
-            parse_event(item)
+            event = parse_event(item)
+            claimed = (
+                [f for f in SERVER_SCORE_FIELDS if getattr(event.body, f)]
+                if event.kind == "score" and not trusted
+                else []
+            )
+            if claimed:
+                raise EventError(f"{claimed[0]} cannot be set by a client.")
+            problem = (
+                score_check(project_id, event.body)
+                if score_check and event.kind == "score"
+                else None
+            )
+            if problem:
+                raise EventError(problem)
         except EventError as exc:
             errors.append({"id": label, "status": 400, "message": str(exc)})
         else:

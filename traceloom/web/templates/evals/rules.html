@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Evaluators · Rules{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Evaluators", "href": "/project/" ~ project.id ~ "/evals/templates"}, {"label": "Rules"}]) }}{% endblock %}
+
+{% macro money(x) %}${{ "%.2f"|format(x) }}{% endmacro %}
+{% macro target_text(t) %}{{ t.kind }}{% if t.type %} <span class="chip">{{ t.type }}</span>{% endif %}{% if t.name %}{% if t.type %} named{% endif %} <span class="chip mono">{{ t.name }}</span>{% endif %}{% endmacro %}
+
+{% block content %}
+{% call m.page_header("Evaluators", "LLM judges that score traces and observations automatically.") %}
+  {% if is_admin %}<a class="btn btn-primary" href="/project/{{ project.id }}/evals/rules/new">{{ m.icon("i-plus") }}New rule</a>{% endif %}
+{% endcall %}
+{% include "evals/_tabs.html" %}
+<div class="stack">
+  {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
+  {% if error %}{{ m.banner("err", error) }}{% endif %}
+  {% if cap_banner %}
+  <div class="banner warn" role="status">{{ m.icon("i-warn") }}
+    <div>{% if cap_banner.paused %}<b>Judges are paused.</b> The daily cost cap is $0, so no judge runs and new executions are marked Capped.
+      {% else %}<b>Daily cost cap of {{ money(cap_banner.cap) }} reached.</b> Judges are paused until 00:00 UTC. New executions are marked Capped and are not retried today.{% endif %}</div>
+    {% if can_settings %}<a class="btn btn-sm" href="/project/{{ project.id }}/settings/evaluation">Change cap</a>{% endif %}
+  </div>
+  {% endif %}
+
+  {% if not rows %}
+  <div class="panel">
+    {% call m.empty_state("i-flask", "No rules yet", "A rule picks a template and decides which new traces it scores, how often, and how its variables are filled.") %}
+      {% if is_admin %}<div class="acts"><a class="btn btn-primary" href="/project/{{ project.id }}/evals/rules/new">{{ m.icon("i-plus") }}New rule</a></div>{% endif %}
+    {% endcall %}
+  </div>
+  {% else %}
+  <div class="panel"><div class="rack rack-flush">
+    <table class="tbl tbl-flat cardrows">
+      <thead><tr><th>Rule</th><th>Target</th><th class="r">Sampling</th><th class="r">Delay</th><th>Enabled</th><th>Last 24 h</th><th class="menu"><span class="sr">Actions</span></th></tr></thead>
+      <tbody>
+      {% for r in rows %}
+        {% set rule = r.rule %}
+        <tr{% if not rule.enabled %} class="is-dim"{% endif %}>
+          <td class="c-name m-show"><div class="cell2">
+            <b>{% if is_admin %}<a href="/project/{{ project.id }}/evals/rules/{{ rule.id }}">{{ r.title }}</a>{% else %}{{ r.title }}{% endif %}</b>
+            <span>{{ r.template }}{% if r.builtin %} (built-in){% endif %} {{ "v" ~ r.pinned if r.pinned else "latest" }} → {{ rule.score_name }}</span></div></td>
+          <td class="m-show">{{ target_text(r.target) }}</td>
+          <td class="num r m-show">{{ "%g"|format(rule.sampling_pct) }}%</td>
+          <td class="num r m-show">{{ rule.delay_seconds }} s</td>
+          <td class="m-show">
+            {% if is_admin %}
+              {% if rule.enabled %}
+              <form class="sw-form" method="post" action="/project/{{ project.id }}/evals/rules/{{ rule.id }}/toggle">{{ m.csrf() }}<input type="hidden" name="enabled" value="0">
+                <button class="switch" type="submit" role="switch" aria-checked="true" aria-label="Disable {{ r.title }}"></button></form>
+              {% else %}
+              <button class="switch" type="button" role="switch" aria-checked="false" aria-label="Enable {{ r.title }}" data-dialog-open="enable-{{ rule.id }}"></button>
+              {% endif %}
+            {% else %}
+              <span class="pill {{ 'ok' if rule.enabled else '' }}">{% if rule.enabled %}{{ m.icon("i-check") }}Enabled{% else %}Disabled{% endif %}</span>
+            {% endif %}
+          </td>
+          <td class="m-show">
+            {% if not rule.enabled and not r.outcome %}<span class="muted">Disabled</span>
+            {% elif not r.outcome %}<span class="muted">No runs yet</span>
+            {% else %}<div class="ev-outcome">
+              {% if r.outcome.get("succeeded") %}<span class="pill ok" title="Succeeded">{{ m.icon("i-check") }}{{ r.outcome["succeeded"] }}<span class="sr"> succeeded</span></span>{% endif %}
+              {% if r.outcome.get("capped") %}<span class="pill capd" title="Capped">{{ m.icon("i-warn") }}{{ r.outcome["capped"] }}<span class="sr"> capped</span></span>{% endif %}
+              {% if r.outcome.get("failed") %}<span class="pill err" title="Failed">{{ m.icon("i-error") }}{{ r.outcome["failed"] }}<span class="sr"> failed</span></span>{% endif %}
+              {% set open_n = (r.outcome.get("pending", 0) + r.outcome.get("running", 0)) %}
+              {% if open_n %}<span class="pill" title="Pending or running">{{ m.icon("i-clock") }}{{ open_n }}<span class="sr"> pending</span></span>{% endif %}
+            </div>{% endif %}
+          </td>
+          <td class="menu m-show">
+            {% if is_admin %}
+            <div class="menu-wrap">
+              <button type="button" class="btn btn-icon btn-sm btn-ghost" aria-label="More actions for {{ r.title }}" aria-haspopup="true" aria-expanded="false" data-menu-toggle="rule-menu-{{ rule.id }}">{{ m.icon("i-more-h") }}</button>
+              <div class="pop pop-right" id="rule-menu-{{ rule.id }}" data-menu hidden role="menu" aria-label="Rule actions">
+                <a class="item" role="menuitem" href="/project/{{ project.id }}/evals/rules/{{ rule.id }}">{{ m.icon("i-pencil", "ico-sm") }}Edit rule</a>
+                <button type="button" class="item" role="menuitem" data-dialog-open="backfill-{{ rule.id }}">{{ m.icon("i-versions", "ico-sm") }}Backfill existing…</button>
+                <a class="item" role="menuitem" href="/project/{{ project.id }}/evals/log?rule={{ rule.id }}">{{ m.icon("i-clock", "ico-sm") }}Open in log</a>
+                <div class="sep"></div>
+                <form method="post" action="/project/{{ project.id }}/evals/rules/{{ rule.id }}/delete" data-confirm="Delete this rule and its execution log?">{{ m.csrf() }}
+                  <button class="item danger" type="submit" role="menuitem">{{ m.icon("i-trash", "ico-sm") }}Delete rule…</button></form>
+              </div>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block dialogs %}
+{% if is_admin %}
+{% for r in rows %}
+{% set rule = r.rule %}
+<dialog class="dlg" id="enable-{{ rule.id }}" aria-label="Enable {{ r.title }}"{% if confirm == rule.id %} data-autoopen{% endif %}>
+  <div class="dialog">
+    {{ m.dialog_head("Enable “" ~ r.title ~ "”?") }}
+    <form method="post" action="/project/{{ project.id }}/evals/rules/{{ rule.id }}/toggle">
+      {{ m.csrf() }}<input type="hidden" name="enabled" value="1">
+      <div class="body">
+        {% if r.model.chosen %}
+        <div class="banner info">{{ m.icon("i-info") }}<div>Matching trace content (input, output and mapped metadata) will be sent to <b>{{ r.model.provider }}</b> using model <b>{{ r.model.model }}</b> through the connection “{{ r.model.connection_name }}”.</div></div>
+        {% else %}
+        <div class="banner err">{{ m.icon("i-error") }}<div><b>No model is chosen.</b> <a href="/project/{{ project.id }}/evals/rules/{{ rule.id }}">Edit the rule</a> and pick a connection and model first.</div></div>
+        {% endif %}
+        <div class="kvl">
+          <div><div class="k">Applies to</div><div class="val">New {{ target_text(r.target) }}</div></div>
+          <div><div class="k">Sampling</div><div class="val">{{ "%g"|format(rule.sampling_pct) }}%, after {{ rule.delay_seconds }} s</div></div>
+          <div><div class="k">Cost per run</div><div class="val">{% if r.estimate.priced %}about ${{ "%.4f"|format(r.estimate.cost) }}{% else %}Unpriced model, the cost cap does not apply{% endif %}</div></div>
+          <div><div class="k">Daily cap</div><div class="val">{{ money(spend.cap) }} · {{ money(spend.spent + spend.reserved) }} used</div></div>
+        </div>
+        {% if r.model.chosen %}<label class="check"><input type="checkbox" name="confirm" value="1" required><span>I understand this sends trace content to {{ r.model.provider }}</span></label>{% endif %}
+      </div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary"{{ " disabled" if not r.model.chosen }}>Enable rule</button></footer>
+    </form>
+  </div>
+</dialog>
+<dialog class="dlg" id="backfill-{{ rule.id }}" aria-label="Backfill {{ r.title }}" data-backfill data-estimate-url="/project/{{ project.id }}/evals/rules/{{ rule.id }}/backfill-estimate">
+  <div class="dialog">
+    {{ m.dialog_head("Backfill “" ~ r.title ~ "”") }}
+    <form method="post" action="/project/{{ project.id }}/evals/rules/{{ rule.id }}/backfill">
+      {{ m.csrf() }}
+      <div class="body">
+        <p>Run this rule on existing traces that match. Sampling still applies, and at most {{ backfill_max }} are judged per run.</p>
+        <div class="fgrid">
+          <div class="field"><label for="bf-from-{{ rule.id }}">From</label><input class="input" type="date" id="bf-from-{{ rule.id }}" name="from" data-bf-from></div>
+          <div class="field"><label for="bf-to-{{ rule.id }}">To</label><input class="input" type="date" id="bf-to-{{ rule.id }}" name="to" data-bf-to></div>
+        </div>
+        <div class="banner warn" data-bf-note aria-live="polite">{{ m.icon("i-warn") }}<div>{% if r.estimate.priced %}Each judged item costs about ${{ "%.4f"|format(r.estimate.cost) }}.{% else %}Unpriced model, the cost cap does not apply.{% endif %} Backfilled jobs count against today’s cap of {{ money(spend.cap) }}.</div></div>
+      </div>
+      <footer><button type="button" class="btn" data-dialog-close>Cancel</button><button type="submit" class="btn btn-primary">Start backfill</button></footer>
+    </form>
+  </div>
+</dialog>
+{% endfor %}
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="/static/rule_editor.js" defer></script>{% endblock %}

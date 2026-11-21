@@ -27,9 +27,15 @@ BUILD_NAV = (
     ("prompts", "Prompts", "i-prompt", "prompts"),
     ("playground", "Playground", "i-play", "playground"),
 )
+EVAL_NAV = (
+    ("scores", "Scores", "i-chart", "scores/analytics"),
+    ("queues", "Annotation queues", "i-queue", "queues"),
+    ("evaluators", "Evaluators", "i-judge", "evals"),
+    ("datasets", "Datasets", "i-db", "datasets"),
+)
 # Phone bottom bar: four destinations and a "More" sheet holding the rest.
 BOTTOM_NAV = ("traces", "prompts", "playground", "dashboard")
-MORE_NAV = ("sessions", "users")
+MORE_NAV = ("sessions", "users", "scores", "queues", "evaluators", "datasets")
 
 
 def initials(text: str) -> str:
@@ -70,7 +76,8 @@ class Shell:
             }
 
         everything = {
-            key: link(key, label, icon, path) for key, label, icon, path in NAV + BUILD_NAV
+            key: link(key, label, icon, path)
+            for key, label, icon, path in NAV + BUILD_NAV + EVAL_NAV
         }
         return {
             "shell": True,
@@ -90,6 +97,9 @@ class Shell:
             "active": self.active,
             "nav": [link(*item) for item in NAV],
             "build_nav": [link(*item) for item in BUILD_NAV],
+            "eval_nav": [link(*item) for item in EVAL_NAV]
+            if can(self.role, Perm.EVAL_READ)
+            else [],
             "bottom_nav": [everything[key] for key in BOTTOM_NAV],
             "more_nav": [everything[key] for key in MORE_NAV],
             "settings": {
@@ -188,6 +198,9 @@ def settings_tabs(project_id: str, current: str, role: Role | None) -> list[dict
         tabs.append(("webhooks", "Webhooks", f"{base}/webhooks"))
     if can(role, Perm.PROJECT_SETTINGS):
         tabs.append(("audit", "Audit log", f"{base}/audit"))
+    if can(role, Perm.EVAL_READ):
+        tabs.append(("scores", "Score configs", f"{base}/scores"))
+        tabs.append(("evaluation", "Evaluation", f"{base}/evaluation"))
     return [
         {"key": k, "label": label, "href": href, "current": k == current} for k, label, href in tabs
     ]

@@ -2,6 +2,7 @@ import json
 from urllib.parse import quote
 
 import boto3
+import pytest
 from botocore.awsrequest import AWSResponse
 from botocore.stub import Stubber
 
@@ -16,6 +17,7 @@ from traceloom.llm.providers import (
     UsageDelta,
 )
 from traceloom.llm.providers.bedrock import BedrockProvider
+from traceloom.llm.ssrf import BlockedAddress
 
 SECRET = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 KEY_ID = "AKIAIOSFODNN7EXAMPLE"
@@ -151,3 +153,63 @@ def test_closing_the_delta_stream_closes_the_event_stream():
     assert next(deltas) == TextDelta("Hel")
     deltas.close()  # the caller (a cancelled playground run) walks away mid-stream
     assert Closable.closed
+
+
+# --- custom endpoints are AWS-only and never proxied (final review) -----------------------------
+
+PUBLIC = "52.94.0.10"
+VPC = "https://vpce-0a1b2c3d4e5f-abcdefgh.bedrock-runtime.us-east-1.vpce.amazonaws.com"
+REGIONAL = "https://bedrock-runtime.eu-central-1.amazonaws.com"
+
+
+def endpoint_provider(url):
+    cfg = ProviderConfig(
+        api_key=SECRET,
+        base_url=url,
+        config={"region": "us-east-1"},
+        secrets={"access_key_id": KEY_ID},
+        resolver=lambda host, port: [PUBLIC],
+    )
+    return BedrockProvider(cfg)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://attacker.example.com",
+        "https://bedrock-runtime.us-east-1.amazonaws.com.attacker.example",
+        "https://evilamazonaws.com",
+        "http://bedrock-runtime.us-east-1.amazonaws.com",
+    ],
+)
+def test_a_non_aws_or_plain_http_endpoint_is_refused_at_build(url):
+    with pytest.raises(BlockedAddress, match="AWS"):
+        endpoint_provider(url)._client()
+    out = list(endpoint_provider(url).stream([{"role": "user", "content": "hi"}], MODEL))
+    assert len(out) == 1 and isinstance(out[0], ErrorDelta) and "not allowed" in out[0].message
+
+
+@pytest.mark.parametrize(
+    "url", [VPC, REGIONAL, "https://bedrock-runtime.cn-north-1.amazonaws.com.cn"]
+)
+def test_vpc_and_regional_endpoints_are_accepted(url):
+    client = endpoint_provider(url)._client()
+    assert client.meta.endpoint_url == url
+    client.close()
+
+
+def test_environment_proxies_are_ignored(monkeypatch):
+    monkeypatch.setenv("HTTPS_PROXY", "http://proxy.attacker.example:3128")
+    monkeypatch.setenv("https_proxy", "http://proxy.attacker.example:3128")
+    built = {}
+    real = boto3.client
+
+    def client(*args, **kwargs):
+        built.update(kwargs)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(boto3, "client", client)
+    made = endpoint_provider(REGIONAL)._client()
+    assert built["config"].proxies == {}
+    assert made._endpoint.http_session._proxy_config.proxy_url_for(REGIONAL + "/") is None
+    made.close()

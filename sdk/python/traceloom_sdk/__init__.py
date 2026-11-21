@@ -5,6 +5,15 @@ from __future__ import annotations
 from typing import Any
 
 from traceloom_sdk.client import Traceloom, get_client, set_default_client
+from traceloom_sdk.datasets import (
+    Dataset,
+    DatasetError,
+    DatasetItem,
+    create_dataset,
+    create_item,
+    get_dataset,
+)
+from traceloom_sdk.experiments import ExperimentResult, run_experiment
 from traceloom_sdk.objects import Event, Generation, Observation, Span
 from traceloom_sdk.observe import observe
 from traceloom_sdk.prompts import ChatPrompt, PromptNotFound, TextPrompt
@@ -43,8 +52,21 @@ def score(
     observation_id: str | None = None,
     data_type: str | None = None,
     comment: str | None = None,
+    config_id: str | None = None,
+    session_id: str | None = None,
+    dataset_run_id: str | None = None,
 ) -> None:
-    get_client().score(name, value, trace_id, observation_id, data_type, comment)
+    get_client().score(
+        name,
+        value,
+        trace_id,
+        observation_id,
+        data_type,
+        comment,
+        config_id,
+        session_id,
+        dataset_run_id,
+    )
 
 
 def get_prompt(name: str, **options: Any) -> TextPrompt | ChatPrompt:
@@ -65,6 +87,14 @@ def flush(timeout: float | None = None) -> bool:
 
 __all__ = [
     "ChatPrompt",
+    "Dataset",
+    "DatasetError",
+    "DatasetItem",
+    "ExperimentResult",
+    "create_dataset",
+    "create_item",
+    "get_dataset",
+    "run_experiment",
     "PromptNotFound",
     "TextPrompt",
     "aget_prompt",

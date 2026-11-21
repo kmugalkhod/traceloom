@@ -80,3 +80,36 @@ def test_invalid_events_raise(bad):
 
 def test_unknown_body_fields_are_ignored():
     assert parse_event(event("trace-create", {"name": "n", "futureField": 1})).body.name == "n"
+
+
+def test_score_body_accepts_phase3_fields_in_both_cases():
+    for body in (
+        {"traceId": "t", "name": "q", "value": 1, "queueId": "q1", "executionId": "x1",
+         "datasetRunId": "r1", "channel": "public_feedback"},
+        {"trace_id": "t", "name": "q", "value": 1, "queue_id": "q1", "execution_id": "x1",
+         "dataset_run_id": "r1", "channel": "public_feedback"},
+    ):  # fmt: skip
+        parsed = parse_event(event("score-create", body)).body
+        assert (parsed.queue_id, parsed.execution_id, parsed.dataset_run_id, parsed.channel) == (
+            "q1",
+            "x1",
+            "r1",
+            "public_feedback",
+        )
+
+
+def test_score_body_phase3_fields_default_to_none():
+    parsed = parse_event(event("score-create", {"traceId": "t", "name": "q", "value": 1})).body
+    assert (parsed.queue_id, parsed.execution_id, parsed.dataset_run_id, parsed.channel) == (
+        None,
+        None,
+        None,
+        None,
+    )
+
+
+def test_score_body_rejects_unknown_channel():
+    with pytest.raises(EventError):
+        parse_event(
+            event("score-create", {"traceId": "t", "name": "q", "value": 1, "channel": "x"})
+        )

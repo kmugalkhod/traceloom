@@ -1,0 +1,489 @@
+{
+  "epic": {
+    "title": "UI polish and alignment pass",
+    "description": "A presentation-only pass over every web screen. It applies one set of alignment rules: control height, spacing rhythm, tabular numerics, 44px table rows, calm error rows, centred empty states, and the mobile context row. It also fixes the specific defects in the 2026-11-06 screenshots (trace detail, dashboard, prompts/playground, settings/auth, mobile). The new rules go in a v3.2 CSS layer (traceloom/web/static/ui/*.css) loaded after app.css, split into one file per task so parallel developers never collide. Routes, data, permissions and colour tokens do not change."
+  },
+  "ui": true,
+  "stories": [
+    {
+      "id": "S1",
+      "title": "Shared foundation: tokens, controls, tables, empty states, context bar",
+      "description": "The v3.2 layer skeleton and the shared rules FR-S1..S8 and FR-M1 that every screen uses. Also covers the chart axis font and the DESIGN.md v3.2 section.",
+      "acceptance": [
+        "Context bar controls (env select, range tray, icon buttons) share one height (36px \u00b11)",
+        "Numeric cells use Inter with tabular-nums and are right-aligned, and the 44px row height applies",
+        "Error rows are not tinted and keep the marker and pill",
+        "The crumbs slot shows the breadcrumb in the context bar on detail pages",
+        "The .empty pattern is centred with a max width of 520px",
+        "The env select and range tray share one row at 390px",
+        "No literal colours appear in ui/*.css"
+      ],
+      "tasks": [
+        {
+          "id": "T1",
+          "title": "Skeleton: ui/*.css files, links, crumbs slot, macros, token test",
+          "description": "Create the empty ui/*.css files: base.css, traces.css, trace-detail.css, trace-tree.css, trace-io.css, dashboard.css, prompts.css, playground.css, settings.css. base.css gets only the tokens --row-h 44px, --ctl-h 36px, --ctl-h-sm 30px and --panel-head-h 52px. Link all of them after app.css in base.html and base_auth.html. Add an empty {% block crumbs %} slot to the .ctxbar left side. Add escaped crumbs(items) and empty_state(icon, title, body) macros to _macros.html. Switch .num and .stat b in app.css from mono to var(--font-ui) with tabular-nums. Add the token and literal-colour unit test. No visible change.",
+          "files": [
+            "traceloom/web/static/ui/base.css",
+            "traceloom/web/static/ui/traces.css",
+            "traceloom/web/static/ui/trace-detail.css",
+            "traceloom/web/static/ui/trace-tree.css",
+            "traceloom/web/static/ui/trace-io.css",
+            "traceloom/web/static/ui/dashboard.css",
+            "traceloom/web/static/ui/prompts.css",
+            "traceloom/web/static/ui/playground.css",
+            "traceloom/web/static/ui/settings.css",
+            "traceloom/web/static/app.css",
+            "traceloom/web/templates/base.html",
+            "traceloom/web/templates/base_auth.html",
+            "traceloom/web/templates/_macros.html",
+            "tests/unit/test_css_tokens.py"
+          ],
+          "acceptance": [
+            "All nine ui/*.css files exist and load on every page, including auth, with no 404",
+            "The tokens are defined in base.css",
+            "test_css_tokens fails on any #hex, rgb( or hsl( literal in ui/*.css and passes now",
+            "The crumbs macro and empty_state macro escape their arguments",
+            "The existing test suite is unchanged and green"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": []
+        },
+        {
+          "id": "T2",
+          "title": "Shared control, table, error-row, empty-state and page-header rules",
+          "description": "In ui/base.css implement FR-S1 (36/30/44 control heights, 16px icons, 30px centred tray segments), FR-S2 (4px spacing scale, 24px section gap, 52px panel headers with 16px padding), FR-S4 (44px rows, 12px/500 header cells, 16px edge alignment), FR-S5 (no tinted error rows and no red numbers, keeping the 3px marker), FR-S6 (the .empty pattern) and FR-S8 (page header). Use the same selectors as app.css, no !important, tokens only.",
+          "files": [
+            "traceloom/web/static/ui/base.css"
+          ],
+          "acceptance": [
+            "Buttons, inputs, selects and trays in one toolbar row measure 36px \u00b11 (30px for .sm, 44px at \u2264760px)",
+            "Body rows are 44px \u00b11 and header cells are right-aligned over numeric columns",
+            "An errored row's background equals a normal row's background, its latency colour is --ink, and the marker and pill remain",
+            ".empty is centred and no wider than 520px",
+            "Light and dark both render correctly, using tokens only"
+          ],
+          "qa": "Open /traces at 1440px in light and dark. Check toolbar controls are the same height, rows are 44px, an errored trace row is not pink and its numbers are not red, and the empty state of a fresh project is centred.",
+          "ui": true,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T3",
+          "title": "Context bar crumbs layout and mobile context row",
+          "description": "In ui/base.css style the left crumbs slot of the .ctxbar and the shortcuts/theme buttons on the right (FR-S7), so the empty 64px band goes away and the page title starts within 24px of the bar. Implement the mobile rules (FR-M1, FR-M4 base): the env select flexes and the range tray is fixed on one row, wrapping only below 360px. Crumbs show in the desktop bar only; on mobile the in-body copy shows, so 'no context row on detail pages' stays true.",
+          "files": [
+            "traceloom/web/static/ui/base.css"
+          ],
+          "acceptance": [
+            "The context bar is at 36px control heights",
+            "At 390px the env select and range tray share a top offset",
+            "Crumbs are hidden on mobile, with no duplicate for screen readers",
+            "The existing test_mobile_context still passes"
+          ],
+          "qa": "Open the dashboard at 390\u00d7844 and check the env select and range tray are on one row. Open a trace detail page at 1440px and check the breadcrumb is in the bar, once the trace-detail task lands. On mobile there is no context row on the detail page.",
+          "ui": true,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T4",
+          "title": "Chart axis font and DESIGN.md v3.2 section",
+          "description": "In charts.js read the axis font family from the --font-ui CSS variable at 11px and the colour from --ink-3 (FR-D3). Add a 'v3.2 alignment pass' section to DESIGN.md that records FR-S1..S8 as rules.",
+          "files": [
+            "traceloom/web/static/charts.js",
+            "DESIGN.md"
+          ],
+          "acceptance": [
+            "Chart axis labels render in Inter at 11px with tabular numbers in both themes",
+            "No hardcoded font or colour remains in charts.js",
+            "DESIGN.md contains the v3.2 section covering FR-S1..S8"
+          ],
+          "qa": "Open the dashboard with seeded traces, inspect the chart axis text and check it is Inter (not mono), small and muted in light and dark.",
+          "ui": true,
+          "depends_on": [
+            "T1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Traces list and trace detail",
+      "description": "The traces list toolbar and columns, and a trace detail page with a clean key/value header, inline tags, a balanced sticky split pane, aligned tree rows, a lighter IO viewer and aligned Comments/Scores panels.",
+      "acceptance": [
+        "The tray, search and Filter button are the same height",
+        "Latency and Cost columns are right-aligned, tabular and not monospace",
+        "Trace detail shows each tag once, with no 'Edit tags:' row",
+        "A Member can add and remove tags; a Viewer sees chips only",
+        "The tree panel and detail panel tops are equal, with the tree at 40% width",
+        "Tree duration cells share a right edge",
+        "The Comments/Scores 2:1 grid is aligned"
+      ],
+      "tasks": [
+        {
+          "id": "T5",
+          "title": "Traces list toolbar, tray and columns",
+          "description": "Rework traces/list.html, _filters.html and _rows.html (FR-TL1..3): a lighter tray with muted tabular counts, the tray, search (\u2265280px) and Filter on one 36px row, Time and Trace two-line cells, right-aligned Latency and Cost with right-aligned headers, a centred muted '\u2014' in the Scores column, and the stat row matched to the dashboard card anatomy. Rules go in ui/traces.css. Keep the existing class names (cnt, lv, ty).",
+          "files": [
+            "traceloom/web/templates/traces/list.html",
+            "traceloom/web/templates/traces/_filters.html",
+            "traceloom/web/templates/traces/_rows.html",
+            "traceloom/web/static/ui/traces.css"
+          ],
+          "acceptance": [
+            "Tray, search and Filter measure equal heights (36px \u00b11) on one row at 1440px",
+            "Latency and Cost headers and cells have text-align right, tabular-nums and a non-mono font",
+            "Row height is 44px \u00b11",
+            "Error rows are not tinted but keep the marker and pill",
+            "Scores header and empty cells are centred and show '\u2014'",
+            "Existing traces list tests pass"
+          ],
+          "qa": "Open /traces with seeded traces at 1440px and 390px. Check the toolbar is one row of equal-height controls, numbers line up on the right, error rows are calm, and on mobile the filter tray scrolls inside itself without page scroll.",
+          "ui": true,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T6",
+          "title": "Trace detail header grid and inline tags",
+          "description": "Write test_trace_tags_markup.py first (no 'Edit tags:'; each tag once; Member sees \u00d7 and add; Viewer sees neither). Then rework traces/detail.html header into the FR-TD1 6-column kv grid (Trace ID with copy, User, Session, Latency, Cost, Tokens; second row Environment, Release, Version, then Tags). Rework _tags_body.html into chips with \u00d7 plus an inline '+ Add tag' (details/summary or the existing trace.js toggle), removing the 'Edit tags:' row. Move the breadcrumb into {% block crumbs %} (also in sessions/detail.html and users/detail.html). The route, form fields and hx-targets stay byte-identical.",
+          "files": [
+            "tests/api/test_trace_tags_markup.py",
+            "traceloom/web/templates/traces/detail.html",
+            "traceloom/web/templates/traces/_tags_body.html",
+            "traceloom/web/templates/sessions/detail.html",
+            "traceloom/web/templates/users/detail.html",
+            "traceloom/web/static/ui/trace-detail.css"
+          ],
+          "acceptance": [
+            "Trace ID, User, Session, Latency, Cost and Tokens values share one top offset (\u00b12px)",
+            "'Edit tags:' is absent and each tag appears once",
+            "A Member can add and remove a tag without JS through the same form posts",
+            "A Viewer sees no \u00d7 and no add control",
+            "The breadcrumb is in the context bar and the title top is within 24px of the bar's bottom",
+            "The existing tag flow tests pass unchanged"
+          ],
+          "qa": "As a Member, open a trace, add a tag then remove it, and check there is one tags display and no 'Edit tags:' text. Sign in as a Viewer and check chips only. Check the header values sit on one baseline and the breadcrumb is in the top bar.",
+          "ui": true,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T7",
+          "title": "Trace detail split pane, tree toolbar and tree rows",
+          "description": "Implement FR-TD3 and FR-TD4 in traces/_tree.html, _level.html, _panels.html and the split container in detail.html is owned by T6, so the split wrapper classes are applied in _panels.html. The tree panel is 40% (min 360px), sticky at top 16px, with internal scroll, and its header is 52px. The toolbar has the Tree/Timeline/Graph tray on the left and a small 'Jump to first error' on the right, with the keyboard hint moved into the buttons' title. Rows are 36px with fixed-width right-aligned tabular duration and cost columns, and an empty cost renders nothing.",
+          "files": [
+            "traceloom/web/templates/traces/_tree.html",
+            "traceloom/web/templates/traces/_level.html",
+            "traceloom/web/templates/traces/_panels.html",
+            "traceloom/web/static/ui/trace-tree.css"
+          ],
+          "acceptance": [
+            "At 1440px the tree and detail panel tops are equal (\u00b11px) and the tree is 40% \u00b12% of the pane",
+            "Duration cells of all tree rows share a right edge (\u00b11px)",
+            "The toolbar sits on one row with no keyboard hint text",
+            "Tree rows keep the lv/node/ty classes the existing tests assert on",
+            "At 390px the panes stack, tree first"
+          ],
+          "qa": "Open a trace with many spans at 1440px. Scroll the page and check the tree panel stays sticky and scrolls inside itself, durations line up on the right, and the toolbar is one row. At 390px check the panes stack with the tree first.",
+          "ui": true,
+          "depends_on": [
+            "T1",
+            "T6"
+          ]
+        },
+        {
+          "id": "T8",
+          "title": "IO viewer and Comments/Scores grid",
+          "description": "Implement FR-TD5 and FR-TD6. In traces/_io.html and _io_header.html: 13px/600 labels with a copy button on the right, a --surface-2 block with a 1px --line border, radius 10 and 12px padding, and the span header metrics on the kv style. In _scores_panel.html and _comments.html: a 2:1 grid with 52px headers aligned at the top, and a Scores form with Name, Type and Value on one row at matched heights.",
+          "files": [
+            "traceloom/web/templates/traces/_io.html",
+            "traceloom/web/templates/traces/_io_header.html",
+            "traceloom/web/templates/traces/_scores_panel.html",
+            "traceloom/web/templates/traces/_comments.html",
+            "traceloom/web/static/ui/trace-io.css"
+          ],
+          "acceptance": [
+            "IO blocks have a border and radius 10 with no heavy slab fill",
+            "The copy button is on the right of each label row",
+            "Comments and Scores panels have equal top offsets and header heights",
+            "The Scores form controls share one height",
+            "User content stays escaped"
+          ],
+          "qa": "Open a trace, select a span and check the Input/Output blocks look light with a copy button. Add a comment and a score as a Member and check the two panels are top-aligned and the score form fields are one row of equal height.",
+          "ui": true,
+          "depends_on": [
+            "T1",
+            "T7"
+          ]
+        },
+        {
+          "id": "T9",
+          "title": "E2E tests for traces list and trace detail",
+          "description": "Write test_polish_trace.py using page.evaluate with getBoundingClientRect/getComputedStyle after document.fonts.ready, at fixed viewports: toolbar heights, numeric columns and row height, error row not tinted, header kv baseline, breadcrumb in the bar, and split pane alignment. Add a Viewer and a Member variant for the header and tags. Add test_polish_shared.py for the context bar height and the AC-11 contrast/dark-mode checks.",
+          "files": [
+            "tests/e2e/test_polish_trace.py",
+            "tests/e2e/test_polish_shared.py"
+          ],
+          "acceptance": [
+            "All tests pass with the spec tolerances",
+            "The tests are stable across three consecutive runs",
+            "The e2e journeys record no console errors"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T2",
+            "T3",
+            "T5",
+            "T6",
+            "T7"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "Dashboard, sessions and users lists",
+      "description": "Consistent stat cards with icon chips, a 12-column chart grid with equal-height panels, a filled error-by-level panel, aligned breakdown rows, a readable top-users table, and aligned sessions/users lists with proper empty states.",
+      "acceptance": [
+        "All four dashboard stat cards have an icon chip and equal height",
+        "The two first-row chart panels have equal height",
+        "The top-users rank column is close to the panel edge and cost is right-aligned",
+        "Sessions and users empty states are centred"
+      ],
+      "tasks": [
+        {
+          "id": "T10",
+          "title": "Dashboard stat cards, 8+4 grid, breakdown and top users",
+          "description": "Rework dashboard.html (FR-D1..D5): 112px stat cards (13px label, 24px icon chip top-right, 28px tabular value, 13px caption) using existing icons, a 12-column grid with a 24px gap (Traces over time 8, Error by level 4, equal heights), the error-by-level panel filled (stacked bar, legend rows with dot, word, % and count, and a total footnote), breakdown rows (200px mono name, bar, 96px right-aligned value), and top users as a table (#, User, Traces if already in the query result, Cost right-aligned). Do not change the router or any query. The dashboard empty state uses empty_state.",
+          "files": [
+            "traceloom/web/templates/dashboard.html",
+            "traceloom/web/static/ui/dashboard.css"
+          ],
+          "acceptance": [
+            "Four stat cards each have an icon chip and equal height (112px)",
+            "The first-row chart panels have equal height (\u00b11px)",
+            "The top-users rank left edge is within 20px of the panel's inner left edge",
+            "Cost is right-aligned",
+            "Breakdown bars start at the same x on every row",
+            "Numbers are Inter tabular, and no query or route changed"
+          ],
+          "qa": "Open / (dashboard) with seeded data at 1440px and 390px. Check the cards match, the two chart panels have equal height with no empty half, top users read as a table, and nothing scrolls horizontally on mobile. Check the empty dashboard shows a centred empty state.",
+          "ui": true,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T11",
+          "title": "Sessions and users lists alignment and empty states",
+          "description": "Align sessions/list.html and users/list.html to the shared table rules (right-aligned tabular numeric columns, 16px edge alignment) and replace their empty states with the empty_state macro (FR-S6). Page-specific rules go in ui/dashboard.css only if needed, appended in a separate sessions/users block to avoid colliding with T10; otherwise use the shared classes from base.css.",
+          "files": [
+            "traceloom/web/templates/sessions/list.html",
+            "traceloom/web/templates/users/list.html"
+          ],
+          "acceptance": [
+            "Numeric columns are right-aligned tabular Inter with right-aligned headers",
+            "Empty states use the shared centred pattern, max 520px",
+            "Existing sessions/users tests pass"
+          ],
+          "qa": "Open /sessions and /users with data and check the alignment and 44px rows. Use a fresh empty project and check the empty state is centred with a title, description and action.",
+          "ui": true,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T12",
+          "title": "E2E tests for the dashboard",
+          "description": "Write test_polish_dashboard.py: test_stat_cards_and_chart_row (AC-7) and test_top_users_rank_alignment (AC-8), at 1440px after fonts.ready, seeded through the existing live/trace_events fixtures.",
+          "files": [
+            "tests/e2e/test_polish_dashboard.py"
+          ],
+          "acceptance": [
+            "Both tests pass with the spec tolerances and are stable across three runs",
+            "No console errors are recorded"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T10"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "title": "Prompts and playground",
+      "description": "Centred empty states for Prompts and Playground, aligned prompts list, new/edit forms with matched labels and rows, and an aligned playground layout.",
+      "acceptance": [
+        "The Prompts and Playground empty states are centred in their panel and no wider than 520px",
+        "New-prompt labels and fields follow the 6px/16px rhythm",
+        "Type and Tags are top-aligned",
+        "Playground panels have equal tops"
+      ],
+      "tasks": [
+        {
+          "id": "T13",
+          "title": "Prompts list, empty state and new/edit forms",
+          "description": "Rework prompts/list.html, _empty.html, _filters.html, new.html, detail.html and _versions.html (FR-PP1, FR-PP2): use the crumbs block, the centred empty state with the SDK snippet under the actions (max 520px), labels 6px above fields with 16px between fields, Type and Tags on one row with matched label baselines, and the right-column panels with 52px headers. Rules go in ui/prompts.css. Keep role gating and escaping.",
+          "files": [
+            "traceloom/web/templates/prompts/list.html",
+            "traceloom/web/templates/prompts/_empty.html",
+            "traceloom/web/templates/prompts/_filters.html",
+            "traceloom/web/templates/prompts/new.html",
+            "traceloom/web/templates/prompts/detail.html",
+            "traceloom/web/templates/prompts/_versions.html",
+            "traceloom/web/static/ui/prompts.css"
+          ],
+          "acceptance": [
+            "The empty-state left and right gaps differ by \u22644px, and it is \u2264520px wide",
+            "On the new-prompt page the Type and Tags labels share a baseline",
+            "Panel headers are 52px",
+            "Viewer and Member gating is unchanged and existing prompts tests pass"
+          ],
+          "qa": "With no prompts, open /prompts and check the centred empty state with the SDK snippet. Open New prompt and check label spacing and the Type/Tags row. Open a prompt detail page and check the version table and panels.",
+          "ui": true,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T14",
+          "title": "Playground empty state and layout",
+          "description": "Rework playground/index.html and _variant.html (FR-PP3): the no-connection state uses empty_state; with a connection, the 'Run with' row and the Prompt/Response panels follow the control heights and panel header rules and their tops align. Rules go in ui/playground.css.",
+          "files": [
+            "traceloom/web/templates/playground/index.html",
+            "traceloom/web/templates/playground/_variant.html",
+            "traceloom/web/static/ui/playground.css"
+          ],
+          "acceptance": [
+            "The no-connection empty state is centred (gaps differ by \u22644px) and \u2264520px",
+            "The Run-with row controls are 36px",
+            "The Prompt and Response panel tops align",
+            "Existing playground tests (msg msg-user, src calc|provided) pass"
+          ],
+          "qa": "Open /playground with no connection and check the centred empty state with its action. Add a connection, then check the Run-with row and the two panels line up and run a prompt.",
+          "ui": true,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T15",
+          "title": "E2E tests for prompts and playground",
+          "description": "Write test_polish_build.py::test_empty_states_centred for Prompts and Playground (AC-9), plus a check of the new-prompt label baseline and the playground panel tops.",
+          "files": [
+            "tests/e2e/test_polish_build.py"
+          ],
+          "acceptance": [
+            "Tests pass with the spec tolerances and are stable across three runs",
+            "No console errors are recorded"
+          ],
+          "qa": "none",
+          "ui": false,
+          "depends_on": [
+            "T13",
+            "T14"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "title": "Settings, auth and mobile sweep",
+      "description": "Aligned settings tabs, tables and menus, centred and consistent auth pages, and a final 390px sweep so that no page scrolls horizontally.",
+      "acceptance": [
+        "Settings tabs are 40px high with a 2px active underline and no extra inset",
+        "Auth forms are vertically centred at 380px wide",
+        "Traces, trace detail, dashboard, prompts, playground and settings have no horizontal scroll at 390px"
+      ],
+      "tasks": [
+        {
+          "id": "T16",
+          "title": "Settings tabs, tables and menus",
+          "description": "Implement FR-SA1 across settings/_tabs.html, base.html, keys.html, members.html, models.html, connections.html and webhooks.html: 40px tabs with a 2px active underline aligned to the page's left edge, panels and tables following the shared rules, and row '...' menus in a right-aligned 48px column. Keep the tab and menu ARIA, 'item danger' and data-menu-toggle. Rules go in ui/settings.css.",
+          "files": [
+            "traceloom/web/templates/settings/_tabs.html",
+            "traceloom/web/templates/settings/base.html",
+            "traceloom/web/templates/settings/keys.html",
+            "traceloom/web/templates/settings/members.html",
+            "traceloom/web/templates/settings/models.html",
+            "traceloom/web/templates/settings/connections.html",
+            "traceloom/web/templates/settings/webhooks.html",
+            "traceloom/web/static/ui/settings.css"
+          ],
+          "acceptance": [
+            "Tabs are 40px high and left-aligned with the page content",
+            "The '...' menus sit in a 48px right-aligned column",
+            "Empty lists use the shared empty state",
+            "Role-gated controls are unchanged and existing settings tests pass"
+          ],
+          "qa": "Open each settings tab as an Admin and as a Viewer. Check tab alignment, table edges, the row menu opening and closing, and a centred empty state on an empty list.",
+          "ui": true,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T17",
+          "title": "Auth pages alignment",
+          "description": "Implement FR-SA2 on auth/*.html (login, signup, forgot, reset, invite): a vertically centred 380px form column, a vertically centred brand headline with the tagline pinned to the bottom, 40px inputs with labels 6px above, and 'Forgot password?' on the password label's baseline. Rules go in ui/settings.css, in a clearly separated auth block, so edit this file after T16 merges or append to a distinct section. Use only the auth panel classes.",
+          "files": [
+            "traceloom/web/templates/auth/login.html",
+            "traceloom/web/templates/auth/signup.html",
+            "traceloom/web/templates/auth/forgot.html",
+            "traceloom/web/templates/auth/reset.html",
+            "traceloom/web/templates/auth/invite.html"
+          ],
+          "acceptance": [
+            "The form column is 380px and vertically centred",
+            "Inputs are 40px tall",
+            "'Forgot password?' shares the password label's baseline",
+            "Existing auth tests pass"
+          ],
+          "qa": "Open /login, /signup, /forgot, /reset and an invite link at 1440px and 390px. Check the form is centred, the brand panel is balanced, and the Forgot password link lines up with the label.",
+          "ui": true,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T18",
+          "title": "Mobile 390px sweep and tests",
+          "description": "Write test_polish_mobile.py (test_no_horizontal_scroll[page] over traces, trace detail, dashboard, prompts, playground and settings; test_ctx_row_single_line) and test_polish_settings_auth.py. Fix any residual 390px overflow found by appending small mobile-only rules to the relevant screen CSS file, after the owning story is merged. Cover FR-M2 and FR-M3.",
+          "files": [
+            "tests/e2e/test_polish_mobile.py",
+            "tests/e2e/test_polish_settings_auth.py",
+            "traceloom/web/static/ui/settings.css"
+          ],
+          "acceptance": [
+            "scrollWidth \u2264 clientWidth on all six pages at 390\u00d7844",
+            "The env select and range tray share a top offset",
+            "The settings tabs and auth checks pass",
+            "Stable across three runs, with no console errors"
+          ],
+          "qa": "Open traces, a trace detail, dashboard, prompts, playground and settings at 390\u00d7844. Check there is no sideways page scroll, the context row is a single line, the traces filter tray scrolls inside itself, and the trace detail grid is 3 columns with the tree first.",
+          "ui": true,
+          "depends_on": [
+            "T3",
+            "T5",
+            "T7",
+            "T10",
+            "T13",
+            "T14",
+            "T16",
+            "T17"
+          ]
+        }
+      ]
+    }
+  ]
+}

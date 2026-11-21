@@ -55,9 +55,9 @@ def test_member_adds_numeric_boolean_and_categorical_scores(client, login, world
     for s in scores.values():
         assert s.source == "ANNOTATION" and s.author_id == me.id and s.comment == "why"
     html = page(client, world, "discussion")
-    assert "<b>quality</b><span>0.8</span>" in html
-    assert "<b>resolved</b><span>false</span>" in html
-    assert "<b>tone</b><span>polite</span>" in html
+    assert '<span class="n">quality:</span> <b>0.8</b>' in html
+    assert '<span class="n">resolved:</span> <b>false</b>' in html
+    assert '<span class="n">tone:</span> <b>polite</b>' in html
     assert "Annotation" in html and me.name in html
 
 
@@ -220,7 +220,8 @@ def test_score_chips_macro_for_the_list(client):
                 score("t", "tone", None, data_type="CATEGORICAL", string_value="<b>x</b>")],
         csrf_token="",
     )  # fmt: skip
-    assert "<b>quality</b><span>0.8</span>" in out and "<b>ok</b><span>true</span>" in out
+    assert '<span class="n">quality:</span> <b>0.8</b>' in out
+    assert '<span class="n">ok:</span> <b>true</b>' in out
     assert "&lt;b&gt;x&lt;/b&gt;" in out
 
 
@@ -259,5 +260,5 @@ def test_annotation_scores_show_as_chips_in_the_list(client, login, world, trace
         post_form(client, html, base(world) + "/scores",
                   {"name": name, "data_type": kind, "value": value}, headers=HX)  # fmt: skip
     listing = client.get(f"/project/{world.project.id}/traces?range=30d").text
-    assert "<b>quality</b><span>0.8</span>" in listing
-    assert "<b>tone</b><span>polite</span>" in listing
+    assert '<span class="n">quality:</span> <b>0.8</b>' in listing
+    assert '<span class="n">tone:</span> <b>polite</b>' in listing

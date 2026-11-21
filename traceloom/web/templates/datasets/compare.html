@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Compare runs · {{ dataset.name }}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Datasets", "href": base | replace("/" ~ dataset.id, "")}, {"label": dataset.name, "href": base}, {"label": "Compare"}]) }}{% endblock %}
+{% macro delta(text, good) -%}
+<span class="dlt {{ 'up' if good else 'dn' }}">{{ m.icon("i-up" if good else "i-down") }}{{ text }}</span>
+{%- endmacro %}
+{% block content %}
+<link rel="stylesheet" href="/static/compare.css">
+<div class="page-h">
+  <div class="grow"><h1>Compare runs</h1>
+    {% set n_runs = (run_ids | length) if run_ids else (all_runs | length) %}<p class="sub">{{ dataset.name }} · {{ n_runs }} run{{ "" if n_runs == 1 else "s" }}{% if columns %} · baseline is {{ columns[0].name }}{% endif %}</p></div>
+</div>
+
+{% if too_many %}{{ m.banner("err", "You can compare at most " ~ max_runs ~ " runs. Remove one first. The page shows the first " ~ max_runs ~ " in the link.") }}{% endif %}
+{% if error %}{{ m.banner("err", error) }}{% endif %}
+
+<form method="get" action="{{ base }}/compare" id="cmp-form" data-compare-form>
+  <div class="runpick">
+    {% for letter, selected in slots %}
+    <div class="slot">
+      <span class="lbl"><span class="ltr {{ letter | lower }}">{{ letter }}</span><span class="cap">{{ "Baseline" if loop.first else "Run" }}</span></span>
+      <select class="select" name="runs" aria-label="{{ 'Baseline run' if loop.first else 'Run ' ~ letter }}"{% if loop.first %} required{% endif %}>
+        {% if not loop.first %}<option value="">{{ "Add a run" if not selected else "None" }}</option>{% else %}<option value="" disabled{% if not selected %} selected{% endif %}>Pick a run</option>{% endif %}
+        {% for r in all_runs %}<option value="{{ r.id }}"{% if r.id == selected %} selected{% endif %}>{{ r.name }}</option>{% endfor %}
+      </select>
+      {% if loop.last %}<span class="hint">{{ max_runs }} runs is the most.</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if not result %}
+  <div class="panel mt16">
+    {{ m.empty_state("i-flask", "Pick runs to compare", "Choose a baseline and up to three more runs of " ~ dataset.name ~ ".") }}
+    <div class="acts cmp-acts"><button class="btn btn-primary" type="submit">Compare</button></div>
+  </div>
+  {% else %}
+  <div class="row mt8"><button class="btn btn-sm" type="submit">Update comparison</button></div>
+
+  <section class="panel mt16" aria-label="Aggregates"><div class="panel-h"><h2>Aggregates</h2></div>
+    <div class="panel-b flush cmpwrap"><table class="tbl agg cmpt">
+      <thead><tr><th class="stick">Metric</th>
+        {% for c in columns %}<th{% if c.i == 0 %} class="base"{% endif %}><div class="runh"><b><span class="ltr {{ c.letter | lower }}">{{ c.letter }}</span>{{ c.name }}</b><small>{% if c.i == 0 %}Baseline · {% endif %}{{ c.agg.items }} item{{ "" if c.agg.items == 1 else "s" }}</small></div></th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for row in metrics %}
+        <tr><td class="stick"><b>{{ row.label }}</b>{% if row.sub %} <span class="muted">{{ row.sub }}</span>{% endif %}</td>
+        {% for cell in row.cells %}
+          {% if cell is none %}<td class="muted">No scores</td>
+          {% else %}<td{% if cell.best %} class="best-c"{% endif %}><span class="num">{{ cell.text }}{% if cell.n is not none %} <span class="muted">({{ cell.n }})</span>{% endif %}</span>{% if cell.best %} <span class="best">{{ m.icon("i-check") }}Best</span>{% endif %}{% if cell.delta %} {{ delta(cell.delta, cell.up) }}{% endif %}</td>{% endif %}
+        {% endfor %}</tr>
+      {% endfor %}
+        <tr><td class="stick"><b>Regressed items</b> <span class="muted">vs baseline</span></td>
+        {% for c in columns %}{% if c.i == 0 %}<td class="muted">baseline</td>{% else %}<td>{% if c.agg.regressed %}<span class="regtag" data-regressed="{{ c.id }}">{{ m.icon("i-down") }}{{ c.agg.regressed }} of {{ c.agg.items }}</span>{% else %}<span class="muted" data-regressed="{{ c.id }}">0 of {{ c.agg.items }}</span>{% endif %}</td>{% endif %}{% endfor %}</tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section class="panel mt16" aria-label="Items"><div class="panel-h"><h2>Items <span class="u">{{ result.total_items }}</span></h2></div>
+    <div class="panel-b bb-line"><div class="ctlrow">
+      <span class="row"><button type="button" class="switch" role="switch" id="regT" aria-labelledby="regL" aria-checked="{{ 'true' if only_regressed else 'false' }}" data-regressed-switch></button><b id="regL">Only regressed</b></span>
+      <input type="hidden" name="regressed" value="{{ '1' if only_regressed else '' }}" data-regressed-input>
+      <div class="field"><label for="th">Threshold</label><input id="th" class="input num tl" name="threshold" value="{{ threshold_text }}" inputmode="decimal" aria-describedby="thh" data-autosubmit></div>
+      <span class="hint" id="thh">An item regresses when a score drops by more than this. 0 means any drop; true to false always counts.</span>
+      <div class="field right"><label for="so">Sort</label><select id="so" class="select w200" name="sort" data-autosubmit><option value="item"{% if sort == "item" %} selected{% endif %}>Item order</option><option value="delta"{% if sort == "delta" %} selected{% endif %}>Biggest drop first</option></select></div>
+      {% if sort == "delta" and result.score_names | length > 1 %}<div class="field"><label for="sc">By score</label><select id="sc" class="select" name="score" data-autosubmit>{% for n in result.score_names %}<option value="{{ n }}"{% if n == sort_score %} selected{% endif %}>{{ n }}</option>{% endfor %}</select></div>{% endif %}
+    </div></div>
+
+    {% if not rows %}
+    {% if only_regressed %}
+    {% call m.empty_state("i-check", "No items regressed by more than " ~ threshold_text, "Lower the threshold to see smaller drops.") %}{% if threshold > 0 %}<div class="acts"><a class="btn" href="{{ reset_threshold_url }}">Set threshold to 0</a></div>{% endif %}{% endcall %}
+    {% else %}{{ m.empty_state("i-folder", "No items", "These runs have no items to compare.") }}{% endif %}
+    {% else %}
+    <div class="panel-b flush cmpwrap"><table class="cmpt" id="cmpItems">
+      <thead><tr><th class="stick">Item</th>
+        {% for c in columns %}<th{% if c.i == 0 %} class="base"{% endif %}><div class="runh"><b><span class="ltr {{ c.letter | lower }}">{{ c.letter }}</span>{{ c.name }}</b><small>{% if c.i == 0 %}Baseline{% elif c.agg.regressed %}<span class="regtag">{{ c.agg.regressed }} regressed</span>{% else %}0 regressed{% endif %}</small></div></th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr data-reg="{{ 1 if row.reg else 0 }}"{% if not row.reg %} class="ok-row"{% endif %}>
+          <td class="stick"><p class="inp">{{ row.input }}</p>{% if row.expected %}<div class="exp"><b>Expected</b> {{ row.expected }}</div>{% endif %}{% if row.long %}<button type="button" class="btn btn-ghost btn-sm" data-expand aria-expanded="false">Show more</button>{% endif %}</td>
+          {% for cell in row.cells %}
+          {% if cell.state == "none" %}<td class="muted">Not run</td>
+          {% elif cell.state == "failed" %}<td class="muted">Failed: {{ cell.error }}</td>
+          {% else %}<td{% if cell.reg %} class="reg"{% endif %}>
+            <p class="out">{{ cell.output }}</p>
+            {% if cell.long %}<button type="button" class="btn btn-ghost btn-sm" data-expand aria-expanded="false">Show more</button>{% endif %}
+            <span class="scs">{% for chip in cell.chips %}<span class="sc"><span class="n">{{ chip.name }}:</span> <b>{{ chip.value }}</b></span> {% endfor %}{% for text, bad in cell.deltas %}<span class="dlt {{ "dn dl2" if bad else "up" }}">{{ m.icon("i-down" if bad else "i-up") }}{{ text }}</span> {% endfor %}</span>
+            {% if cell.latency or cell.cost %}<div class="meta">{% if cell.latency %}<span>{{ cell.latency }}</span>{% endif %}{% if cell.cost %}<span>{{ cell.cost }}</span>{% endif %}</div>{% endif %}
+          </td>{% endif %}
+          {% endfor %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+    {% endif %}
+    <div class="panel-b row bt-line"><span class="muted fs12">Showing {{ rows | length }} {{ "regressed " if only_regressed }}item{{ "" if rows | length == 1 else "s" }}{% if result.pages > 1 %}, page {{ result.page }} of {{ result.pages }}{% endif %}. 100 per page.</span><span class="grow"></span>
+      {% if prev_url %}<a class="btn btn-sm" href="{{ prev_url }}">Previous</a>{% else %}<button type="button" class="btn btn-sm" disabled>Previous</button>{% endif %}
+      {% if next_url %}<a class="btn btn-sm" href="{{ next_url }}">Next</a>{% else %}<button type="button" class="btn btn-sm" disabled>Next</button>{% endif %}
+    </div>
+  </section>
+  {% endif %}
+</form>
+{% endblock %}
+{% block scripts %}<script src="/static/compare.js" defer></script>{% endblock %}

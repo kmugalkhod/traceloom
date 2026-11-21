@@ -303,3 +303,27 @@ def test_a_save_conflict_is_a_409(client, auth, monkeypatch):
     monkeypatch.setattr(service, "_latest_version", lambda *a: 0)  # every attempt races to v1
     r = create(client, auth, prompt="second")
     assert r.status_code == 409 and "same time" in r.json()["error"]["message"]
+
+
+# --- rate limit on writes (final review) ---------------------------------------------------------
+
+
+def test_writes_are_rate_limited_per_key_with_retry_after(settings, make_key, world, auth):
+    from fastapi.testclient import TestClient
+
+    from traceloom.config import Settings
+    from traceloom.main import create_app
+
+    other = basic(*make_key(world.project)[1:])
+    env = {**settings.model_dump(by_alias=False), "rate_ingest": "3/minute"}
+    with TestClient(create_app(Settings(**env))) as c:
+        assert [create(c, auth, prompt=f"v{i}").status_code for i in range(2)] == [201, 201]
+        patch = {"newLabels": ["staging"]}
+        assert c.patch(f"{BASE}/support/versions/1", json=patch, headers=auth).status_code == 200
+        limited = c.patch(f"{BASE}/support/versions/1", json=patch, headers=auth)
+        assert limited.status_code == 429 and int(limited.headers["retry-after"]) >= 1
+        assert limited.json()["error"]["code"] == "rate_limited"
+        r = create(c, auth, prompt="again")
+        assert r.status_code == 429 and r.headers["retry-after"]
+        assert c.get(f"{BASE}/support", headers=auth).status_code == 200  # reads are not limited
+        assert create(c, other, prompt="other key").status_code == 201

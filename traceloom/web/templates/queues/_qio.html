@@ -1,0 +1,13 @@
+{# Compact read-only Input / Output block for the review screen: grey, wrapped, sized to its
+   content. `title` and `rendered` (from render_value) in scope; all content is autoescaped. #}
+<div class="q-io">
+  <div class="q-io-h">{{ title }}</div>
+  <div class="q-io-b">
+  {% if rendered.kind == "empty" %}<span class="muted">No {{ title | lower }}.</span>
+  {% elif rendered.kind == "chat" %}
+    {% for msg in rendered.messages %}<div class="q-msg"><span class="q-role">{{ msg.role }}</span><div>{{ msg.html }}</div></div>{% endfor %}
+  {% elif rendered.kind == "markdown" %}<div class="md">{{ rendered.html }}</div>
+  {% else %}{{ rendered.html }}
+  {% endif %}
+  </div>
+</div>

@@ -133,7 +133,7 @@ def test_empty_project_shows_the_onboarding_card(client, world, login, make_key)
         and "TRACELOOM_PUBLIC_KEY" in page
         and "from traceloom_sdk import" in page
     )
-    assert 'id="sdk-snippet"' in page and 'data-copy="#sdk-snippet"' in page
+    assert 'id="sdk-snippet"' in page and 'data-copy-from="#sdk-snippet"' in page
     make_key(world.project)
     page = client.get(keys_url(world), headers=H).text
     assert 'id="sdk-snippet"' not in page and "Public key" in page

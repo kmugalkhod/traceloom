@@ -446,3 +446,48 @@ def test_cached_prompt_tokens_are_charged_once_at_the_cache_read_rate(container,
     expected = 400 * prices["input"] + 600 * prices["cache_read"] + 100 * prices["output"]
     assert data["cost"] == pytest.approx(expected)
     assert data["cost_details"]["input"] == pytest.approx(400 * prices["input"])
+
+
+# --- request size bounds (final review) -----------------------------------------------------------
+
+BIG = "x" * 199_000  # under the per-message cap
+
+
+def test_an_oversized_run_or_save_body_is_413(member_client, world, conn_id, fake_provider):
+    providers.register("anthropic", fake_provider)
+    huge = [{"role": "user", "content": BIG}] * 11  # ~2.2 MB of JSON
+    r = member_client.post(url(world, "run"), json=body(conn_id, messages=huge))
+    assert r.status_code == 413, r.text
+    save = {"name": "big", "commit_message": "c", "messages": huge}
+    assert member_client.post(url(world, "save"), json=save).status_code == 413
+    assert fake_provider.calls == []
+
+
+def test_a_normal_run_still_streams_under_the_cap(member_client, world, conn_id, fake_provider):
+    providers.register("anthropic", fake_provider)
+    fake_provider.script(TextDelta("ok"), DoneDelta("end_turn"))
+    msgs = [{"role": "user", "content": "x" * 100_000}, {"role": "user", "content": "{{who}}"}]
+    r = member_client.post(url(world, "run"), json=body(conn_id, messages=msgs))
+    assert r.status_code == 200 and ("delta", {"text": "ok"}) in parse_sse(r.text)
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"messages": [{"role": "user", "content": "y" * 190_000}] * 6},  # 1.14M chars in all
+        {"variables": {f"v{i}": "" for i in range(101)}},
+        {"variables": {"v" * 201: "a"}},
+        {"variables": {"a": "z" * 600_000, "b": "z" * 600_000}},
+        # a short template that would render to gigabytes
+        {"messages": [{"role": "user", "content": "{{who}}" * 1000}], "variables": {"who": BIG}},
+        {"params": {f"p{i}": 1 for i in range(51)}},
+        {"tools": [{"name": f"t{i}"} for i in range(65)]},
+    ],
+)
+def test_size_bounds_on_messages_variables_params_and_tools(
+    member_client, world, conn_id, fake_provider, extra
+):
+    providers.register("anthropic", fake_provider)
+    r = member_client.post(url(world, "run"), json=body(conn_id, **extra))
+    assert r.status_code == 422, r.text[:300]
+    assert fake_provider.calls == []

@@ -255,6 +255,13 @@ Also:
   - **Docs:** DESIGN.md has a "Phase 1 screens as built" section.
   - **Visual check:** 15 of 40 screenshots were viewed.
 
+- 2026-11-06 — Review fixes (second round, after re-review):
+  - **Bedrock endpoints:** a custom Bedrock endpoint must be an `https://` host under `.amazonaws.com` / `.amazonaws.com.cn` (which covers regional and VPC-interface endpoints). It's checked at save and at every client build, on top of the SSRF check, and botocore runs with `proxies={}`. Any other Bedrock base URL, including a private or self-hosted gateway, is refused even when private addresses are allowed. Why: botocore re-resolves DNS and honours environment proxies, so the address can't be pinned.
+  - **Copy markup:** `data-copy` is always a literal value, and `data-copy-from="#selector"` copies an element's text. A copy chosen from a "..." menu shows its feedback on the menu button. `tests/api/test_trace_detail_page.py:132` and `tests/api/test_api_keys.py:136` follow the markup rename (`data-copy` → `data-copy-from`) and are just as strict.
+  - **Playground bodies:** run and save bodies are capped at 2 MB (413) through a shared `json_body` dependency. Run bodies are also bounded to 1M message characters, 100 variables, a 2M-character rendered size, 50 params and 64 tools.
+  - **Public prompt writes:** they use `TRACELOOM_RATE_INGEST` per key, in their own bucket, with 429 and Retry-After.
+  - **Smaller fixes:** IPv6 Host headers are bracketed, `DeliveryPool` skips a delivery that's already waiting, and composition checks the expanded size on a running total.
+
 ## Proposed `.env.example` lines (for the human; agents cannot edit that file)
 ```
 # --- Phase 2: prompts, playground, webhooks ---

@@ -4,36 +4,65 @@
 {% block daterange %}{% include "_range_picker.html" %}{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="/static/pages.css">
-{{ m.page_header("Sessions", "Every conversation" ~ (" in " ~ environment if environment else "") ~ " over the last " ~ range_label ~ ", with cost and duration.") }}
+{% call m.page_header("Sessions", "Every conversation" ~ (" in " ~ environment if environment else "") ~ " over the last " ~ range_label ~ ", with cost and duration.") %}
+  <div class="menu-wrap">
+    <button type="button" class="btn btn-icon" aria-haspopup="true" aria-expanded="false" data-menu-toggle="list-menu" title="Columns">{{ m.icon("i-more-h") }}<span class="sr">More actions: columns</span></button>
+    <div class="pop pop-right pop-more" id="list-menu" data-menu hidden role="menu" aria-label="List actions">
+      <div class="more-sec" role="group" aria-label="Columns">
+        <form method="post" action="/project/{{ project.id }}/prefs/columns">
+          {{ m.csrf() }}<input type="hidden" name="next" value="{{ request_path }}"><input type="hidden" name="scope" value="sessions">
+          <div class="hd">Columns</div>
+          <div class="hint more-pad">Saved for you in this project.</div>
+          {% for key, label in all_columns %}
+            <label class="item check"><input type="checkbox" name="col" value="{{ key }}"{% if key in columns %} checked{% endif %} data-autosubmit><i>{{ m.icon("i-check", "ico-sm") }}</i>{{ label }}</label>
+          {% endfor %}
+          <noscript><button class="btn btn-sm" type="submit">Save columns</button></noscript>
+        </form>
+      </div>
+    </div>
+  </div>
+{% endcall %}
 {% if sessions %}
+{% if can("queues:write") %}
+<div class="selbar" data-session-bar role="region" aria-label="Selected sessions" hidden>
+  <span data-session-count>0 selected</span><span class="grow"></span>
+  <button type="button" class="btn btn-sm" data-session-clear>Clear</button>
+  <a class="btn btn-sm solid" data-bulk-queue="/project/{{ project.id }}/queues/add" href="/project/{{ project.id }}/queues/add" hx-boost="false">{{ m.icon("i-sessions", "ico-sm") }}Add to queue</a>
+</div>
+<div id="queue-dialog-slot"></div><script src="/static/queue_add.js" defer></script>
+{% endif %}
 <div class="panel">
   <div class="rack">
-    <table class="tbl roomy keepcols" aria-label="Sessions">
+    <table class="tbl keepcols" aria-label="Sessions">
       <thead>
         <tr>
           <th class="lvl"></th>
+          {% if can("queues:write") %}<th class="bulk-head"><span class="sr">Select</span></th>{% endif %}
           <th>Session</th>
-          <th class="hide-m"><a class="sort-link" href="{{ sort_href('first_trace') }}"{% if sort == 'first_trace' %} aria-current="true"{% endif %}>First trace</a></th>
-          <th><a class="sort-link" href="{{ sort_href('last_trace') }}"{% if sort == 'last_trace' %} aria-current="true"{% endif %}>Last trace</a></th>
-          <th class="r"><a class="sort-link" href="{{ sort_href('traces') }}"{% if sort == 'traces' %} aria-current="true"{% endif %}>Traces</a></th>
-          <th class="r hide-m"><a class="sort-link" href="{{ sort_href('duration') }}"{% if sort == 'duration' %} aria-current="true"{% endif %}>Duration</a></th>
-          <th class="r"><a class="sort-link" href="{{ sort_href('cost') }}"{% if sort == 'cost' %} aria-current="true"{% endif %}>Cost</a></th>
-          <th class="hide-m">Users</th>
-          <th class="hide-m">Tags</th>
+          {% if "first_trace" in columns %}<th class="hide-m"><a class="sort-link" href="{{ sort_href('first_trace') }}"{% if sort == 'first_trace' %} aria-current="true"{% endif %}>First trace</a></th>{% endif %}
+          {% if "last_trace" in columns %}<th><a class="sort-link" href="{{ sort_href('last_trace') }}"{% if sort == 'last_trace' %} aria-current="true"{% endif %}>Last trace</a></th>{% endif %}
+          {% if "traces" in columns %}<th class="r"><a class="sort-link" href="{{ sort_href('traces') }}"{% if sort == 'traces' %} aria-current="true"{% endif %}>Traces</a></th>{% endif %}
+          {% if "duration" in columns %}<th class="r hide-m"><a class="sort-link" href="{{ sort_href('duration') }}"{% if sort == 'duration' %} aria-current="true"{% endif %}>Duration</a></th>{% endif %}
+          {% if "cost" in columns %}<th class="r"><a class="sort-link" href="{{ sort_href('cost') }}"{% if sort == 'cost' %} aria-current="true"{% endif %}>Cost</a></th>{% endif %}
+          {% if "users" in columns %}<th class="hide-m">Users</th>{% endif %}
+          {% if "tags" in columns %}<th class="hide-m">Tags</th>{% endif %}
+          {% if "scores" in columns %}<th class="c">Scores</th>{% endif %}
         </tr>
       </thead>
       <tbody>
         {% for s in sessions %}
         <tr data-row>
           <td class="lvl"></td>
+          {% if can("queues:write") %}<td class="bulk-cell"><input type="checkbox" data-session-box="{{ s.session_id }}" aria-label="Select session {{ s.session_id }}"></td>{% endif %}
           <td class="mono name"><a href="/project/{{ project.id }}/sessions/{{ s.session_id | urlencode }}">{{ s.session_id }}</a></td>
-          <td class="mono muted hide-m">{{ s.first_trace_time | when }}</td>
-          <td class="mono muted">{{ s.last_trace_time | when }}</td>
-          <td class="num">{{ s.trace_count }}</td>
-          <td class="num hide-m">{{ s.duration_ms | duration }}</td>
-          <td class="num">{{ s.total_cost | cost }}</td>
-          <td class="hide-m"><span class="chips-cell">{% for u in s.user_ids[:3] %}<span class="chip">{{ u }}</span>{% endfor %}{% if s.user_ids | length > 3 %}<span class="chip">+{{ s.user_ids | length - 3 }}</span>{% endif %}</span></td>
-          <td class="hide-m"><span class="chips-cell">{% for t in s.tags[:4] %}<span class="chip">{{ t }}</span>{% endfor %}{% if s.tags | length > 4 %}<span class="chip">+{{ s.tags | length - 4 }}</span>{% endif %}</span></td>
+          {% if "first_trace" in columns %}<td class="mono muted hide-m">{{ s.first_trace_time | when }}</td>{% endif %}
+          {% if "last_trace" in columns %}<td class="mono muted">{{ s.last_trace_time | when }}</td>{% endif %}
+          {% if "traces" in columns %}<td class="num">{{ s.trace_count }}</td>{% endif %}
+          {% if "duration" in columns %}<td class="num hide-m">{{ s.duration_ms | duration }}</td>{% endif %}
+          {% if "cost" in columns %}<td class="num">{{ s.total_cost | cost }}</td>{% endif %}
+          {% if "users" in columns %}<td class="hide-m"><span class="chips-cell">{% for u in s.user_ids[:3] %}<span class="chip">{{ u }}</span>{% endfor %}{% if s.user_ids | length > 3 %}<span class="chip">+{{ s.user_ids | length - 3 }}</span>{% endif %}</span></td>{% endif %}
+          {% if "tags" in columns %}<td class="hide-m"><span class="chips-cell">{% for t in s.tags[:4] %}<span class="chip">{{ t }}</span>{% endfor %}{% if s.tags | length > 4 %}<span class="chip">+{{ s.tags | length - 4 }}</span>{% endif %}</span></td>{% endif %}
+          {% if "scores" in columns %}<td class="c">{% for a in session_scores.get(s.session_id, []) %}<span class="sc" title="Average over this session's traces"><span class="n">{{ a.name }}:</span> <b>{{ a.latest_string if a.latest_string is not none else ("%.2f" | format(a.average)) }}</b></span> {% else %}<span class="muted">—</span>{% endfor %}</td>{% endif %}
         </tr>
         {% endfor %}
       </tbody>
@@ -46,14 +75,15 @@
   </div>
 </div>
 {% elif not first_page %}
-<div class="panel"><div class="empty"><h2>No more sessions</h2><p><a href="{{ first_href }}">Back to the first page</a></p></div></div>
+<div class="panel">
+  {% call m.empty_state("i-sessions", "No more sessions") %}<div class="acts"><a class="btn" href="{{ first_href }}">Back to the first page</a></div>{% endcall %}
+</div>
 {% else %}
 <div class="panel">
-  <div class="empty">
-    <h2>No sessions yet</h2>
-    <p>A session groups the traces of one conversation. Set a <span class="mono">session_id</span> on your traces and they show up here as a replay{% if environment %} (showing environment {{ environment }}){% endif %}.</p>
+  {% call m.empty_state("i-sessions", "No sessions yet", "A session groups the traces of one conversation. Set a session_id on your traces and they show up here as a replay" ~ (" (showing environment " ~ environment ~ ")" if environment else "") ~ ".") %}
     <div class="code" tabindex="0"><span class="n">update_current_trace</span>(session_id=<span class="s">"sess_2f91"</span>)</div>
-  </div>
+    {% if can("project:api_keys") %}<div class="acts"><a class="btn btn-primary" href="/project/{{ project.id }}/settings/keys">Create an API key</a></div>{% endif %}
+  {% endcall %}
 </div>
 {% endif %}
 {% endblock %}

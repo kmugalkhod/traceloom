@@ -1,29 +1,52 @@
 {% import "_macros.html" as m with context %}
 {% set base = "/project/" ~ project.id ~ "/traces/" ~ trace.id %}
-<section class="panel" aria-label="Scores" id="scores">
-  <div class="panel-h"><h2>Scores</h2><span class="chip">{{ scores_panel | length }}</span></div>
-  <div class="panel-b">
-    {% for s in scores_panel %}
-      <div class="row-wrap line-b">
-        <span class="score"><b>{{ s.name }}</b><span>{{ s | score_value }}</span></span>
-        <span class="src">{{ s.source | title }}</span>
-        <span class="hint">{{ author_names.get(s.author_id, "API") if s.author_id else "API" }} · {{ s.timestamp | ago }}</span>
-        {% if s.comment %}<span class="hint">{{ s.comment }}</span>{% endif %}
+{% import "_score_chips.html" as sc %}
+{% import "_score_input.html" as si with context %}
+{% set free_failed = score_error and not score_form.config_id %}
+<div class="tp" id="tp-scores" role="tabpanel" aria-labelledby="dt-scores">
+  <div class="tp-b sc-panel" id="scores">
+    {% if scores_panel %}
+      <div class="scs sc-sum">{% for s in scores_panel %}{{ sc.chip(s, archived_config_ids) }}{% endfor %}</div>
+      <div class="sc-tbl-wrap">
+      <table class="tbl sc-tbl" aria-label="Scores on this trace">
+        <thead><tr><th>Score</th><th>Value</th><th>Source</th><th>By</th></tr></thead>
+        <tbody>
+        {% for s in scores_panel %}
+          <tr>
+            <td class="sc-name">{{ s.name }}{% if s.config_id and s.config_id in archived_config_ids %} <span class="muted">(archived)</span>{% endif %}</td>
+            <td class="num">{{ s | score_value }}</td>
+            <td>{{ sc.source_pill(s) }}</td>
+            <td><span class="by">{% if s.source == "ANNOTATION" %}{{ author_names.get(s.author_id, "A teammate") if s.author_id else "A teammate" }}{% elif s.source == "EVAL" %}LLM judge{% elif s.channel == "public_feedback" %}end user{% else %}API key{% endif %}</span><span class="when" title="{{ s.timestamp }}">{{ s.timestamp | ago }}</span></td>
+          </tr>
+          {% if s.comment %}
+          <tr class="sc-note"><td colspan="4"><div class="reason"><b>{{ "Judge reasoning." if s.source == "EVAL" else "Comment." }}</b> {{ s.comment }}</div></td></tr>
+          {% endif %}
+        {% endfor %}
+        </tbody>
+      </table>
       </div>
     {% else %}
       <p class="hint">No scores yet.</p>
-    {% endfor %}
+    {% endif %}
     {% if can("traces:annotate") %}
-      <form method="post" action="{{ base }}/scores" hx-post="{{ base }}/scores" hx-target="#trace-discussion" hx-swap="innerHTML" class="stack-s pad-t score-form">
+      <div class="sect sc-add">Add a score</div>
+      <div class="sform">
+        {% for cfg in score_configs %}{{ si.config_input(cfg) }}{% endfor %}
+        <div class="sin stack">
+          <label class="nm" for="score-note">Comment <small>optional, attached to the score</small></label>
+          <textarea class="textarea" id="score-note" name="comment" maxlength="1000" placeholder="Why this score?">{{ score_form.comment }}</textarea>
+        </div>
+      </div>
+      <details class="sc-free"{% if free_failed %} open{% endif %}>
+      <summary class="btn btn-ghost btn-sm">Free-form score (no config)</summary>
+      <form method="post" action="{{ base }}/scores" hx-post="{{ base }}/scores" hx-target="#trace-discussion" hx-swap="innerHTML" hx-include="#score-note" class="stack-s pad-t score-form">
         {{ m.csrf() }}
-        <div class="row-wrap start">
-          <div class="flex-1">
-            <div class="field">
-              <label for="score-name">Name</label>
-              <input class="input" id="score-name" name="name" type="text" maxlength="200" required value="{{ score_form.name }}">
-            </div>
+        <div class="score-row">
+          <div class="field f-name">
+            <label for="score-name">Name</label>
+            <input class="input" id="score-name" name="name" type="text" maxlength="200" required value="{{ score_form.name if free_failed }}">
           </div>
-          <div class="field">
+          <div class="field f-type">
             <label for="score-type">Type</label>
             <select class="select" id="score-type" name="data_type">
               {% for key, label in [("NUMERIC", "Numeric"), ("BOOLEAN", "Boolean"), ("CATEGORICAL", "Category")] %}
@@ -31,23 +54,16 @@
               {% endfor %}
             </select>
           </div>
-          <div class="flex-1">
-            <div class="field">
-              <label for="score-value">Value</label>
-              <input class="input" id="score-value" name="value" type="text" maxlength="200" required value="{{ score_form.value }}" placeholder="1, true or a label"{% if score_error %} aria-invalid="true" aria-describedby="score-error"{% endif %}>
-              {% if score_error %}<div class="field-error" id="score-error" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ score_error }}</span></div>{% endif %}
-            </div>
+          <div class="field f-value">
+            <label for="score-value">Value</label>
+            <input class="input" id="score-value" name="value" type="text" maxlength="200" required value="{{ score_form.value if free_failed }}" placeholder="1, true or a label"{% if free_failed %} aria-invalid="true" aria-describedby="score-error"{% endif %}>
           </div>
+          <div class="f-go"><button class="btn btn-primary" type="submit">Add score</button></div>
         </div>
-        <div class="field">
-          <label for="score-comment">Comment (optional)</label>
-          <input class="input" id="score-comment" name="comment" type="text" maxlength="1000" value="{{ score_form.comment }}" placeholder="Why this score?">
-        </div>
-        <div class="row">
-          <span class="hint">Saved as source ANNOTATION by you.</span>
-          <span class="right"><button class="btn btn-primary btn-sm" type="submit">Add score</button></span>
-        </div>
+        {% if free_failed %}<div class="field-error" id="score-error" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ score_error }}</span></div>{% endif %}
+        <div class="hint">Saved as source Annotation by you, with the comment above.</div>
       </form>
+      </details>
     {% endif %}
   </div>
-</section>
+</div>

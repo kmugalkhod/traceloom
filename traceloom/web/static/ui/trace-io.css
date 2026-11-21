@@ -1,0 +1,51 @@
+/* Detail pane: header, metrics line, tabs, IO blocks, Scores and Comments (FR-TD5, FR-TD6). */
+.dpane .dpane-h.io-sec{flex-direction:row;align-items:center;gap:8px;padding:0 16px;border-bottom:1px solid var(--line)}
+.dpane-h h2{font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dpane-type{font-size:12px}
+.dpane .mline.dm{padding:12px 16px 0}
+.dpane .mline.dm .num{font-weight:500}
+.tabs[data-tabs]{display:flex;gap:4px;padding:8px 16px 0;border-bottom:1px solid var(--line);flex:none;overflow-x:auto}
+.tabs[data-tabs] .tab{height:36px;padding:0 12px;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;background:none;font:inherit;font-size:13px;font-weight:600;color:var(--ink-2);cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.tabs[data-tabs] .tab:hover{color:var(--ink)}
+.tabs[data-tabs] .tab[aria-selected=true]{color:var(--ink);border-bottom-color:var(--accent-solid)}
+.tabs[data-tabs] .c2{font-weight:500;font-variant-numeric:tabular-nums;color:var(--ink-3)}
+.tabs[data-tabs] .c2:empty{display:none}
+.dbody{flex:1 1 auto;min-height:0;overflow:auto;padding:16px}
+.dbody .tp[hidden]{display:none}
+#io-pane{display:contents}
+.dpane>.disc{flex:1 1 auto;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column}
+.disc .tp[hidden]{display:none}
+.disc:not(:has(.tp:not([hidden]))){display:none}
+.dpane:has(#dt-scores[aria-selected=true],#dt-cmt[aria-selected=true]) .dbody{display:none}
+
+.io-top{display:flex;justify-content:flex-start;margin-bottom:4px}
+.io-top .seg a{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:7px;font-size:12px;font-weight:600;color:var(--ink-2)}
+.io-top .seg a[aria-selected=true]{background:var(--accent-solid);color:var(--on-accent)}
+.io{margin-top:16px}
+.io-h{display:flex;align-items:center;justify-content:space-between;height:28px;margin-bottom:6px}
+.io-h h3{font-size:13px;font-weight:600;margin:0}
+.copy{display:inline-grid;place-items:center;width:28px;height:28px;border:0;border-radius:8px;background:none;color:var(--ink-3);cursor:pointer;padding:0}
+.copy:hover{background:var(--surface-2);color:var(--ink)}
+.io-b{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:13px;min-width:0;overflow:auto}
+.io-b .code{background:none;border:0;border-radius:0;padding:0}
+.io-b .msg:first-child{padding-top:0}
+.io-b .msg:last-child{padding-bottom:0}
+
+.mrows{margin:0}
+.mrow{display:grid;grid-template-columns:120px minmax(0,1fr);align-items:center;min-height:36px;border-bottom:1px solid var(--line);gap:8px}
+.mrow dt{font-size:12px;color:var(--ink-3);font-weight:500}
+.mrow dd{margin:0;display:flex;align-items:center;gap:6px;min-width:0;overflow-wrap:anywhere}
+.dpane .gen-grid{margin-top:16px}
+
+/* Scores and Comments tabs. */
+.tp-b{display:flex;flex-direction:column;gap:12px}
+.score-row{display:grid;grid-template-columns:minmax(0,1.4fr) 140px minmax(0,1fr) auto;gap:8px;align-items:end}
+.score-row .field{margin:0}
+.score-row .input,.score-row .select,.score-row .btn{height:var(--ctl-h);min-height:var(--ctl-h)}
+.score-row .select{min-width:120px;width:100%;padding-right:28px;text-overflow:clip}
+.score-form{margin-top:4px}
+@container app (max-width:760px){
+  .score-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .score-row .input,.score-row .select,.score-row .btn{height:44px;min-height:44px}
+}
+.tabs[data-tabs] .tab{flex:none}

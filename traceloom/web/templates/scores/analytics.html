@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% from "scores/_parts.html" import nd, table_fb, carry with context %}
+{% block title %}Score analytics{% endblock %}
+{% block daterange %}{% include "_range_picker.html" %}{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Scores"}]) }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="/static/ui/analytics.css">
+<link rel="stylesheet" href="/static/vendor/uplot.min.css">
+<script src="/static/vendor/uplot.iife.min.js" defer></script>
+<script src="/static/analytics.js" defer></script>
+{% set icons = {"ANNOTATION": "i-user", "EVAL": "i-flask", "API": "i-key"} %}
+{% set per = "hour" if range_key in ("1h", "24h") else "day" %}
+
+<form method="get" action="{{ request.url.path }}" class="stack" data-autosubmit>
+{% call m.page_header("Scores", "How your scores are distributed, how they move, and whether people and judges agree.") %}
+  <input type="hidden" name="feedback" value="0">
+  <label class="an-cb"><input type="checkbox" name="feedback" value="1"{% if feedback %} checked{% endif %}>Include public feedback</label>
+{% endcall %}
+{{ carry(["score", "feedback"]) }}
+<div class="an-bar">
+  <select class="select" name="score" aria-label="Score">
+    <option value="">All scores · {{ view.names | length }}</option>
+    {% for n in view.names %}<option value="{{ n.name }}"{% if n.name == view.selected %} selected{% endif %}>{{ n.name }} · {{ n.count }}</option>{% endfor %}
+  </select>
+  <div class="seg" role="group" aria-label="Source">
+    <a href="{{ source_urls['all'] }}" aria-pressed="{{ 'true' if view.source_key == 'all' else 'false' }}">All sources</a>
+    {% for key, label in [("annotation", "Annotation"), ("eval", "Eval"), ("api", "API")] %}
+    <a href="{{ source_urls[key] }}" aria-pressed="{{ 'true' if view.source_key == key else 'false' }}">{{ m.icon(icons[key | upper]) }}{{ label }}</a>
+    {% endfor %}
+  </div>
+  <noscript><button class="btn" type="submit">Apply</button></noscript>
+</div>
+</form>
+
+{% if not view.total %}
+<div class="panel" data-state="empty">
+  {% call m.empty_state("i-dash", "No scores in this range", "Add scores from the SDK, a queue, a judge rule or the 👍 / 👎 snippet. Charts appear here when there are some.") %}
+  <div class="acts"><a class="btn btn-primary" href="/project/{{ project.id }}/evals/rules">Set up a judge</a><a class="btn" href="/project/{{ project.id }}/queues">Create a queue</a></div>
+  {% endcall %}
+</div>
+{% else %}
+<div class="stack">
+<div class="an-sect">Distribution</div>
+{% if not view.cards %}
+  {% call nd() %}<b>No scores from this source.</b> Pick another source or all sources.{% endcall %}
+{% else %}
+<div class="an-grid">
+  {% for c in view.cards %}
+  <section class="panel an-card" aria-label="Distribution of {{ c.name }}">
+    <div class="panel-h"><h2>{{ c.name }}<span class="u">{{ c.kind }}</span></h2><span class="right num">n = {{ "{:,}".format(c.n) }}</span></div>
+    {% if c.enough %}
+    <div class="panel-b">
+      <svg class="an-svg" viewBox="0 0 300 120" preserveAspectRatio="none" role="img" aria-label="{{ c.aria }}">
+        <g stroke="var(--line)"><line x1="0" x2="300" y1="119.5" y2="119.5"/></g>
+        {% for b in c.bars %}<rect x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}" rx="3" fill="var(--s{{ b.series }})"/>{% endfor %}
+      </svg>
+      {% if c.type == "numeric" %}<div class="an-ax{{ ' an-slots' if c.slots }}">{% for t in c.ticks %}<span>{{ t }}</span>{% endfor %}</div>
+      {% else %}<div class="an-ax an-slots">{% for b in c.bars %}<span>{{ b.label }}</span>{% endfor %}</div>{% endif %}
+    </div>
+    {% else %}
+    <div class="panel-b">{% call nd() %}<b>Not enough data.</b> <span class="an-name">{{ c.name }}</span> has {{ c.n }} score{{ "" if c.n == 1 else "s" }}. Statistics need at least 10.{% endcall %}</div>
+    {% endif %}
+    {% if c.stats %}<div class="an-mini{{ ' c3' if c.stats | length <= 3 }}">{% for label, value in c.stats %}<div>{{ label }}<b>{{ value }}</b></div>{% endfor %}</div>{% endif %}
+    {% if c.enough %}{{ table_fb(c.table_head, c.table) }}{% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% if view.more_cards %}<p class="hint">{{ view.more_cards }} more scores. Pick one above to see it.</p>{% endif %}
+{% endif %}
+
+<section class="panel an-sub" aria-label="Trend">
+  <div class="panel-h"><h2>Trend{% if view.trend_name %} <span class="u"><span class="an-name">{{ view.trend_name }}</span>, mean per {{ per }}</span>{% endif %}</h2>
+    {% if view.trend %}<div class="an-legend">{% for s in view.trend.series %}<span><i class="{{ '' if s.source == 'ANNOTATION' else s.source | lower }}"></i>{{ m.icon(icons[s.source], "ico-sm") }}{{ s.name }}</span>{% endfor %}</div>{% endif %}
+  </div>
+  <div class="panel-b">
+  {% if view.trend %}
+    <div class="an-chart" data-an-chart='{{ {"kind": "trend", "labels": view.trend.labels, "series": view.trend.series} | tojson }}' role="img" aria-label="Mean {{ view.trend_name }} per {{ per }}, one line per source"></div>
+  {% else %}
+    {% call nd() %}<b>Not enough data.</b> {% if view.trend_name %}A trend needs at least 10 scores from one source for <span class="an-name">{{ view.trend_name }}</span>.{% else %}A trend needs a numeric or boolean score with at least 10 values.{% endif %}{% endcall %}
+  {% endif %}
+  </div>
+  {% if view.trend %}
+  <details class="an-tbl"><summary>{{ m.icon("i-chev-r") }}View as table</summary>
+    <table class="tbl"><thead><tr><th>{{ per | capitalize }}</th>{% for s in view.trend.series %}<th class="r">{{ s.name }} mean</th><th class="r">n</th>{% endfor %}</tr></thead>
+    <tbody>{% for row in view.trend.table %}<tr><td>{{ row.label }}</td>{% for mean, n in row.cells %}<td class="num r">{{ mean }}</td><td class="num r">{{ n }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>
+  </details>
+  {% endif %}
+</section>
+
+{% include "scores/_compare.html" %}
+</div>
+{% endif %}
+{% endblock %}

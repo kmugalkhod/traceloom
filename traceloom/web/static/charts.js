@@ -4,9 +4,9 @@
   'use strict';
   var charts = [];
 
-  function css(name, fallback) {
-    var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    return v || fallback;
+  // Fonts and colours come from the theme's CSS variables; nothing is hardcoded here.
+  function css(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   }
 
   // Widths and colours arrive as data attributes (the CSP forbids style="" in the HTML itself;
@@ -37,12 +37,12 @@
     if (!spec || !spec.labels || !spec.labels.length || typeof window.uPlot !== 'function') { return null; }
     var xs = spec.labels.map(function (l) { return Date.parse(l) / 1000; });
     var data = [xs].concat(spec.series.map(function (s) { return s.values; }));
-    var ink = css('--ink-3', '#62666b'), line = css('--line', '#e3e5e8');
-    var font = '11px "JetBrains Mono", monospace';
+    var ink = css('--ink-3'), line = css('--line');
+    var font = '11px ' + css('--font-ui');
     var axis = { stroke: ink, font: font, grid: { stroke: line, width: 1 }, ticks: { stroke: line, width: 1 } };
     var palette = ['--s1', '--s2', '--s3', '--s4', '--s5', '--s6'];
     var series = [{}].concat(spec.series.map(function (s, i) {
-      var colour = css(palette[i % palette.length], '#2a55d8');
+      var colour = css(palette[i % palette.length]);
       return {
         label: s.name, stroke: colour, fill: colour, width: 1,
         paths: window.uPlot.paths.bars({ size: [0.7, 48] }), points: { show: false }

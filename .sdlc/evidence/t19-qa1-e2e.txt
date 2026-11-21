@@ -1,0 +1,12 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.5, pytest-9.2.0, pluggy-1.7.0
+rootdir: /Users/kunal007/projects/Traceloom/.sdlc/worktrees/qa-1
+configfile: pyproject.toml
+plugins: langsmith-0.14.17, playwright-0.10.0, anyio-4.16.0, asyncio-1.4.1.post1, respx-0.23.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=function, asyncio_default_test_loop_scope=function
+collected 3 items
+
+tests/e2e/test_qa_t19_responsive.py .                                    [ 33%]
+tests/e2e/test_qa_t19_dataset_import_add.py ..                           [100%]
+
+============================== 3 passed in 4.53s ===============================

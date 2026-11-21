@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}Add to annotation queue{% endblock %}
+{% block content %}
+{{ m.page_header("Add to annotation queue", "Send " ~ ("the matching traces" if matching else subject) ~ " to a queue for review.") }}
+{% if result %}
+  <div class="panel mw-760"><div class="panel-b stack">{% include "queues/_add_toast.html" %}</div></div>
+{% else %}
+<form class="panel mw-760" method="post" action="{{ action }}">
+  {{ m.csrf() }}
+  <div class="panel-b stack">{% include "queues/_add_form.html" %}
+    <div class="row"><a class="btn" href="{{ queues_url }}">Cancel</a><button type="submit" class="btn btn-primary"{% if not options %} disabled{% endif %}>Add to queue</button></div></div>
+</form>
+{% endif %}
+{% endblock %}

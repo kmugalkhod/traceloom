@@ -62,6 +62,40 @@ def decode_cursor(token: str) -> tuple[Any, str]:
 
 # --- Query objects ----------------------------------------------------------------------------
 
+SCORE_OPS = ("=", "!=", ">", ">=", "<", "<=", "in", "exists", "missing")
+SCORE_SORT_PREFIX = "score:"
+
+
+@dataclass(frozen=True)
+class ScoreFilter:
+    """Keep rows with a score `name` whose value passes `op` (`missing`: no score of that name).
+
+    `value` is a number or bool for numeric and boolean scores, a string for categorical ones, and
+    a list of either for `in`. `exists` and `missing` take no value."""
+
+    name: str
+    op: str
+    value: Any = None
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("a score filter needs a score name")
+        if self.op not in SCORE_OPS:
+            raise ValueError(f"unknown score operator {self.op!r}; expected one of {SCORE_OPS}")
+        if self.op in ("exists", "missing"):
+            return
+        if self.op == "in":
+            if not isinstance(self.value, list | tuple) or not self.value:
+                raise ValueError("'in' needs a non-empty list of values")
+            kinds = {isinstance(v, str) for v in self.value}
+            if len(kinds) != 1:
+                raise ValueError("'in' values must be all text or all numbers")
+        elif self.op in (">", ">=", "<", "<="):
+            if isinstance(self.value, str) or self.value is None:
+                raise ValueError(f"{self.op!r} needs a number")
+        elif self.value is None:
+            raise ValueError(f"{self.op!r} needs a value")
+
 
 @dataclass(frozen=True)
 class TraceQuery:
@@ -83,8 +117,28 @@ class TraceQuery:
     bookmarked: bool | None = None
     from_time: datetime | None = None
     to_time: datetime | None = None
-    sort: str = "timestamp"  # timestamp | latency | cost | tokens
+    score_filters: Sequence[ScoreFilter] = ()  # every filter must match
+    # Environments left out unless `environment` is set (the judge and experiment ones).
+    exclude_environments: Sequence[str] = ()
+    sort: str = "timestamp"  # timestamp | latency | cost | tokens | score:<name>
     descending: bool = True
+    cursor: str | None = None
+    limit: int = 50
+
+
+@dataclass(frozen=True)
+class ScoreQuery:
+    """Filters for `list_scores`; results are newest first."""
+
+    trace_id: str | None = None
+    observation_id: str | None = None
+    session_id: str | None = None
+    name: str | None = None
+    source: str | None = None
+    config_id: str | None = None
+    dataset_run_id: str | None = None
+    from_time: datetime | None = None
+    to_time: datetime | None = None
     cursor: str | None = None
     limit: int = 50
 
@@ -94,6 +148,8 @@ class SessionQuery:
     environment: str | None = None
     from_time: datetime | None = None
     to_time: datetime | None = None
+    score_filters: Sequence[ScoreFilter] = ()  # a session matches when its traces do
+    exclude_environments: Sequence[str] = ()
     sort: str = "last_trace"  # first_trace | last_trace | traces | cost | duration
     descending: bool = True
     cursor: str | None = None
@@ -209,6 +265,79 @@ class ScoreRow:
     author_id: str | None = None
     environment: str = "default"
     event_ts: datetime | None = None
+    queue_id: str | None = None  # annotation queue the score was written from
+    execution_id: str | None = None  # judge execution (source EVAL)
+    channel: str | None = None  # NULL or "public_feedback"
+
+
+@dataclass(frozen=True)
+class ScoreRange:
+    from_time: datetime | None = None
+    to_time: datetime | None = None
+    environment: str | None = None
+    include_feedback: bool = True  # False leaves out channel="public_feedback"
+
+
+@dataclass(frozen=True)
+class ScoreSelector:
+    name: str
+    source: str | None = None
+
+
+@dataclass
+class ScoreAggregate:
+    """One score name over one object: numeric and boolean scores average, categorical ones keep
+    the most recent label."""
+
+    name: str
+    count: int
+    average: float | None = None
+    latest_string: str | None = None
+
+
+@dataclass
+class ScorePoint:
+    value: float | None
+    string_value: str | None
+    data_type: str
+    source: str
+    timestamp: datetime
+
+
+@dataclass
+class ScorePair:
+    """Scores A and B matched on the same trace (and the same observation when both have one)."""
+
+    trace_id: str
+    observation_id: str | None
+    a_value: float | None
+    a_string: str | None
+    b_value: float | None
+    b_string: str | None
+
+
+AGGREGATE_OBJECTS = ("trace", "observation", "session")
+MAX_ANALYTICS_ROWS = 50_000
+
+
+def aggregate_scores(rows: Iterable[tuple[str, ScoreRow]]) -> dict[str, dict[str, ScoreAggregate]]:
+    """Fold (object id, score) pairs into per-object, per-name aggregates. Shared by the stores
+    so lite and ClickHouse agree."""
+    sums: dict[tuple[str, str], list[Any]] = {}
+    for object_id, score in sorted(rows, key=lambda r: r[1].timestamp):
+        entry = sums.setdefault((object_id, score.name), [0, 0.0, 0, None])
+        entry[0] += 1
+        if score.data_type == "CATEGORICAL":
+            entry[3] = score.string_value
+        elif score.value is not None:
+            entry[1] += score.value
+            entry[2] += 1
+    out: dict[str, dict[str, ScoreAggregate]] = {}
+    for (object_id, name), (count, total, numeric, latest) in sums.items():
+        out.setdefault(object_id, {})[name] = ScoreAggregate(
+            name, count, total / numeric if numeric else None, latest
+        )
+    return out
 
 
 @dataclass
@@ -329,6 +458,64 @@ class TraceStore(Protocol):
 
     def add_score(self, project_id: str, score: ScoreRow) -> None: ...
 
+    def delete_score(self, project_id: str, score_id: str) -> bool:
+        """Delete one score; False when the project has no such score."""
+        ...
+
+    def config_has_scores(self, project_id: str, config_id: str) -> bool:
+        """Whether any score of the project references the score config."""
+        ...
+
+    def score_counts(self, project_id: str, config_ids: Sequence[str]) -> dict[str, int]:
+        """How many scores of the project reference each score config (absent: none)."""
+        ...
+
+    def list_scores(self, project_id: str, query: ScoreQuery) -> Page[ScoreRow]:
+        """The project's scores matching the query, newest first (limit capped at 200)."""
+        ...
+
+    def score_aggregates(
+        self,
+        project_id: str,
+        object_type: str,
+        ids: Sequence[str],
+        names: Sequence[str] | None = None,
+    ) -> dict[str, dict[str, ScoreAggregate]]:
+        """Per-object averages: object id -> score name -> aggregate. `object_type` is trace,
+        observation or session; `names` limits the score names (None: all)."""
+        ...
+
+    def score_distribution(
+        self,
+        project_id: str,
+        selector: ScoreSelector,
+        range: ScoreRange,
+        limit: int = MAX_ANALYTICS_ROWS,
+    ) -> list[ScorePoint]:
+        """The values of one score name (and source), newest first, at most `limit`."""
+        ...
+
+    def score_trend(
+        self,
+        project_id: str,
+        selector: ScoreSelector,
+        range: ScoreRange,
+        limit: int = MAX_ANALYTICS_ROWS,
+    ) -> list[ScorePoint]:
+        """Like score_distribution, oldest first, for bucketing over time."""
+        ...
+
+    def score_pairs(
+        self,
+        project_id: str,
+        a: ScoreSelector,
+        b: ScoreSelector,
+        range: ScoreRange,
+        limit: int = MAX_ANALYTICS_ROWS,
+    ) -> list[ScorePair]:
+        """Scores A and B on the same trace (and observation when both have one), up to `limit`."""
+        ...
+
     def refresh_trace_aggregates(self, project_id: str, trace_ids: Sequence[str]) -> None: ...
 
     def list_traces(self, project_id: str, query: TraceQuery) -> Page[TraceRow]: ...
@@ -413,7 +600,12 @@ class BlobStore(Protocol):
 
 @runtime_checkable
 class Queue(Protocol):
-    def enqueue(self, message: Mapping[str, Any]) -> None: ...
+    def enqueue(self, message: Mapping[str, Any], delay_seconds: float = 0) -> None:
+        """Deliver `message` to its handler, not before `delay_seconds` have passed.
+
+        Message types: none (an ingest batch), `webhook_delivery`, `eval_job`, `experiment_item`.
+        Delivery is at-least-once; a message lost to a crash is re-sent by the sweeper."""
+        ...
 
     def start(self, handler: Callable[[Mapping[str, Any]], None]) -> None:
         """Begin consuming messages with `handler`."""

@@ -17,7 +17,7 @@ from traceloom.api.errors import install_error_handlers
 from traceloom.auth.csrf import CSRFMiddleware
 from traceloom.auth.sessions import SessionMiddleware
 from traceloom.config import Settings, get_settings
-from traceloom.container import build_container
+from traceloom.container import Container, build_container
 from traceloom.logging_setup import ensure_console_logging
 
 CSP = (
@@ -69,10 +69,28 @@ def include_discovered_routers(app: FastAPI) -> None:
                 app.include_router(router)
 
 
+def _wire_evaluation(container: Container) -> None:
+    """Startup (after migrate): seed the built-in judge templates, register the judge and experiment
+    workers and let the sweeper recover jobs that were never delivered or got stuck."""
+    from traceloom.datasets import experiment
+    from traceloom.evals import rules, runner, templates
+    from traceloom.queue_registry import EVAL_JOB, EXPERIMENT_ITEM
+
+    with container.session_factory.begin() as db:
+        templates.seed_builtins(db)
+    container.queue.register(EVAL_JOB, lambda message: runner.handle(container, message))
+    container.queue.register(EXPERIMENT_ITEM, lambda message: experiment.handle(container, message))
+    if container.sweeper is not None:
+        container.sweeper.set_due_jobs(
+            lambda: [*rules.due_messages(container), *experiment.due_messages(container)]
+        )
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     ensure_console_logging()
     settings = settings or get_settings()
     container = build_container(settings)
+    container.startup_hooks.append(_wire_evaluation)  # after migrate
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:

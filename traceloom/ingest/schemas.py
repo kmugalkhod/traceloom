@@ -120,6 +120,10 @@ class ScoreBody(_Body):
     comment: str | None = None
     environment: Id | None = None
     config_id: Id | None = None
+    queue_id: Id | None = None
+    execution_id: Id | None = None
+    dataset_run_id: Id | None = None
+    channel: Literal["public_feedback"] | None = None
 
     @model_validator(mode="after")
     def _needs_target(self) -> ScoreBody:

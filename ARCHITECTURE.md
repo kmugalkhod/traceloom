@@ -1,3 +1,5 @@
+Superseded for Phase 3+ by sdlc/ARCHITECTURE.md; ADRs 0013+ live in sdlc/adr/.
+
 # Traceloom architecture
 
 Status: accepted (Phase 1 architect step) · Decisions: `docs/adr/` · Diagram: `traceloom-architecture.drawio`

@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ "Edit rule" if rule else "New rule" }}{% endblock %}
+{% block ctx_m %}{% endblock %}
+{% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Evaluators", "href": "/project/" ~ project.id ~ "/evals/templates"}, {"label": "Rules", "href": "/project/" ~ project.id ~ "/evals/rules"}, {"label": "Edit rule" if rule else "New rule"}]) }}{% endblock %}
+
+{% macro fe(name) %}{% if error and error.field == name %}<span class="field-error" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ error }}</span></span>{% endif %}{% endmacro %}
+
+{% macro frow(field, op, value) %}
+          <div class="frow">
+            <select class="select" name="f_field" aria-label="Field" data-f-field>
+              <optgroup label="Trace">{% for key, label in filter_fields %}<option value="{{ key }}"{{ " selected" if field == key }}>{{ label }}</option>{% endfor %}</optgroup>
+              {% if score_fields %}<optgroup label="Scores">{% for key, label in score_fields %}<option value="{{ key }}"{{ " selected" if field == key }}>{{ label }}</option>{% endfor %}</optgroup>{% endif %}
+            </select>
+            <select class="select" name="f_op" aria-label="Operator" data-f-op>{% for o in filter_ops[op_kind(field)] %}<option value="{{ o }}"{{ " selected" if o == op }}>{{ o }}</option>{% endfor %}</select>
+            <input class="input" name="f_value" value="{{ value }}" aria-label="Value" placeholder="{{ 'key=value' if field == 'metadata' else ('comma separated' if field == 'tags' else 'value') }}"{{ " hidden" if op in ("exists", "missing") }}>
+            <button class="btn btn-icon btn-ghost" type="button" aria-label="Remove condition" data-remove-row>{{ m.icon("i-x") }}</button>
+          </div>
+{%- endmacro %}
+
+{% block content %}
+{% set action = "/project/" ~ project.id ~ "/evals/rules" ~ ("/" ~ rule.id if rule else "") %}
+<div class="page-h">
+  <div class="grow"><h1>{{ "Edit rule" if rule else "New rule" }}</h1>
+    <p class="sub">Choose what to judge, how much, and how the template's variables are filled.</p></div>
+  <div class="row-wrap">
+    <a class="btn" href="/project/{{ project.id }}/evals/rules">Cancel</a>
+    <button class="btn btn-primary" type="submit" form="rule-form">Save rule</button>
+  </div>
+</div>
+{% if error and not error.field %}<div class="ev-s3">{{ m.banner("err", error | string) }}</div>{% endif %}
+
+<form id="rule-form" method="post" action="{{ action }}" data-rule-form data-preview-url="/project/{{ project.id }}/evals/rules/preview" data-new-url="/project/{{ project.id }}/evals/rules/new">
+{{ m.csrf() }}
+<div class="ev-s4 form2">
+  <div class="stackf">
+    <section class="panel"><div class="panel-h"><h2>1 Template</h2></div><div class="panel-b stackf">
+      <div class="field"><label for="rname">Rule name</label><input class="input" id="rname" name="name" value="{{ form.name }}" maxlength="200" placeholder="{{ template.name if template }}">{{ fe("name") }}</div>
+      <div class="fgrid">
+        <div class="field"><label for="rt">Template</label>
+          <select class="select" id="rt" name="template_id" data-template-select>
+            {% for c in choices %}<option value="{{ c.id }}"{{ " selected" if c.id == form.template_id }}>{{ c.name }}{{ " (built-in)" if c.builtin }}</option>{% endfor %}
+          </select>{{ fe("template_id") }}</div>
+        <div class="field"><label for="rv">Version</label>
+          <select class="select" id="rv" name="template_version" data-version-select>
+            <option value="">Follow latest{% if template %} (v{{ choices | selectattr("id", "equalto", template.id) | map(attribute="latest") | first }}){% endif %}</option>
+            {% if version %}{% for n in range(1, (choices | selectattr("id", "equalto", template.id) | map(attribute="latest") | first) + 1) | reverse %}<option value="{{ n }}"{{ " selected" if form.template_version == n | string }}>Pin v{{ n }}</option>{% endfor %}{% endif %}
+          </select>{{ fe("template_version") }}</div>
+      </div>
+      <div class="fgrid">
+        <div class="field"><label for="rs">Score name</label><input class="input" id="rs" name="score_name" value="{{ form.score_name }}" maxlength="200">{{ fe("score_name") }}</div>
+        <div class="field"><label for="rc">Score config <span class="muted">optional</span></label>
+          <select class="select" id="rc" name="config_id"><option value="">None</option>
+            {% for c in configs %}<option value="{{ c.id }}"{{ " selected" if c.id == form.config_id }}>{{ c.name }} ({{ c.type }})</option>{% endfor %}
+          </select>{{ fe("config_id") }}</div>
+      </div>
+      {% if version %}<p class="hint">Returns: {{ score }}, plus reasoning.</p>{% endif %}
+      {% if needs_model %}
+      <div class="fgrid">
+        <div class="field"><label for="rconn">Connection</label>
+          <select class="select" id="rconn" name="connection_id" data-conn>
+            <option value="">Choose a connection</option>
+            {% for c in connections %}<option value="{{ c.id }}"{{ " selected" if c.id == form.connection_id }} data-models="{{ c.models | tojson | forceescape }}">{{ c.name }}</option>{% endfor %}
+          </select>{{ fe("connection_id") }}</div>
+        <div class="field"><label for="rmodel">Model</label>
+          <input class="input mono" id="rmodel" name="model" value="{{ form.model }}" list="rule-models" autocomplete="off" data-model>
+          <datalist id="rule-models">{% for c in connections %}{% for name in c.models %}<option value="{{ name }}">{% endfor %}{% endfor %}</datalist>{{ fe("model") }}</div>
+      </div>
+      <span class="hint">This template names no model, so the rule chooses one.</span>
+      {% elif version %}
+      <p class="hint">Model: <span class="mono-sm">{{ version.model }}</span>, set by the template.</p>
+      {% endif %}
+    </div></section>
+
+    <section class="panel"><div class="panel-h"><h2>2 Target and filter</h2></div><div class="panel-b stackf">
+      <div class="tgt" role="radiogroup" aria-label="Target">
+        <label><input type="radio" name="target" value="trace"{{ " checked" if form.target == "trace" }} data-target><span><b>Traces</b><small>Judge the whole run's input and output.</small></span></label>
+        <label><input type="radio" name="target" value="observation"{{ " checked" if form.target == "observation" }} data-target><span><b>Observations</b><small>Judge one step by name or type.</small></span></label>
+      </div>
+      <div class="field" data-for-target="trace"{{ " hidden" if form.target != "trace" }}>
+        <label for="tn">Trace name</label><input class="input" id="tn" name="trace_name" value="{{ trace_name }}" maxlength="500" placeholder="All traces">
+      </div>
+      <div class="fgrid" data-for-target="observation"{{ " hidden" if form.target != "observation" }}>
+        <div class="field"><label for="on">Observation name</label><input class="input" id="on" name="observation_name" value="{{ form.target_name }}" maxlength="500">{{ fe("target_name") }}</div>
+        <div class="field"><label for="ot">Observation type <span class="muted">optional</span></label>
+          <select class="select" id="ot" name="observation_type"><option value="">Any type</option>
+            {% for t in ["GENERATION", "SPAN", "EVENT", "AGENT", "TOOL", "CHAIN", "RETRIEVER", "EMBEDDING"] %}<option{{ " selected" if form.target_type == t }}>{{ t }}</option>{% endfor %}
+          </select>{{ fe("target_type") }}</div>
+      </div>
+      <div>
+        <div class="ev-s7 lbl">Filter</div>
+        <div data-filter-rows data-ops="{{ filter_ops | tojson | forceescape }}">
+          {% for row in filter_rows %}{{ frow(row.field, row.op, row.value) }}{% endfor %}
+        </div>
+        <template data-filter-template>{{ frow("tags", "in", "") }}</template>
+        {{ fe("filter") }}
+        <button class="ev-s8 btn btn-sm" type="button" data-add-row>{{ m.icon("i-plus") }}Add condition</button>
+        <span class="ev-s9 hint">Same conditions as the trace filter: name, tags, environment, user, session, release, version, metadata and scores. Judge and experiment traces never match.</span>
+      </div>
+    </div></section>
+
+    <section class="panel"><div class="panel-h"><h2>3 Sampling and delay</h2></div><div class="panel-b stackf">
+      <div class="range"><label class="ev-s10 lbl" for="rsamp">Sampling</label><input id="rsamp" type="range" min="0" max="100" step="1" name="sampling_pct" value="{{ form.sampling_pct }}" data-sampling><output for="rsamp" data-sampling-out>{{ form.sampling_pct }}%</output></div>
+      {{ fe("sampling") }}
+      <div class="ev-s11 field"><label for="dl">Delay <span class="muted">seconds</span></label><input id="dl" class="ev-s6 input num" name="delay_seconds" value="{{ form.delay_seconds }}" inputmode="numeric"><span class="hint">Waits for late spans before judging.</span>{{ fe("delay") }}</div>
+    </div></section>
+
+    <section class="panel mapt"><div class="panel-h"><h2>4 Variable mapping</h2></div><div class="panel-b flush">
+      {% if not variables %}<p class="ev-s12 hint">This template has no variables.</p>{% else %}
+      <table class="tbl tbl-flat"><thead><tr><th>Variable</th><th>Source</th><th>Path <span class="muted">optional</span></th><th>Default</th></tr></thead><tbody>
+      {% for name in variables %}
+        {% set spec = form.mapping.get(name, {}) %}
+        {% set src = spec.get("source") or (name if name in ["input", "output", "expected_output"] else "") %}
+        <tr data-map-row>
+          <td><span class="chip var">{{ "{{" }}{{ name }}{{ "}}" }}</span></td>
+          <td>
+            <select class="select" name="map_{{ name }}_source" aria-label="Source for {{ name }}" data-source>
+              <option value="">Choose…</option>
+              {% for key, label in sources %}<option value="{{ key }}"{{ " selected" if src == key }}>{{ label }}</option>{% endfor %}
+            </select>
+            <input class="input sub-in" name="map_{{ name }}_key" value="{{ spec.get('key', '') }}" placeholder="metadata key" aria-label="Metadata key for {{ name }}" data-show-for="metadata"{{ " hidden" if src != "metadata" }}>
+            <input class="input sub-in" name="map_{{ name }}_observation" value="{{ spec.get('observation', '') }}" placeholder="observation name" aria-label="Observation name for {{ name }}" data-show-for="observation"{{ " hidden" if src != "observation" }}>
+            <select class="select sub-in" name="map_{{ name }}_field" aria-label="Observation field for {{ name }}" data-show-for="observation"{{ " hidden" if src != "observation" }}>
+              <option value="output"{{ " selected" if spec.get("field", "output") == "output" }}>its output</option><option value="input"{{ " selected" if spec.get("field") == "input" }}>its input</option></select>
+            {% if error and error.field == "map_" ~ name %}<span class="field-error" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ error }}</span></span>{% endif %}
+          </td>
+          <td><input class="input mono" name="map_{{ name }}_path" value="{{ spec.get('path', '') }}" placeholder="$.messages[-1].content" aria-label="Path for {{ name }}"></td>
+          <td><input class="input" name="map_{{ name }}_default" value="{{ spec.get('default', '') }}" aria-label="Default for {{ name }}"></td>
+        </tr>
+      {% endfor %}
+      </tbody></table>{% endif %}
+    </div></section>
+  </div>
+
+  <div class="ev-s13 stackf">
+    <section class="panel"><div class="panel-h"><h2>Preview</h2></div><div class="panel-b stackf">
+      <div data-preview aria-live="polite"><p class="hint">Loading the most recent match…</p></div>
+      <button class="btn" type="button" data-preview-refresh>Refresh preview</button>
+      <span class="hint">Shows what the judge would receive. No model call is made.</span>
+    </div></section>
+    <section class="panel"><div class="panel-h"><h2>Applies to</h2></div><div class="panel-b">
+      <p class="ev-s14">New traces only. Use Backfill after saving to run the rule on existing traces. A new rule starts off: enabling it asks you to confirm which provider receives trace content.</p>
+    </div></section>
+  </div>
+</div>
+</form>
+{% endblock %}
+{% block scripts %}<script src="/static/rule_editor.js" defer></script>{% endblock %}

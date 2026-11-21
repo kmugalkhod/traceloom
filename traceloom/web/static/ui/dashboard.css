@@ -1,0 +1,57 @@
+/* Dashboard (FR-D1..D5): 112px stat cards, an 8+4 grid with a 24px gap, filled error panel,
+   aligned breakdown rows and a top-users table. Scoped to .dash-stats / .dash-grid. */
+
+/* stat cards: four separate 112px cards, label, value, caption, chip top-right */
+.statrow.dash-stats{gap:var(--sp-6);margin:0;background:none;border:0;border-radius:0;box-shadow:none}
+.statrow.dash-stats>.stat{position:relative;justify-content:space-between;gap:0;height:112px;padding:var(--sp-6);background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--sh-1)}
+.dash-stats .stat .top{height:20px;padding-right:32px;font-size:13px;font-weight:500;color:var(--ink-3)}
+.dash-stats .stat b{font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:36px;white-space:nowrap}
+.dash-stats .stat .sub{height:20px;font-size:13px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-stats .stat .chipi{position:absolute;top:var(--sp-6);right:var(--sp-6);margin:0;width:24px;height:24px;border-radius:6px}
+.dash-stats .stat .chipi .ico{width:14px;height:14px}
+
+/* grid: 12 columns, 24px gap, same-row panels stretch to one height */
+.dgrid.dash-grid{gap:var(--sp-7);align-items:stretch}
+.dash-grid>.panel{display:flex;flex-direction:column}
+.dash-grid>.panel>.panel-b:last-child{flex:1}
+.dash-grid .rack{padding:0}
+.dash-grid .tabpanel{max-width:none}
+
+/* error rate by level: stacked bar, legend rows, total footnote pinned to the bottom */
+.lvl-body{gap:var(--sp-6)}
+.dash-grid .stackbar{flex:none;height:12px;border-radius:999px;gap:2px}
+.leg{display:grid;grid-template-columns:12px 1fr 56px 56px;align-items:center;gap:var(--sp-4);height:36px;border-bottom:1px solid var(--line);font-size:14px}
+.legend-rows .leg:last-child{border-bottom:0}
+.leg .dot{width:10px;height:10px;border-radius:50%}
+.leg .p,.leg .n{text-align:right;font-variant-numeric:tabular-nums}
+.leg .n{color:var(--ink-3)}
+.lvl-foot{margin-top:auto;font-size:12px;color:var(--ink-3)}
+
+/* breakdown rows: 200px name, bar, 96px right-aligned value, so every bar starts at one x */
+.panel-b.flush{padding:var(--sp-4) 0}
+.dash-grid .hbar{grid-template-columns:200px minmax(0,1fr) 96px;gap:var(--sp-6);height:var(--row-h);padding:0 var(--sp-6);border-bottom:1px solid var(--line)}
+.dash-grid .hbar:last-child{border-bottom:0}
+.dash-grid .hbar .trk{height:8px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+.dash-grid .hbar .trk i{border-radius:999px}
+.dash-grid .hbar .num{text-align:right;font-weight:500}
+
+/* top users: a table whose rank column sits on the 16px inner edge */
+.dash-users .tbl th,.dash-users .tbl td{padding:0 var(--sp-5)}
+.dash-users .tbl th:first-child,.dash-users .tbl td:first-child{padding-left:var(--sp-6)}
+.dash-users .tbl th:last-child,.dash-users .tbl td:last-child{padding-right:var(--sp-6)}
+.dash-users .tbl.keepcols{display:table}
+.dash-users .tbl td{height:var(--row-h)}
+.dash-users .tbl th.rank,.dash-users .tbl td.rank{width:32px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+
+@container app (max-width:1100px){
+  .dash-grid>.panel.c8,.dash-grid>.panel.c4{grid-column:span 12}
+}
+@container app (max-width:760px){
+  .statrow.dash-stats{gap:var(--sp-5)}
+  .statrow.dash-stats>.stat{padding:var(--sp-5);border:1px solid var(--line)}
+  .dash-stats .stat b{font-size:22px}
+  .dash-stats .stat .chipi{top:var(--sp-5);right:var(--sp-5)}
+  .dash-stats .stat .sub{height:auto;font-size:12px;line-height:14px;white-space:normal}
+  .dash-grid .panel-h{height:auto;padding-top:var(--sp-5);padding-bottom:var(--sp-5)}
+  .dash-grid .hbar{grid-template-columns:120px minmax(0,1fr) 80px;gap:var(--sp-5);padding:0 var(--sp-5)}
+}

@@ -1,0 +1,27 @@
+{# Config-driven score input: number field, category select or boolean select. `cfg` is a
+   ScoreConfig; `base`, `score_error`, `score_form` and the `m` macros come from the including
+   template's context. Each config is its own form that posts `config_id` and `value` (plus the
+   shared comment box, #score-note); the server validates against the config. #}
+{% macro type_hint(cfg) -%}
+{% if cfg.data_type == "NUMERIC" %}Numeric{% if cfg.min_value is not none and cfg.max_value is not none %}, {{ "%g" | format(cfg.min_value) }} to {{ "%g" | format(cfg.max_value) }}{% elif cfg.min_value is not none %}, at least {{ "%g" | format(cfg.min_value) }}{% elif cfg.max_value is not none %}, at most {{ "%g" | format(cfg.max_value) }}{% endif %}{% elif cfg.data_type == "BOOLEAN" %}Boolean{% else %}Categorical{% endif %}
+{%- endmacro %}
+{% macro config_input(cfg) %}
+{% set failed = score_error and score_form and score_form.config_id == cfg.id %}
+{% set kept = score_form.value if failed else "" %}
+<form method="post" action="{{ base }}/scores" hx-post="{{ base }}/scores" hx-target="#trace-discussion" hx-swap="innerHTML" hx-include="#score-note" class="sin" data-score="{{ cfg.id }}" data-score-form>
+  {{ m.csrf() }}
+  <input type="hidden" name="config_id" value="{{ cfg.id }}">
+  <div class="nm"{% if cfg.description %} title="{{ cfg.description }}"{% endif %}><span>{{ cfg.name }}</span><small>{{ type_hint(cfg) }}</small></div>
+  <div class="ctl">
+    {% if cfg.data_type == "NUMERIC" %}
+      <input class="input" name="value" inputmode="decimal" autocomplete="off" required placeholder="0.00" value="{{ kept }}" aria-label="{{ cfg.name }}"{% if failed %} aria-invalid="true" aria-describedby="se-{{ cfg.id }}"{% endif %}>
+    {% elif cfg.data_type == "BOOLEAN" %}
+      <select class="select" name="value" required aria-label="{{ cfg.name }}"{% if failed %} aria-invalid="true" aria-describedby="se-{{ cfg.id }}"{% endif %}><option value="">Choose</option><option value="true"{% if kept == "true" %} selected{% endif %}>True</option><option value="false"{% if kept == "false" %} selected{% endif %}>False</option></select>
+    {% else %}
+      <select class="select" name="value" required aria-label="{{ cfg.name }}"{% if failed %} aria-invalid="true" aria-describedby="se-{{ cfg.id }}"{% endif %}><option value="">Choose</option>{% for c in cfg.categories or [] %}<option value="{{ c.label }}"{% if kept == c.label %} selected{% endif %}>{{ c.label }}</option>{% endfor %}</select>
+    {% endif %}
+  </div>
+  <button class="btn btn-primary btn-sm" type="submit">Save</button>
+  {% if failed %}<span class="field-error" id="se-{{ cfg.id }}" role="alert">{{ m.icon("i-warn", "ico-sm") }}<span>{{ score_error }}</span></span>{% endif %}
+</form>
+{% endmacro %}

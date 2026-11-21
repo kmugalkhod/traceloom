@@ -1,0 +1,923 @@
+{
+  "epic": {
+    "title": "Phase 3 \u2014 Evaluation",
+    "description": "Adds evaluation on top of Phases 1\u20132: score configs and scores everywhere (API, SDK, UI, public-key feedback), score filters and analytics, annotation queues with atomic locking, LLM-as-a-judge templates/rules/worker jobs with a daily cost cap, versioned datasets, SDK and UI experiments, and a run comparison page. Delayed jobs are added to the queue port. Lite mode stays the test default and the suite stays offline."
+  },
+  "ui": true,
+  "stories": [
+    {
+      "id": "S1",
+      "title": "Foundation, score configs, scores and public feedback",
+      "description": "Settings, permissions, queue delay support and models for scores/queues. Score configs with validation, the public scores API, SDK score params, score filters/sorts in both stores, the pk-only feedback endpoint, settings tabs, and score chips/inputs/columns in the UI.",
+      "acceptance": [
+        "An Admin creates NUMERIC/CATEGORICAL/BOOLEAN configs; out-of-range scores via API return 400; the data type is immutable once scores exist; archived configs are hidden from pickers but keep their scores (AC-9)",
+        "Filtering `quality >= 0.5` and sorting by `score:quality` desc (unscored last) work in the lite store and survive a reload via URL (AC-10)",
+        "A pk-only POST /api/public/feedback creates a score with CORS for allowed origins only, rejects non-public configs and is rate limited; pk-only auth is rejected everywhere else (AC-8)",
+        "Score chips, a Scores column and config-driven inputs show on traces, observations and sessions"
+      ],
+      "tasks": [
+        {
+          "id": "T1",
+          "title": "Phase 3 settings, permissions and package stubs",
+          "description": "Add the FR-X2 and ADR settings to Settings (rate_feedback, queue_bulk_max, annotation_lock_minutes, eval_daily_cost_cap_usd, eval_max_attempts, eval_environment, experiment_environment, eval_backfill_max, eval_concurrency, dataset_import_max_rows, eval_rule_cache_seconds, eval_stuck_seconds, eval_sweep_batch). Add the new Perms with the role matrix. Create empty packages scores/, annotation/, evals/, datasets/ and stub modules db/models_eval.py and db/models_datasets.py. Skeleton: no features.",
+          "files": [
+            "traceloom/config.py",
+            "traceloom/auth/permissions.py",
+            "traceloom/scores/__init__.py",
+            "traceloom/annotation/__init__.py",
+            "traceloom/evals/__init__.py",
+            "traceloom/datasets/__init__.py",
+            "traceloom/db/models_eval.py",
+            "traceloom/db/models_datasets.py",
+            "tests/unit/test_phase3_perms_config.py"
+          ],
+          "acceptance": [
+            "Settings load all new fields with the defaults from the plan",
+            "A matrix test maps each new Perm to its minimum role (Viewer/Member/Admin)",
+            "The existing suite stays green"
+          ],
+          "qa": "none",
+          "check": "light",
+          "ui": false,
+          "depends_on": []
+        },
+        {
+          "id": "T2",
+          "title": "Queue delayed enqueue in both adapters",
+          "description": "Extend the Queue port with enqueue(message, delay_seconds=0) and new message types eval_job and experiment_item. Lite: a timer lane (heap + condition variable) feeding an eval side lane with eval_concurrency workers. Full: Dramatiq delay and a separate traceloom-eval queue/actor with max_retries=0. Only the Queue section of ports.py is touched.",
+          "files": [
+            "traceloom/ports.py",
+            "traceloom/adapters/lite/inproc_queue.py",
+            "traceloom/adapters/full/redis_queue.py",
+            "traceloom/queue_registry.py",
+            "tests/contract/test_blob_queue_contract.py"
+          ],
+          "acceptance": [
+            "A delayed message is delivered after its delay and not before; delay 0 behaves as before",
+            "Eval messages run on a lane separate from ingest",
+            "Contract tests run delayed-enqueue cases against the in-process adapter (full adapter behind TRACELOOM_IT)",
+            "The Phase 1 durability tests stay green"
+          ],
+          "qa": "none",
+          "check": "normal",
+          "ui": false,
+          "depends_on": []
+        },
+        {
+          "id": "T3",
+          "title": "Models for score configs, score columns and annotation queues",
+          "description": "Add score_configs, annotation_queues and annotation_items models. Add scores.queue_id/execution_id/channel and the (project_id, name, timestamp) index. Add a factories module for configs and queues.",
+          "files": [
+            "traceloom/db/models.py",
+            "tests/factories_scores.py",
+            "tests/unit/test_models_scores.py"
+          ],
+          "acceptance": [
+            "Tables create via metadata; the unique (queue_id, object_type, object_id) constraint holds",
+            "score_configs name uniqueness is among non-archived rows only",
+            "Factories produce valid rows"
+          ],
+          "qa": "none",
+          "check": "light",
+          "ui": false,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T6",
+          "title": "Migration 0003 and ClickHouse DDL",
+          "description": "Write Alembic 0003_evaluation creating all Phase 3 tables (including eval_spend_daily, the run item output/latency/cost columns and eval_executions.estimated_cost), the scores columns and index (CREATE INDEX CONCURRENTLY on Postgres), and the batched source backfill (author_id not null \u2192 ANNOTATION). Update the ClickHouse scores columns and the name skip index.",
+          "files": [
+            "traceloom/db/migrations/versions/0003_evaluation.py",
+            "traceloom/adapters/full/clickhouse_migrations.sql",
+            "traceloom/adapters/full/clickhouse_schema.sql",
+            "tests/api/test_phase3_migration.py"
+          ],
+          "acceptance": [
+            "0003 upgrades a Phase 2 database and downgrade works",
+            "Existing UI-created scores (author_id set) become ANNOTATION and API rows stay API",
+            "The migrated schema matches the models"
+          ],
+          "qa": "none",
+          "check": "deep",
+          "ui": false,
+          "depends_on": [
+            "T3",
+            "T4",
+            "T5"
+          ]
+        },
+        {
+          "id": "T7",
+          "title": "Score config service and score validation in ingest",
+          "description": "Config CRUD, archive/unarchive, type immutability once used, and validation of a score against its config. Add queue_id, execution_id, dataset_run_id and channel to the ScoreBody schema. Validate in the ingest merge step through a config cache; failure gives a per-event error. Add a score service for create/list/delete and source rules (API/ANNOTATION/EVAL).",
+          "files": [
+            "traceloom/scores/configs.py",
+            "traceloom/scores/service.py",
+            "traceloom/ingest/schemas.py",
+            "traceloom/ingest/merge.py",
+            "tests/api/test_score_configs.py",
+            "tests/unit/test_ingest_schemas.py"
+          ],
+          "acceptance": [
+            "A NUMERIC 0\u20131 config rejects 1.5; categorical and boolean values are checked",
+            "Data type and categories are rejected on change after scores exist, while description, range and archive state can change",
+            "A score without config_id is accepted as before",
+            "Queries are project-scoped"
+          ],
+          "qa": "Via the ingestion API, post score-create events with and without config_id and an out-of-range value; confirm the per-event error and that valid events are stored.",
+          "check": "normal",
+          "ui": false,
+          "depends_on": [
+            "T3"
+          ]
+        },
+        {
+          "id": "T8",
+          "title": "Public scores API and SDK score params",
+          "description": "POST /api/public/scores (single/batch), GET with filters, DELETE, and GET /api/public/score-configs, with pk+sk auth. SDK score() gains config_id, session_id and dataset_run_id.",
+          "files": [
+            "traceloom/api/scores.py",
+            "traceloom/main.py",
+            "sdk/python/traceloom_sdk/objects.py",
+            "tests/api/test_public_scores.py",
+            "sdk/python/tests/test_score_params.py"
+          ],
+          "acceptance": [
+            "POST validates against the config (400 on failure)",
+            "GET filters by trace_id, name, source, config_id and from/to and returns {data, meta}",
+            "DELETE removes only a score in the caller's project",
+            "The SDK sends the new params",
+            "pk-only auth returns 401"
+          ],
+          "qa": "curl POST /api/public/scores with pk+sk, then GET ?trace_id= and DELETE; try with the pk only and a key from another project.",
+          "check": "normal",
+          "ui": false,
+          "depends_on": [
+            "T7"
+          ]
+        },
+        {
+          "id": "T9",
+          "title": "Score filters, sorts and aggregates in the stores",
+          "description": "Add ScoreFilter and score_filters to TraceQuery/observation/session queries and sort=score:<name>. Add the score_aggregates, score_distribution, score_trend and score_pairs methods to the TraceStore port, with lite SQL and ClickHouse implementations. Hide the eval and experiment environments in lists by default. Contract tests.",
+          "files": [
+            "traceloom/ports.py",
+            "traceloom/adapters/lite/sql_read.py",
+            "traceloom/adapters/lite/sql_analytics.py",
+            "traceloom/adapters/full/clickhouse_trace_store.py",
+            "tests/contract/test_score_filter_contract.py"
+          ],
+          "acceptance": [
+            "Ops = != > >= < <=, in, exists and missing work on numeric, boolean and categorical scores",
+            "sort=score:quality puts unscored rows last",
+            "score_aggregates returns per-object averages",
+            "The traceloom-eval and traceloom-experiment environments are hidden unless selected",
+            "ClickHouse parity runs under TRACELOOM_IT"
+          ],
+          "qa": "none",
+          "check": "deep",
+          "ui": false,
+          "depends_on": [
+            "T3"
+          ]
+        },
+        {
+          "id": "T10",
+          "title": "Public feedback endpoint (pk-only)",
+          "description": "Add a feedback_key dependency that resolves X-Traceloom-Public-Key to a distinct FeedbackPrincipal. Add POST /api/public/feedback and OPTIONS, with a config allowlist (public_feedback=true), a 1,000-char comment cap, a per-project origin check (403), per-route CORS from the union of allowlists, per-key and per-IP rate limits (429), a 202 response and idempotent replace by id. Add origin storage via project_eval_settings.",
+          "files": [
+            "traceloom/auth/deps.py",
+            "traceloom/api/feedback.py",
+            "traceloom/scores/feedback.py",
+            "traceloom/main.py",
+            "tests/api/test_feedback.py"
+          ],
+          "acceptance": [
+            "An allowed origin gets 202 plus CORS headers and an API-source score with channel=public_feedback",
+            "A disallowed origin gets 403 and no CORS headers",
+            "A non-public or invalid config gets 400",
+            "pk-only auth on other endpoints returns 401",
+            "The 61st request in a minute returns 429",
+            "The preflight uses the union allowlist"
+          ],
+          "qa": "curl the endpoint with the pk, with and without an allowed Origin, a bad config name, an over-long comment and 61 rapid requests; confirm GET /api/public/scores with only the pk gives 401.",
+          "check": "deep",
+          "ui": false,
+          "depends_on": [
+            "T7",
+            "T4"
+          ]
+        },
+        {
+          "id": "T11",
+          "title": "Settings tabs: Score configs and Evaluation",
+          "description": "Add the Evaluation nav group (Scores, Annotation queues, Evaluators, Datasets) and the settings tabs. Score configs tab: table and a create/edit dialog with type-specific fields and archive (Admin edit, Viewer read). Evaluation tab: cost cap (with today's spend), feedback origins and the feedback.js snippet with copy instructions. Add the static feedback.js (<3 KB, no dependencies).",
+          "files": [
+            "traceloom/web/context.py",
+            "traceloom/web/routers/settings_scores.py",
+            "traceloom/web/routers/settings_evaluation.py",
+            "traceloom/web/templates/settings/scores.html",
+            "traceloom/web/templates/settings/evaluation.html",
+            "traceloom/web/static/feedback.js",
+            "traceloom/main.py",
+            "tests/api/test_settings_evaluation_tabs.py"
+          ],
+          "acceptance": [
+            "Admins can create, edit and archive configs; Members and Viewers cannot (403 on writes)",
+            "Origin and cap changes are saved and audited",
+            "The feedback.js snippet is shown and the static file is under 3 KB",
+            "User content (names, descriptions, origins) renders escaped",
+            "Matches design/mockup.html"
+          ],
+          "qa": "In the browser as Admin, create a BOOLEAN config with public feedback, add an allowed origin, archive and unarchive it; check the snippet; log in as Member and confirm the controls are read-only; view at 390px.",
+          "check": "normal",
+          "ui": true,
+          "depends_on": [
+            "T7",
+            "T10"
+          ]
+        },
+        {
+          "id": "T12",
+          "title": "Score chips, config-driven inputs, Scores column and filter section",
+          "description": "Add _score_chips.html and _score_input.html (number field, category select, boolean toggle, free-form). Wire the trace detail Scores tab, observation rows and the session page. Add a Scores column with a column picker on the traces and sessions lists. Add a Score section in the filter tray with URL and saved-view round-trip.",
+          "files": [
+            "traceloom/web/templates/_score_chips.html",
+            "traceloom/web/templates/_score_input.html",
+            "traceloom/web/routers/trace_actions.py",
+            "traceloom/web/routers/traces.py",
+            "traceloom/web/routers/sessions.py",
+            "traceloom/web/trace_filters.py",
+            "traceloom/web/trace_list.py",
+            "tests/api/test_trace_list_page.py"
+          ],
+          "acceptance": [
+            "Config-driven inputs validate and create ANNOTATION scores (Member+); archived configs are not offered",
+            "Chips are coloured by source",
+            "A score filter such as quality >= 0.5 round-trips in the URL and in saved views",
+            "Score names and comments render escaped"
+          ],
+          "qa": "In the browser, add a numeric, a categorical and a boolean score on a trace, then filter the traces list by score and reload; check chips on the observation tree and sessions; log in as Viewer and confirm there are no inputs.",
+          "check": "normal",
+          "ui": true,
+          "depends_on": [
+            "T7",
+            "T9"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Annotation queues",
+      "description": "Members create queues over score configs, add items by hand or from a filter, review them on a keyboard-driven screen with atomic locking, and see progress.",
+      "acceptance": [
+        "A queue with 2 configs and 5 traces added from a filter can be worked to 100% / 'Queue complete' with \u2318\u21b5 and s (AC-4)",
+        "20 concurrent claims on one pending item yield exactly one winner; another reviewer sees a held item read-only; expired locks are reclaimable (AC-5)",
+        "Duplicate items are skipped with a count"
+      ],
+      "tasks": [
+        {
+          "id": "T13",
+          "title": "Queue services and atomic claim",
+          "description": "annotation/queues.py: create/edit/delete, add items, add-from-filter capped by queue_bulk_max with dedupe, and stats (counts, per-reviewer completed, median time). annotation/claim.py: atomic claim (Postgres subselect with RETURNING; SQLite conditional UPDATE with a rowcount check and bounded retry), renew, release, complete (writes ANNOTATION scores with queue_id) and skip/reopen.",
+          "files": [
+            "traceloom/annotation/queues.py",
+            "traceloom/annotation/claim.py",
+            "tests/api/test_annotation_queues.py",
+            "tests/api/test_annotation_claim.py"
+          ],
+          "acceptance": [
+            "20 concurrent claims on 1 pending item give exactly one success",
+            "A lock held by R1 blocks R2, and an expired lock can be re-claimed",
+            "Complete writes one ANNOTATION score per config with queue_id and the reviewer",
+            "Add-from-filter reports added and duplicate counts",
+            "All queries are project-scoped and permission-checked"
+          ],
+          "qa": "none",
+          "check": "deep",
+          "ui": false,
+          "depends_on": [
+            "T3",
+            "T7"
+          ]
+        },
+        {
+          "id": "T14",
+          "title": "Queue pages and review screen",
+          "description": "Queue list with progress bars, queue detail (progress, per-reviewer table, items table with status/reviewer filters, 'Queue complete'), and the review screen (read-only object IO/tree beside a score form, a lock banner, a sticky footer, keyboard shortcuts n/\u2192, s, \u2318/ctrl+enter, ?, and lock renewal). Stacks below 1100px.",
+          "files": [
+            "traceloom/web/routers/queues.py",
+            "traceloom/web/routers/queue_review.py",
+            "traceloom/web/templates/queues/list.html",
+            "traceloom/web/templates/queues/detail.html",
+            "traceloom/web/templates/queues/review.html",
+            "traceloom/web/static/queue_review.js",
+            "tests/api/test_queue_pages.py",
+            "tests/api/test_phase3_escape_queues.py"
+          ],
+          "acceptance": [
+            "A Member works a queue to 'Queue complete' with the keyboard",
+            "A locked item shows 'Locked by <name> until <time>' read-only",
+            "Viewers can read but not review",
+            "Admins can delete a queue; a Member gets 403",
+            "Comments and IO containing <script> render as literal text"
+          ],
+          "qa": "In the browser as Member, create a queue, then press \u2318\u21b5 and s through 5 items, reopen the skipped one and complete it; open the same item as a second user and check the lock banner; paste <script>alert(1)</script> in a comment and confirm no dialog.",
+          "check": "deep",
+          "ui": true,
+          "depends_on": [
+            "T13"
+          ]
+        },
+        {
+          "id": "T15",
+          "title": "Add to queue from details, lists and filters",
+          "description": "Add an 'Add to queue' action on the trace, observation and session detail pages, bulk selection on the lists, and 'Add all matching to queue' (snapshotting the current filter). Reports added and duplicate counts.",
+          "files": [
+            "traceloom/web/routers/queue_add.py",
+            "traceloom/web/templates/queues/_add_dialog.html",
+            "traceloom/web/templates/traces/list.html",
+            "traceloom/web/templates/traces/detail.html",
+            "traceloom/web/templates/sessions/list.html",
+            "tests/api/test_queue_add_actions.py"
+          ],
+          "acceptance": [
+            "Adding from a filter snapshots the matching traces up to queue_bulk_max",
+            "Re-adding the same object reports it as skipped",
+            "Archived configs' queues are not offered incorrectly; Viewers see no action"
+          ],
+          "qa": "In the browser, filter the traces list, choose 'Add all matching to queue', check the toast counts, repeat to see duplicates skipped, and add a single trace from its detail page.",
+          "check": "normal",
+          "ui": true,
+          "depends_on": [
+            "T13",
+            "T12"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "Datasets with versioned items",
+      "description": "Members create datasets, edit items with immutable versions, import from CSV/JSON, and add items from traces. The public datasets API and SDK get_dataset make them usable from code.",
+      "acceptance": [
+        "Editing an item creates version 2 and a run started before the edit reads version 1 (AC-12)",
+        "A CSV with a malformed JSON cell imports as a string with a preview warning",
+        "'Add to dataset' from an observation prefills its input and output and links the source",
+        "The public API and SDK can create datasets and items and read them as of the latest version"
+      ],
+      "tasks": [
+        {
+          "id": "T5",
+          "title": "Dataset models",
+          "description": "Fill db/models_datasets.py: datasets, dataset_items, dataset_item_versions, dataset_runs (unique dataset+name) and dataset_run_items (output/latency_ms/cost/estimated_cost). Add a factories module.",
+          "files": [
+            "traceloom/db/models_datasets.py",
+            "tests/factories_datasets.py",
+            "tests/unit/test_models_datasets.py"
+          ],
+          "acceptance": [
+            "Tables create; unique (dataset_id, name) for runs and unique dataset name per project hold",
+            "Factories produce valid rows"
+          ],
+          "qa": "none",
+          "check": "light",
+          "ui": false,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T16",
+          "title": "Dataset service, versions, importer and runs",
+          "description": "datasets/service.py: dataset and item CRUD, an immutable version row per create/edit/archive, dataset version = latest change timestamp, item reads as of a version, add-from-trace. importer.py: CSV (stdlib csv, column mapping, JSON cell parse else string with warning), JSON/JSONL, row and size limits, preview with per-row errors. runs.py: create a run (records dataset_version), link run items, status.",
+          "files": [
+            "traceloom/datasets/service.py",
+            "traceloom/datasets/importer.py",
+            "traceloom/datasets/runs.py",
+            "tests/api/test_datasets.py",
+            "tests/api/test_dataset_import.py",
+            "tests/api/test_dataset_runs_service.py"
+          ],
+          "acceptance": [
+            "An edit creates version 2 and a run created earlier reads version 1",
+            "A malformed JSON cell is kept as a string with a warning; rows over dataset_import_max_rows are rejected",
+            "The run name is unique per dataset",
+            "Queries are project-scoped"
+          ],
+          "qa": "none",
+          "check": "deep",
+          "ui": false,
+          "depends_on": [
+            "T5"
+          ]
+        },
+        {
+          "id": "T17",
+          "title": "Public datasets API",
+          "description": "Dataset create/get/list, items create/list/archive, run create/get, and run item create (POST /api/public/dataset-run-items), pk+sk auth. Run items link a trace and take output, latency and cost from it.",
+          "files": [
+            "traceloom/api/datasets.py",
+            "traceloom/main.py",
+            "tests/api/test_public_datasets.py"
+          ],
+          "acceptance": [
+            "All endpoints are project-scoped and reject pk-only auth",
+            "Items are read as of the latest version and archived items are excluded by default",
+            "A duplicate run name returns 409",
+            "A run item links the dataset item to a trace"
+          ],
+          "qa": "curl the dataset, item, run and run-item endpoints in sequence with pk+sk; try another project's key to confirm isolation.",
+          "check": "normal",
+          "ui": false,
+          "depends_on": [
+            "T16",
+            "T7"
+          ]
+        },
+        {
+          "id": "T18",
+          "title": "SDK datasets and run_experiment",
+          "description": "datasets.py: get_dataset, Dataset, DatasetItem, create_dataset and create_item helpers. experiments.py: run_experiment(dataset, task_fn, evaluators, run_name, max_concurrency, metadata) using a thread pool. It creates the run, runs each task inside an experiment:<run> trace linked to the run item, records evaluator scores as API scores with dataset_run_id, never raises on a task error, and returns an ExperimentResult with the run URL. Export from __init__.",
+          "files": [
+            "sdk/python/traceloom_sdk/datasets.py",
+            "sdk/python/traceloom_sdk/experiments.py",
+            "sdk/python/traceloom_sdk/__init__.py",
+            "sdk/python/tests/test_experiments.py"
+          ],
+          "acceptance": [
+            "run_experiment links each item to a trace and records evaluator scores with dataset_run_id",
+            "A task exception is recorded on that item and the run continues",
+            "max_concurrency is respected",
+            "The result lists outputs, scores, errors and the run URL"
+          ],
+          "qa": "Run a small script using the SDK against the dev server with a 3-item dataset and one failing task; check the run and its item traces and scores in the API.",
+          "check": "normal",
+          "ui": false,
+          "depends_on": [
+            "T17"
+          ]
+        },
+        {
+          "id": "T19",
+          "title": "Dataset list, detail, item drawer and history pages",
+          "description": "Datasets list; dataset detail with Items | Runs | History tabs; item edit drawer with JSON editors and version history; archive item; delete dataset (Admin).",
+          "files": [
+            "traceloom/web/routers/datasets.py",
+            "traceloom/web/routers/dataset_items.py",
+            "traceloom/web/templates/datasets/list.html",
+            "traceloom/web/templates/datasets/detail.html",
+            "traceloom/web/templates/datasets/_item_drawer.html",
+            "tests/api/test_dataset_pages.py",
+            "tests/api/test_phase3_escape_datasets.py"
+          ],
+          "acceptance": [
+            "Members can create datasets and edit items; each edit adds a version shown in history",
+            "Viewers have read-only access and Members cannot delete a dataset (403)",
+            "Item JSON containing <script> renders as literal text"
+          ],
+          "qa": "In the browser, create a dataset, add and edit an item twice, open the history, archive the item; store <script>alert(1)</script> as input and confirm no dialog; check as Viewer.",
+          "check": "normal",
+          "ui": true,
+          "depends_on": [
+            "T16"
+          ]
+        },
+        {
+          "id": "T20",
+          "title": "Import wizard and Add to dataset",
+          "description": "Import wizard (upload \u2192 map columns \u2192 preview of the first 5 rows and per-row errors \u2192 import). 'Add to dataset' dialog from trace and observation detail (prefilled input as input, output as expected_output, metadata, source link) and bulk add from a list selection.",
+          "files": [
+            "traceloom/web/routers/dataset_import.py",
+            "traceloom/web/routers/dataset_add.py",
+            "traceloom/web/templates/datasets/import.html",
+            "traceloom/web/templates/datasets/_add_dialog.html",
+            "traceloom/web/static/dataset_import.js",
+            "traceloom/web/templates/traces/detail.html",
+            "tests/api/test_dataset_import_ui.py"
+          ],
+          "acceptance": [
+            "The wizard previews and imports a CSV; a malformed JSON cell shows a warning and is imported as a string",
+            "Add to dataset from an observation prefills input and output and saves with the source link",
+            "A cell with <script> renders escaped in the preview"
+          ],
+          "qa": "In the browser, import a 20-row CSV with a bad JSON cell, then add an observation to a dataset from its detail page and bulk-add two traces from the list.",
+          "check": "normal",
+          "ui": true,
+          "depends_on": [
+            "T16"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S4",
+      "title": "LLM-as-a-judge: templates, rules, worker and cost cap",
+      "description": "Versioned evaluator templates with an original starter library, run rules that sample new traces and observations, a worker that calls the Phase 2 provider layer, writes EVAL scores and judge traces, retries, and enforces a daily cost cap, plus the Evaluators UI and execution log.",
+      "acceptance": [
+        "A 50%-sampled rule on `chat` traces scores exactly the hash-selected traces with reasoning, judge traces in traceloom-eval with cost > 0, and log rows `succeeded`; other names get no job (AC-1)",
+        "Invalid output retries and succeeds on attempt 2; permanent failure ends `failed` after 3 attempts with a scrubbed error; ingestion is unaffected (AC-2)",
+        "A $0.01 cap with $0.006 calls caps the second call and shows the banner; raising the cap resumes (AC-3)"
+      ],
+      "tasks": [
+        {
+          "id": "T4",
+          "title": "Evaluation models",
+          "description": "Fill db/models_eval.py: eval_templates, eval_template_versions, eval_rules, eval_executions (unique (rule_id, object_type, object_id) where rule_id is set; run_item_id; estimated_cost), project_eval_settings (cap, feedback_origins) and eval_spend_daily. Add a factories module.",
+          "files": [
+            "traceloom/db/models_eval.py",
+            "tests/factories_eval.py",
+            "tests/unit/test_models_eval.py"
+          ],
+          "acceptance": [
+            "Tables create; the unique execution constraint prevents a duplicate (rule, object)",
+            "Factories produce valid rows"
+          ],
+          "qa": "none",
+          "check": "light",
+          "ui": false,
+          "depends_on": [
+            "T1"
+          ]
+        },
+        {
+          "id": "T21",
+          "title": "Evaluator templates, starter library and variable mapping",
+          "description": "evals/starter.yaml with six original templates (hallucination, relevance, toxicity, helpfulness, correctness, conciseness). templates.py: immutable versions, built-ins read-only and cloneable. mapping.py: the JSONPath subset ($.a.b[0], $.messages[-1].content) and variable resolution from input/output/metadata/child observation with defaults.",
+          "files": [
+            "traceloom/evals/starter.yaml",
+            "traceloom/evals/templates.py",
+            "traceloom/evals/mapping.py",
+            "tests/unit/test_eval_mapping.py",
+            "tests/api/test_eval_templates.py"
+          ],
+          "acceptance": [
+            "Each save creates a new immutable version",
+            "Built-ins cannot be edited but can be cloned",
+            "The JSONPath subset resolves nested and negative indexes, a missing variable raises a clear error and a default is used when provided",
+            "No evaluation of arbitrary expressions"
+          ],
+          "qa": "none",
+          "check": "normal",
+          "ui": false,
+          "depends_on": [
+            "T4"
+          ]
+        },
+        {
+          "id": "T22",
+          "title": "Spend ledger and cost cap",
+          "description": "evals/spend.py: the atomic daily ledger in eval_spend_daily (reserve, settle, release), the pre-call estimate (prompt tokens \u00d7 input price + max_tokens \u00d7 output price), the per-project cap override with the env default, and cap 0 = paused. Unpriced models are allowed and flagged.",
+          "files": [
+            "traceloom/evals/spend.py",
+            "tests/unit/test_eval_spend.py",
+            "tests/api/test_eval_cost_cap_ledger.py"
+          ],
+          "acceptance": [
+            "20 concurrent reservations never exceed the cap",
+            "Settle replaces the estimate with the actual cost and release frees it",
+            "A cap of 0 rejects every reservation",
+            "The day rolls over at UTC midnight"
+          ],
+          "qa": "none",
+          "check": "deep",
+          "ui": false,
+          "depends_on": [
+            "T4"
+          ]
+        },
+        {
+          "id": "T23",
+          "title": "Judge runner (eval_job handler)",
+          "description": "evals/runner.py: the eval_job handler. It re-checks the filter (skipped if no longer matching), resolves variables, compiles the template, calls the Phase 2 provider layer with the schema as structured output (JSON-mode fallback plus tolerant parse), validates the output, writes one EVAL score (comment = reasoning, execution_id) and a judge trace in traceloom-eval (eval:<template>, cost from the Phase 1 engine) via accept_batch. Retries with backoff and jitter up to eval_max_attempts; capped, skipped and failed states; secret-scrubbed errors; idempotent score ids; manual retry. Registers the handler.",
+          "files": [
+            "traceloom/evals/runner.py",
+            "traceloom/main.py",
+            "tests/api/test_eval_runner.py",
+            "tests/api/test_eval_cost_cap.py"
+          ],
+          "acceptance": [
+            "Invalid JSON then valid output succeeds on attempt 2",
+            "Always-failing output ends `failed` after 3 attempts with a scrubbed error",
+            "The second call over a $0.01 cap is `capped` with the reason 'daily cost cap of $X reached' and is not retried that day",
+            "A missing variable, an archived config or a missing connection fails without retries",
+            "Re-delivery overwrites the same score",
+            "Tests use the FakeProvider only"
+          ],
+          "qa": "none",
+          "check": "deep",
+          "ui": false,
+          "depends_on": [
+            "T21",
+            "T22",
+            "T2",
+            "T7"
+          ]
+        },
+        {
+          "id": "T24",
+          "title": "Rule matching, sampling, ingest hook, backfill and sweeper",
+          "description": "evals/rules.py: a rules cache per project (10 s TTL), target and filter matching, deterministic sampling sha256(rule_id:object_id), an idempotent eval_execution insert (ON CONFLICT DO NOTHING) with run_after = now + delay, delayed enqueue, and exclusion of the eval and experiment environments. evals/backfill.py: capped by eval_backfill_max. Hook ingest/process.py after commit inside try/except. Add sweeper.set_due_jobs for due or stuck eval_executions and dataset_run_items.",
+          "files": [
+            "traceloom/evals/rules.py",
+            "traceloom/evals/backfill.py",
+            "traceloom/ingest/process.py",
+            "traceloom/ingest/sweeper.py",
+            "traceloom/main.py",
+            "tests/api/test_eval_rules.py",
+            "tests/api/test_eval_sweeper.py"
+          ],
+          "acceptance": [
+            "Of 20 `chat` traces only the hash-selected ones get an execution, and `other` gets none",
+            "Re-ingesting does not create a second execution",
+            "Traces in traceloom-eval or traceloom-experiment never trigger rules",
+            "A rule-matching error never fails ingestion",
+            "The sweeper re-enqueues due or stuck jobs",
+            "Backfill respects its cap"
+          ],
+          "qa": "none",
+          "check": "deep",
+          "ui": false,
+          "depends_on": [
+            "T4",
+            "T2"
+          ]
+        },
+        {
+          "id": "T25",
+          "title": "Evaluators UI: templates and rules",
+          "description": "Templates tab (built-ins badged, editor with prompt, variable list, output schema builder and model picker, clone) and rules tab (list, enabled toggle, sampling and delay, cap banner). Rule editor (target, filter builder reusing the list filter tray, sampling, delay, mapping table with source/path/default and a preview against a recent matching trace). The Admin confirmation names the provider and model. Backfill action.",
+          "files": [
+            "traceloom/web/routers/evaluators.py",
+            "traceloom/web/routers/eval_rules.py",
+            "traceloom/web/templates/evals/templates.html",
+            "traceloom/web/templates/evals/template_edit.html",
+            "traceloom/web/templates/evals/rules.html",
+            "traceloom/web/templates/evals/rule_edit.html",
+            "traceloom/web/static/rule_editor.js",
+            "tests/api/test_eval_pages.py"
+          ],
+          "acceptance": [
+            "Members can create and edit templates; only Admins can create, enable or backfill rules (Member gets 403)",
+            "Enabling shows the provider and model confirmation",
+            "The cap banner shows while the cap is reached",
+            "Rule and template changes are audited",
+            "User content renders escaped"
+          ],
+          "qa": "In the browser as Admin, clone the relevance built-in, create a rule on `chat` at 100%, confirm the dialog, ingest traces and see scores; as Member verify rule controls return 403; lower the cap to 0 and check the banner.",
+          "check": "deep",
+          "ui": true,
+          "depends_on": [
+            "T24",
+            "T22",
+            "T21"
+          ]
+        },
+        {
+          "id": "T26",
+          "title": "Execution log and retry",
+          "description": "/project/{id}/evals/log listing executions (rule, template version, linked target, status pill, attempts, score value, judge trace link, cost, duration, scrubbed error) with filters by rule, status and time, and a Retry button for failed executions (Member+).",
+          "files": [
+            "traceloom/web/routers/eval_log.py",
+            "traceloom/web/templates/evals/log.html",
+            "tests/api/test_eval_log_page.py",
+            "tests/api/test_phase3_escape_evals.py"
+          ],
+          "acceptance": [
+            "The log shows all statuses and filters work",
+            "Retry re-enqueues a failed execution (Viewer gets 403)",
+            "Judge reasoning and errors containing <script> render escaped",
+            "Provider secrets never appear"
+          ],
+          "qa": "In the browser, open the log after a rule has run, filter by status, retry a failed execution, and make the fake judge return <script>alert(1)</script> as reasoning to confirm no dialog.",
+          "check": "normal",
+          "ui": true,
+          "depends_on": [
+            "T23",
+            "T24"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S5",
+      "title": "UI experiments and run comparison",
+      "description": "Members start experiments from a dataset in the UI (prompt version + model + evaluators) with live progress, and compare up to four runs with aggregates, per-item results and regressions.",
+      "acceptance": [
+        "Two UI experiments (prompt v1 and v2) on a 20-item dataset complete with 20 linked run items each, traces in traceloom-experiment, EVAL scores and a recorded dataset_version (AC-6)",
+        "The comparison page marks the best run per score and 'only regressed' shows exactly the regressed items; a higher threshold hides small deltas (AC-7)"
+      ],
+      "tasks": [
+        {
+          "id": "T27",
+          "title": "experiment_item handler",
+          "description": "datasets/experiment.py: start_experiment creates the run and enqueues one experiment_item job per item. The handler compiles the prompt version with the variable mapping, reserves spend (marking capped items), calls the provider traced in traceloom-experiment and linked to the run, stores output/latency/cost on the run item, and creates evaluator eval_executions (no delay, with {{expected_output}} bound from the item version) and enqueues them. Registers the handler. The sweeper fallback exists from T24.",
+          "files": [
+            "traceloom/datasets/experiment.py",
+            "traceloom/main.py",
+            "tests/api/test_experiments_ui.py"
+          ],
+          "acceptance": [
+            "Two prompt versions on 20 items give 20 linked run items each, traces in traceloom-experiment and EVAL scores, with dataset_version recorded",
+            "Capped items are marked",
+            "A restart mid-run is recovered by the sweeper",
+            "Tests use the FakeProvider only"
+          ],
+          "qa": "none",
+          "check": "deep",
+          "ui": false,
+          "depends_on": [
+            "T16",
+            "T22"
+          ]
+        },
+        {
+          "id": "T28",
+          "title": "Run comparison logic",
+          "description": "datasets/compare.py: per-run aggregates (mean per score name with n, success rate, mean and p95 latency, total cost, best marker), the per-item matrix paginated at 100, regressions against the baseline with a threshold (default 0, boolean true\u2192false counts), and sort by score delta.",
+          "files": [
+            "traceloom/datasets/compare.py",
+            "tests/api/test_run_compare.py",
+            "tests/unit/test_run_compare_math.py"
+          ],
+          "acceptance": [
+            "The best marker is correct per score",
+            "Exactly the items with a lower score than the baseline by more than the threshold are regressed",
+            "A higher threshold hides small deltas",
+            "Boolean true\u2192false regresses",
+            "Pagination returns 100 items per page"
+          ],
+          "qa": "none",
+          "check": "normal",
+          "ui": false,
+          "depends_on": [
+            "T5"
+          ]
+        },
+        {
+          "id": "T29",
+          "title": "New experiment dialog and run detail with live progress",
+          "description": "A 'New experiment' dialog on the dataset page (prompt + version/label, connection + model + params, variable mapping, evaluator templates) that calls start_experiment. A run detail page with HTMX polling progress, per-item status, and capped markers.",
+          "files": [
+            "traceloom/web/routers/dataset_runs.py",
+            "traceloom/web/templates/datasets/_new_experiment.html",
+            "traceloom/web/templates/datasets/run_detail.html",
+            "tests/api/test_dataset_runs_pages.py",
+            "tests/api/test_phase3_escape_runs.py"
+          ],
+          "acceptance": [
+            "A Member starts an experiment and the progress updates without a reload until it completes",
+            "Viewers see no start control (403 on POST)",
+            "Item outputs and errors containing <script> render escaped"
+          ],
+          "qa": "In the browser as Member, start two experiments (prompt v1, v2) with the correctness evaluator on a 20-item dataset, watch the progress, and check the run items link to traces.",
+          "check": "normal",
+          "ui": true,
+          "depends_on": [
+            "T27",
+            "T19"
+          ]
+        },
+        {
+          "id": "T30",
+          "title": "Run comparison page",
+          "description": "/project/{id}/datasets/{did}/compare?runs=a,b[,c,d]: run pickers (baseline first), the aggregate table with best markers, a per-item table with an expandable input, expected output and per-run output/scores/latency/cost, regression highlight, an 'only regressed' toggle, a threshold input, sort by delta and per-run regression counts.",
+          "files": [
+            "traceloom/web/routers/run_compare.py",
+            "traceloom/web/templates/datasets/compare.html",
+            "traceloom/web/static/compare.js",
+            "tests/api/test_run_compare_page.py",
+            "tests/api/test_phase3_escape_compare.py"
+          ],
+          "acceptance": [
+            "Best markers show per score",
+            "'Only regressed' lists exactly the regressed items and a higher threshold hides small deltas",
+            "At most 4 runs are accepted",
+            "Outputs and inputs render escaped",
+            "The page renders at 390px and in dark mode"
+          ],
+          "qa": "In the browser, compare two runs where v2 wins on average but 3 items regress; toggle 'only regressed', raise the threshold, sort by delta, add a third run, and check dark mode and 390px.",
+          "check": "normal",
+          "ui": true,
+          "depends_on": [
+            "T28",
+            "T19"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "S6",
+      "title": "Score analytics, hardening and docs",
+      "description": "The score analytics page (distribution, trend, two-score comparison and the human-vs-judge preset), plus the Phase 3 permission/performance sweep and documentation with demo data.",
+      "acceptance": [
+        "Paired ANNOTATION and EVAL boolean scores show the correct confusion matrix, agreement % and \u03ba; Pearson/Spearman match statistics.correlation within 1e-9; charts have table fallbacks; n < 10 shows 'not enough data' (AC-11)",
+        "Every new unsafe route rejects Viewers (and Members on Admin routes); lite performance targets hold",
+        "README, DESIGN.md and seed-demo cover the new features"
+      ],
+      "tasks": [
+        {
+          "id": "T31",
+          "title": "Score analytics math",
+          "description": "scores/analytics.py in pure Python: histogram (10 bins), mean/median/p10/p90, trend bucketing (hour/day), Pearson, Spearman (ranks), confusion matrix, agreement %, Cohen's \u03ba, and a numeric-by-category box summary. n < 10 returns not-enough-data.",
+          "files": [
+            "traceloom/scores/analytics.py",
+            "tests/unit/test_score_analytics.py"
+          ],
+          "acceptance": [
+            "\u03ba, agreement and the confusion matrix equal hand-computed values",
+            "Pearson and Spearman match statistics.correlation within 1e-9",
+            "Percentiles are correct",
+            "n < 10 yields not-enough-data",
+            "No new dependency"
+          ],
+          "qa": "none",
+          "check": "normal",
+          "ui": false,
+          "depends_on": []
+        },
+        {
+          "id": "T32",
+          "title": "Score analytics page",
+          "description": "/project/{id}/scores/analytics (Viewer+) for a date range and environment: a score picker, a distribution card grid, a trend chart split by source, and a compare panel (A/B pickers, a 'Human vs judge' preset, scatter or confusion matrix or box plot, stat tiles for n, r/\u03c1, agreement % and \u03ba, an include/exclude public-feedback toggle), charts with table fallbacks, and an empty state. uPlot charts in analytics.js with a colourblind-safe palette.",
+          "files": [
+            "traceloom/web/routers/scores_analytics.py",
+            "traceloom/web/templates/scores/analytics.html",
+            "traceloom/web/templates/scores/_compare.html",
+            "traceloom/web/static/analytics.js",
+            "tests/api/test_score_analytics_page.py",
+            "tests/api/test_phase3_escape_analytics.py"
+          ],
+          "acceptance": [
+            "Charts render with table fallbacks",
+            "The Human vs judge preset shows the confusion matrix, agreement % and \u03ba for 30 paired traces",
+            "The empty state and 'not enough data' show correctly",
+            "Score names render escaped",
+            "Viewers can read the page"
+          ],
+          "qa": "In the browser with seeded paired ANNOTATION/EVAL scores, open the analytics page, switch the date range, use the Human vs judge preset, compare two numeric scores, and check dark mode, 390px and the table fallbacks.",
+          "check": "normal",
+          "ui": true,
+          "depends_on": [
+            "T31",
+            "T9"
+          ]
+        },
+        {
+          "id": "T33",
+          "title": "Permission sweep and performance tests",
+          "description": "tests/api/test_phase3_permissions.py: sweep every new unsafe route as a Viewer (403) and as a Member on Admin routes (configs, rules, cap, origins, deletes). Add tests/perf/test_eval_volume.py for the NFR-1 targets (rule matching < 5 ms per trace with 50 rules, claim < 100 ms, score-filter list < 1 s). A project-scoping check across tenants. Fix gaps found by touching only the offending route files.",
+          "files": [
+            "tests/api/test_phase3_permissions.py",
+            "tests/perf/test_eval_volume.py",
+            "tests/api/test_phase3_tenant_isolation.py"
+          ],
+          "acceptance": [
+            "Every new unsafe route returns 403 for a Viewer",
+            "Admin-only routes return 403 for a Member",
+            "A second project's keys and users cannot read or write the first's configs, queues, datasets, rules or executions",
+            "The perf targets hold in lite mode",
+            "The whole default suite passes offline with no provider keys (AC-14)"
+          ],
+          "qa": "With two projects and users of each role, call the new write routes via curl and confirm the status codes and isolation.",
+          "check": "deep",
+          "ui": false,
+          "depends_on": [
+            "T13",
+            "T16",
+            "T24",
+            "T10"
+          ]
+        },
+        {
+          "id": "T34",
+          "title": "Seed demo data and documentation",
+          "description": "Extend seed-demo with a score config, a queue, a 20-item dataset and two runs. Add an 'Evaluation' section to README (configs, score(), feedback snippet, judge rules and cap, datasets, run_experiment). Add a root ARCHITECTURE.md pointer line. Add a 'Phase 3 additions' section to DESIGN.md from the approved design. List the .env.example lines for the owner in plan.md deviations if changed.",
+          "files": [
+            "traceloom/services/demo.py",
+            "README.md",
+            "ARCHITECTURE.md",
+            "DESIGN.md",
+            "tests/api/test_seed_demo_phase3.py"
+          ],
+          "acceptance": [
+            "seed-demo creates the config, queue, dataset and runs idempotently",
+            "README documents each feature with a runnable example",
+            "The root ARCHITECTURE.md carries the pointer line"
+          ],
+          "qa": "Run `traceloom seed-demo` twice on a fresh database and confirm the config, queue, dataset and two runs exist once and show in the UI.",
+          "check": "light",
+          "ui": false,
+          "depends_on": [
+            "T13",
+            "T16",
+            "T24"
+          ]
+        }
+      ]
+    }
+  ]
+}

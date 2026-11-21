@@ -17,6 +17,7 @@ from sqlalchemy import (
     UniqueConstraint,
     event,
     insert,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -274,6 +275,74 @@ class WebhookDelivery(Base):
     )
 
 
+# --- Phase 3: score configs and annotation queues ------------------------------------------
+
+
+class ScoreConfig(Base):
+    __tablename__ = "score_configs"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(200))
+    data_type: Mapped[str] = mapped_column(String(16))  # NUMERIC | CATEGORICAL | BOOLEAN
+    min_value: Mapped[float | None] = mapped_column(Float)
+    max_value: Mapped[float | None] = mapped_column(Float)
+    categories: Mapped[list | None] = mapped_column(JSON)  # [{"label": str, "value": number}]
+    description: Mapped[str] = mapped_column(Text, default="")
+    public_feedback: Mapped[bool] = mapped_column(Boolean, default=False)
+    archived_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    created_by: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+    __table_args__ = (
+        Index("ix_score_configs_project", "project_id"),
+        # A name is unique among the live (non-archived) configs of a project.
+        Index(
+            "uq_score_configs_project_name_live",
+            "project_id",
+            "name",
+            unique=True,
+            sqlite_where=text("archived_at IS NULL"),
+            postgresql_where=text("archived_at IS NULL"),
+        ),
+    )
+
+
+class AnnotationQueue(Base):
+    __tablename__ = "annotation_queues"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text, default="")
+    config_ids: Mapped[list] = mapped_column(JSON, default=list)
+    created_by: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+
+    __table_args__ = (Index("ix_annotation_queues_project", "project_id"),)
+
+
+class AnnotationItem(Base):
+    __tablename__ = "annotation_items"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    queue_id: Mapped[str] = mapped_column(ForeignKey("annotation_queues.id", ondelete="CASCADE"))
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"))
+    object_type: Mapped[str] = mapped_column(String(16))  # trace | observation | session
+    object_id: Mapped[str] = mapped_column(String(200))
+    trace_id: Mapped[str | None] = mapped_column(String(200))
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending|skipped|completed
+    locked_by: Mapped[str | None] = mapped_column(String(32))
+    locked_until: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    completed_by: Mapped[str | None] = mapped_column(String(32))
+    completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+
+    __table_args__ = (
+        UniqueConstraint("queue_id", "object_type", "object_id", name="uq_annotation_items_object"),
+        Index("ix_annotation_items_queue_status_created", "queue_id", "status", "created_at"),
+    )
+
+
 # --- Lite trace tables (project_id is part of every key and every index) --------------------
 
 
@@ -364,11 +433,19 @@ class Score(Base):
     timestamp: Mapped[datetime] = mapped_column(UTCDateTime)
     environment: Mapped[str] = mapped_column(String(100), default="default")
     event_ts: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    queue_id: Mapped[str | None] = mapped_column(String(32))
+    execution_id: Mapped[str | None] = mapped_column(String(32))
+    channel: Mapped[str | None] = mapped_column(String(32))  # NULL or "public_feedback"
 
-    __table_args__ = (Index("ix_scores_project_trace", "project_id", "trace_id"),)
+    __table_args__ = (
+        Index("ix_scores_project_trace", "project_id", "trace_id"),
+        Index("ix_scores_project_name_timestamp", "project_id", "name", "timestamp"),
+    )
 
 
 __all__ = [
+    "AnnotationItem",
+    "AnnotationQueue",
     "ApiKey",
     "AuditLog",
     "Comment",
@@ -386,9 +463,14 @@ __all__ = [
     "ProtectedLabel",
     "SavedView",
     "Score",
+    "ScoreConfig",
     "Trace",
     "User",
     "UserPref",
     "Webhook",
     "WebhookDelivery",
 ]
+
+# Register the dataset tables on Base.metadata whenever the core models load.
+from traceloom.db import models_datasets as _models_datasets  # noqa: E402,F401
+from traceloom.db import models_eval as _models_eval  # noqa: E402,F401  (registers the tables)

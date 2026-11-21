@@ -1,0 +1,133 @@
+/* v3.2 alignment pass, shared rules (FR-S1..S8). Loads after app.css and uses the same
+   selectors, so source order decides; tokens only, no literal colours, no !important. */
+:root{--row-h:44px;--ctl-h:36px;--ctl-h-sm:30px;--panel-head-h:52px}
+
+/* S1 control height: buttons, inputs, selects, trays and pickers share one height */
+.btn,.btn-block,.picker{height:var(--ctl-h)}
+.btn{padding:0 14px}
+.btn-sm{height:var(--ctl-h-sm);padding:0 10px}
+.btn-icon{width:var(--ctl-h);padding:0}
+.btn-sm.btn-icon{width:var(--ctl-h-sm);padding:0}
+.input,.select{height:var(--ctl-h)}
+.btn .ico,.btn .ico-sm,.picker .ico,.picker .ico-sm,.seg .ico,.seg .ico-sm,
+.input-wrap .ico,.select-wrap>.ico{width:16px;height:16px}
+.input-wrap .ico{left:12px}
+.input-wrap .input{padding-left:36px}
+.picker{padding:0 12px}
+.seg{display:inline-flex;align-items:center;height:var(--ctl-h);padding:2px;gap:2px;flex:none;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);box-shadow:var(--sh-1)}
+.seg button,.seg a{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:var(--ctl-h-sm);padding:0 12px;border:0;border-radius:9px;white-space:nowrap}
+.seg a{font-weight:500;font-size:13px;color:var(--ink-2)}
+.seg a:hover:not([aria-pressed=true]):not([aria-selected=true]){background:transparent;color:var(--ink)}
+.seg a[aria-pressed=true],.seg a[aria-selected=true]{background:var(--accent-solid);color:var(--on-accent);font-weight:600}
+.seg a:hover:not([aria-pressed=true]):not([aria-selected=true]){background:var(--surface-2)}
+.seg a[aria-pressed=true] .c,.seg a[aria-selected=true] .c,.seg a[aria-pressed=true] .cnt,.seg a[aria-selected=true] .cnt{color:inherit;opacity:.75}
+
+/* S2 spacing: 24px between sections, 52px panel headers with 16px side padding */
+.main{gap:var(--sp-7)}
+.panel-h{min-height:var(--panel-head-h);padding:0 var(--sp-6);align-items:center}
+.panel-b{padding:var(--sp-6)}
+
+/* S4 tables: 44px rows, 12px/500 header cells, first and last cells on the 16px edge */
+.tbl th{height:40px;padding:0 var(--sp-5);font-size:12px;font-weight:500;color:var(--ink-2)}
+.tbl td{height:var(--row-h);padding:0 var(--sp-5)}
+.tbl th:first-child,.tbl td:first-child{padding-left:var(--sp-6)}
+.tbl th:last-child,.tbl td:last-child{padding-right:var(--sp-6)}
+.tbl th.lvl,.tbl td.lvl{padding:0}
+.tbl th.lvl+th,.tbl td.lvl+td{padding-left:var(--sp-2)}
+.tbl th.r,.tbl th.num,.tbl td.r{text-align:right}
+.tbl th.c,.tbl td.c{text-align:center}
+.tbl-flat td{height:var(--row-h)}
+.tbl td.menu,.tbl th.menu{width:48px;padding:0 var(--sp-4);text-align:right}
+
+/* S5 error rows: marker and pill only, no tint and no red numbers */
+.tbl tr.ERROR td{background:transparent}
+.tbl tr.ERROR:hover td{background:var(--surface-2);filter:none}
+.tbl tr.ERROR[aria-selected=true] td{background:var(--accent-soft)}
+.tbl.stripify tr.ERROR{background:transparent}
+.tbl td.err-text,.tbl td .err-text{color:var(--ink);font-weight:inherit}
+
+/* S6 empty state: centred in its panel, 520px at most */
+.empty{display:flex;flex-direction:column;align-items:center;gap:var(--sp-4);width:100%;max-width:520px;margin-inline:auto;padding:var(--sp-9) var(--sp-6);text-align:center}
+.empty .tile{display:grid;place-items:center;width:40px;height:40px;margin-bottom:var(--sp-4);border-radius:12px;background:var(--accent-soft);color:var(--accent)}
+.empty .tile .ico{width:20px;height:20px}
+.empty h2{font-size:17px}
+.empty p{max-width:60ch;color:var(--ink-3)}
+.empty .code{width:100%;text-align:left}
+.empty .acts{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-4);margin-top:var(--sp-6)}
+
+/* S7 context bar: 56px, crumbs left, shortcuts and theme buttons right */
+.ctxbar{flex:none;flex-wrap:nowrap;align-items:center;justify-content:flex-end;height:56px;padding:0 var(--sp-7);gap:var(--sp-4);border-bottom:1px solid var(--line)}
+.ctxbar .env-sw,.ctxbar .crumbs{margin-right:auto;min-width:0}
+.crumbs{gap:var(--sp-4);font-size:13px;color:var(--ink-3)}
+.crumbs a{color:var(--ink-2);font-weight:500}
+.crumbs [aria-current]{color:var(--ink);font-weight:600}
+.crumbs .crumb-sep{color:var(--ink-3);display:inline-flex}.crumbs .crumb-sep .ico{width:12px;height:12px}
+.main{padding-top:var(--sp-7)}
+
+/* S8 page header: 24px title, muted subtitle, actions centred on the title block */
+.page-h{align-items:center}
+.page-h h1{font-size:24px;letter-spacing:-.02em}
+.page-h .sub{margin-top:var(--sp-2);font-size:14px;color:var(--ink-3)}
+.page-h>.row-wrap{margin-left:auto}
+
+@container app (max-width:1100px){
+  .ctxbar{padding:0 var(--sp-6)}
+  .main{padding-top:var(--sp-7)}
+}
+
+@container app (max-width:760px){
+  .btn,.btn-block,.input,.select,.seg,.picker{height:44px;min-height:0}
+  .btn-sm{height:36px;min-height:0}
+  .btn-icon{width:44px;min-width:0}
+  .btn-sm.btn-icon{width:36px}
+  .seg button,.seg a{height:38px;min-height:0}
+  .main{padding-top:var(--sp-6)}
+  .ctxbar,.ctxbar .crumbs{display:none}
+  /* mobile context row: env select flexes, range tray stays fixed, one row */
+  .ctx-m.row-wrap{flex-wrap:nowrap;align-items:center;gap:var(--sp-4)}
+  .ctx-m form{flex:1 1 0;min-width:0}
+  .ctx-m .select-wrap{display:flex;width:100%}
+  .ctx-m .select{width:100%;min-width:0}
+  .ctx-m .seg{flex:none}
+  .ctx-m .seg button,.ctx-m .seg a{padding:0 var(--sp-4)}
+  .page-h>.row-wrap{margin-left:0;width:100%}
+  .page-h>.row-wrap>.btn:first-child:nth-last-child(2),
+  .page-h>.row-wrap>.btn:first-child:nth-last-child(2)~.btn{flex:1 1 0}
+}
+@container app (max-width:359px){
+  .ctx-m.row-wrap{flex-wrap:wrap}
+  .ctx-m form{flex:1 1 100%}
+}
+
+/* crumbs shown in the page body on mobile only; the desktop copy lives in the context bar */
+.crumbs-m{display:none}
+@container app (max-width:760px){.crumbs-m{display:block}}
+
+/* Mockup fidelity: native selects get the app chevron; dialog head is a ruled bar */
+select.select:not([multiple]){appearance:none;-webkit-appearance:none;padding-right:32px;background-image:url("chevron-down.svg");background-repeat:no-repeat;background-position:right 10px center;cursor:pointer}
+.select-wrap select.select{background-image:none}
+.dialog>header{padding:16px 24px;border-bottom:1px solid var(--line)}
+.dialog>.body{padding:24px}
+.dialog>footer{padding:16px 24px}
+
+/* Shell metrics from the approved mockup (DESIGN.md v3.2 frames): desktop only */
+body{line-height:1.5}
+@container app (min-width:761px){
+  .side{padding:16px 12px;gap:12px}
+  .brand{font-size:16px;font-weight:700;gap:10px}
+  .brand .tile{width:32px;height:32px;border-radius:10px}
+  .side .picker{height:36px;font-size:13px;font-weight:600}
+  .sidenav a{height:36px;font-size:14px;gap:8px;padding:0 12px}
+  .sidenav .cap{padding:12px 8px 4px}
+  .usercard{padding:8px;gap:8px}
+  .btn{font-size:13px;gap:8px}
+  .sidenav a{border:0;border-radius:12px;box-shadow:none}
+  .sidenav a:hover:not([aria-current=page]){background:var(--surface-2);color:var(--ink)}
+  .sidenav a[aria-current=page]{background:var(--surface-2);color:var(--ink);font-weight:600;border:0;box-shadow:inset 0 0 0 1px var(--line)}
+  .sidenav a[aria-current=page] .ico{color:var(--accent)}
+  .sidenav .nav-btn{height:36px;font-size:14px;gap:8px;padding:0 12px;border-radius:12px}
+  .side .picker small{color:var(--ink-3);font-weight:500;font-size:12px}
+  .usercard{background:transparent;box-shadow:none;border:1px solid var(--line);border-radius:12px}
+  .usercard b{font-size:13px;line-height:1.2}.usercard small{font-size:12px;color:var(--ink-3)}
+}
+.brand .tile .ico{width:16px;height:16px}

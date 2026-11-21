@@ -13,12 +13,19 @@ from traceloom.auth.permissions import Perm
 from traceloom.container import Container
 from traceloom.db.session import get_db
 from traceloom.ports import InvalidCursor, SessionQuery, TraceRow
+from traceloom.scores import configs as score_configs
+from traceloom.services import views
 from traceloom.web import pagefmt  # noqa: F401  (registers the filters)
 from traceloom.web.context import env_context, page_context
 from traceloom.web.envpref import resolve_env, saved_env
 from traceloom.web.ranges import range_urls, resolve_range
 from traceloom.web.render import is_chat, pretty_json
 from traceloom.web.templating import render
+from traceloom.web.trace_list import (
+    SESSION_COLUMNS,
+    hidden_environments,
+    parse_session_columns,
+)
 
 router = APIRouter(tags=["sessions"])
 
@@ -64,12 +71,22 @@ def sessions_list(
     env = resolve_env(params, pref)
     query = SessionQuery(
         environment=env, from_time=start, to_time=end, sort=sort, descending=descending,
-        cursor=cursor or None, limit=PAGE,
+        exclude_environments=hidden_environments(), cursor=cursor or None, limit=PAGE,
     )  # fmt: skip
     try:
         page = container.trace_store.list_sessions(access.project.id, query)
     except InvalidCursor as exc:
         raise HTTPException(400, "That page link is not valid any more.") from exc
+
+    columns = parse_session_columns(
+        views.get_pref(db, access.user.id, access.project.id, "session_columns")
+    )
+    session_scores: dict = {}
+    if "scores" in columns and page.items:
+        # One batch call per page, not one per row.
+        session_scores = container.trace_store.score_aggregates(
+            access.project.id, "session", [s.session_id for s in page.items], None
+        )
 
     base = f"/project/{access.project.id}/sessions"
     no_cursor = {k: v for k, v in params.items() if k != "cursor"}
@@ -89,6 +106,11 @@ def sessions_list(
         access,
         active="sessions",
         sessions=page.items,
+        columns=columns,
+        all_columns=SESSION_COLUMNS,
+        session_scores={
+            sid: sorted(aggs.values(), key=lambda a: a.name) for sid, aggs in session_scores.items()
+        },
         sort=sort,
         descending=descending,
         sort_href=sort_href,
@@ -123,5 +145,10 @@ def session_replay(
         session=detail.session,
         turns=[turn(t) for t in traces],
         cost_sum=sum(t.total_cost for t in traces),
+        archived_config_ids={
+            c.id
+            for c in score_configs.list_configs(db, access.project.id, include_archived=True)
+            if c.archived_at is not None
+        },
     )
     return render(request, "sessions/detail.html", context)

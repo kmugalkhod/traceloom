@@ -1,5 +1,5 @@
 import inspect
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 import pytest
 from alembic.autogenerate import compare_metadata
@@ -8,7 +8,8 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session
 
 from traceloom import ports
-from traceloom.db import models
+from traceloom.db import models, models_eval
+from traceloom.db import models_datasets as datasets
 from traceloom.db.base import Base
 from traceloom.db.session import make_engine, upgrade_to_head
 
@@ -125,6 +126,39 @@ def _rows():
             project_id="p1", id="o1", trace_id="t1", start_time=NOW, usage_details={"input": 3}
         ),
         models.Score(project_id="p1", id="s1", trace_id="t1", name="q", value=1.0, timestamp=NOW),
+        models.ScoreConfig(id="sc1", project_id="p1", name="q", data_type="NUMERIC"),
+        models.AnnotationQueue(id="aq1", project_id="p1", name="review"),
+        models.AnnotationItem(
+            id="ai1", queue_id="aq1", project_id="p1", object_type="trace", object_id="t1"
+        ),
+        datasets.Dataset(id="d1", project_id="p1", name="qa", metadata_={"k": "v"}),
+        datasets.DatasetItem(id="di1", dataset_id="d1", project_id="p1"),
+        datasets.DatasetItemVersion(
+            item_id="di1", version=1, project_id="p1", input={"q": "hi"}, expected_output="hello"
+        ),
+        datasets.DatasetRun(
+            id="dr1", dataset_id="d1", project_id="p1", name="v1", dataset_version=NOW
+        ),
+        datasets.DatasetRunItem(
+            id="dri1", run_id="dr1", project_id="p1", item_id="di1", item_version=1, latency_ms=3.0
+        ),
+        models_eval.EvalTemplate(id="et1", project_id="p1", name="relevance"),
+        models_eval.EvalTemplateVersion(
+            id="etv1", template_id="et1", version=1, prompt="Rate {{output}}"
+        ),
+        models_eval.EvalRule(
+            id="er1", project_id="p1", template_id="et1", target="trace", score_name="relevance"
+        ),
+        models_eval.EvalExecution(
+            id="ex1",
+            project_id="p1",
+            rule_id="er1",
+            template_version_id="etv1",
+            object_type="trace",
+            object_id="t1",
+        ),
+        models_eval.ProjectEvalSettings(project_id="p1", daily_cost_cap_usd=5.0),
+        models_eval.EvalSpendDaily(project_id="p1", day=date(2026, 11, 9)),
     ]
 
 

@@ -8,8 +8,6 @@ redirects to the detail page for a plain form post.
 from __future__ import annotations
 
 import math
-import uuid
-from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -23,7 +21,9 @@ from traceloom.auth.permissions import Perm, can
 from traceloom.container import Container
 from traceloom.db.models import Comment, User
 from traceloom.db.session import get_db
-from traceloom.ports import ScoreRow, TraceDetail
+from traceloom.ports import TraceDetail
+from traceloom.scores import configs as score_configs
+from traceloom.scores.service import ScoreError, create_score
 from traceloom.services import audit
 from traceloom.services import comments as comment_service
 from traceloom.web.context import initials
@@ -150,14 +150,18 @@ def _discussion_response(
     ctx = _base_context(access, detail)
     author_ids = {s.author_id for s in detail.scores if s.author_id}
     users = db.scalars(select(User).where(User.id.in_(author_ids))) if author_ids else []
+    all_configs = score_configs.list_configs(db, access.project.id, include_archived=True)
     ctx.update(
         comments=_comment_views(db, access, detail),
         scores=detail.scores,
+        score_configs=[c for c in all_configs if c.archived_at is None],
+        archived_config_ids={c.id for c in all_configs if c.archived_at is not None},
         author_names={u.id: (u.name or u.email) for u in users},
         comment_error=comment_error,
         comment_draft=comment_draft,
         score_error=score_error,
-        score_form=score_form or {"name": "", "data_type": "NUMERIC", "value": "", "comment": ""},
+        score_form=score_form
+        or {"name": "", "data_type": "NUMERIC", "value": "", "comment": "", "config_id": ""},
     )
     return render(request, "traces/_panels.html", ctx, status=status)
 
@@ -335,32 +339,41 @@ def add_score(
     observation_id = str(form.get("observation_id", "")) or None
     if observation_id and observation_id not in {o.id for o in detail.observations}:
         raise HTTPException(404, "Not found.")
+    config_id = str(form.get("config_id", "")).strip() or None
+    fields["config_id"] = config_id or ""  # which input the error and kept value belong to
+    config = None
     try:
+        if config_id:
+            try:
+                config = score_configs.get_config(db, access.project.id, config_id)
+            except score_configs.ConfigNotFound:
+                raise ValueError("That score config does not exist.") from None
+            if config.archived_at is not None:
+                raise ValueError("That score config is archived.")
+            fields["name"], fields["data_type"] = config.name, config.data_type
         if not fields["name"]:
             raise ValueError("Give the score a name.")
         value, string_value, data_type = parse_score(fields["data_type"], fields["value"])
-    except ValueError as exc:
+        create_score(
+            container.trace_store,
+            access.project.id,
+            name=fields["name"],
+            value=string_value if string_value is not None else value,
+            data_type=data_type,
+            source="ANNOTATION",
+            configs=score_configs.config_cache(container),
+            config_id=config.id if config else None,
+            trace_id=trace_id,
+            observation_id=observation_id,
+            comment=fields["comment"] or None,
+            author_id=access.user.id,
+            environment=detail.trace.environment,
+        )
+    except (ValueError, ScoreError) as exc:
         return _discussion_response(
             request, db, container, access, detail, score_error=str(exc), score_form=fields,
             status=400,
         )  # fmt: skip
-    container.trace_store.add_score(
-        access.project.id,
-        ScoreRow(
-            id=uuid.uuid4().hex,
-            name=fields["name"][:200],
-            timestamp=datetime.now(UTC),
-            trace_id=trace_id,
-            observation_id=observation_id,
-            value=value,
-            string_value=string_value,
-            data_type=data_type,
-            comment=fields["comment"] or None,
-            source="ANNOTATION",
-            author_id=access.user.id,
-            environment=detail.trace.environment,
-        ),
-    )
     detail = _detail(container, access.project.id, trace_id)
     return _done(
         request, access, trace_id,

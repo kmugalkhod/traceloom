@@ -316,3 +316,39 @@ def test_dns_rebinding_after_the_open_check_is_blocked_at_connect(
     out = list(adapter.stream([{"role": "user", "content": "hi"}], "gpt-4o"))
     assert len(out) == 1 and "resolves to a blocked address" in out[0].message, out
     assert answers == ["169.254.169.254"]  # the third lookup was the adapter's, at connect time
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://attacker.example.com",
+        "https://bedrock-runtime.us-east-1.amazonaws.com.attacker.example",
+        "http://bedrock-runtime.us-east-1.amazonaws.com",
+    ],
+)
+def test_bedrock_endpoint_must_be_an_aws_https_host(db, world, admin, policy, url):
+    kwargs = dict(
+        provider="bedrock", name="bk", config={"region": "us-east-1"},
+        secrets={"api_key": "aws-secret-5555", "access_key_id": "AKIAEXAMPLE0000"},
+    )  # fmt: skip
+    with pytest.raises(ConnectionInvalid, match="AWS"):
+        connections.create(db, world.project, admin, policy, base_url=url, **kwargs)
+    ok = connections.create(db, world.project, admin, policy, **kwargs)
+    with pytest.raises(ConnectionInvalid, match="AWS"):
+        connections.update(db, world.project, admin, policy, ok.id, base_url=url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://bedrock-runtime.us-west-2.amazonaws.com",
+        "https://vpce-0abc-defg.bedrock-runtime.us-west-2.vpce.amazonaws.com",
+    ],
+)
+def test_bedrock_regional_and_vpc_endpoints_are_saved(db, world, admin, policy, url):
+    row = connections.create(
+        db, world.project, admin, policy, provider="bedrock", name="bk", base_url=url,
+        secrets={"api_key": "aws-secret-5555", "access_key_id": "AKIAEXAMPLE0000"},
+        config={"region": "us-west-2"},
+    )  # fmt: skip
+    assert row.base_url == url
