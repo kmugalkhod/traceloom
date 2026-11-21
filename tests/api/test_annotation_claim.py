@@ -333,3 +333,69 @@ def test_permissions_and_project_scope(container, db, world, queue, r1, make_org
         claim.claim_item(db, other, r1, queue.id, item.id, container.settings)
     with pytest.raises(NotAllowed):
         claim.complete(db, container.trace_store, world.project, viewer, queue.id, item.id, {})
+
+
+class _FailingStore:
+    """Delegates to the real store but fails the `fail_on`-th add_score call."""
+
+    def __init__(self, store, fail_on):
+        self._store, self._fail_on, self.calls = store, fail_on, 0
+
+    def add_score(self, project_id, score):
+        self.calls += 1
+        if self.calls == self._fail_on:
+            raise RuntimeError("store is down")
+        return self._store.add_score(project_id, score)
+
+    def __getattr__(self, name):
+        return getattr(self._store, name)
+
+
+def _two_config_item(container, db, world, queue, r1, make_score_config):
+    ok = make_score_config(world.project, "ok", data_type="BOOLEAN")
+    queues.update_queue(db, world.project, r1, queue.id, "Review", "", [*queue.config_ids, ok.id])
+    add(db, world, r1, queue, 1, container)
+    item = claim.claim_next(db, world.project, r1, queue.id, container.settings)
+    db.commit()
+    return item, {queue.config_ids[0]: 0.8, ok.id: True}
+
+
+def test_complete_writes_nothing_when_a_score_write_fails(
+    container, db, world, queue, r1, make_score_config
+):
+    item, values = _two_config_item(container, db, world, queue, r1, make_score_config)
+    store = _FailingStore(container.trace_store, fail_on=2)
+    with pytest.raises(RuntimeError):
+        claim.complete(db, store, world.project, r1, queue.id, item.id, values)
+    db.rollback()
+    assert scores(container, world, "t0") == []
+    db.expire_all()
+    assert db.get(AnnotationItem, item.id).status == "pending"
+
+
+def test_complete_removes_its_scores_when_closing_the_item_fails(
+    container, db, world, queue, r1, make_score_config, monkeypatch
+):
+    item, values = _two_config_item(container, db, world, queue, r1, make_score_config)
+
+    def lost(*args, **kwargs):
+        raise ClaimError("This item is locked by someone else or is already done.")
+
+    monkeypatch.setattr(claim, "_close", lost)
+    with pytest.raises(ClaimError):
+        claim.complete(db, container.trace_store, world.project, r1, queue.id, item.id, values)
+    db.rollback()
+    assert scores(container, world, "t0") == []
+    db.expire_all()
+    assert db.get(AnnotationItem, item.id).status == "pending"
+
+
+def test_complete_commits_the_item_status_with_the_scores(
+    container, db, world, queue, r1, make_score_config
+):
+    item, values = _two_config_item(container, db, world, queue, r1, make_score_config)
+    claim.complete(db, container.trace_store, world.project, r1, queue.id, item.id, values)
+    db.rollback()  # nothing is left for the caller to commit
+    assert len(scores(container, world, "t0")) == 2
+    db.expire_all()
+    assert db.get(AnnotationItem, item.id).status == "completed"

@@ -36,12 +36,13 @@
     </div>
   </div></section>
 
+  <div class="q-grid">
   <section class="panel" aria-label="Reviewers"><div class="panel-h"><h2>Reviewers</h2></div>
     {% if stats.reviewers %}
     <div class="rack"><table class="tbl tbl-flat">
       <thead><tr><th>Reviewer</th><th class="r">Completed</th><th class="r">Median time</th><th>Last activity</th></tr></thead>
       <tbody>{% for r in stats.reviewers %}
-        <tr><td>{{ r.name }}</td><td class="num r">{{ r.completed }}</td>
+        <tr><td><span class="q-user">{{ m.avatar(r.name[:2] | upper, r.user_id) }}{{ r.name }}</span></td><td class="num r">{{ r.completed }}</td>
           <td class="num r">{% if r.median_ms is not none %}{{ (r.median_ms / 1000) | round | int }} s{% else %}<span class="muted">-</span>{% endif %}</td>
           <td>{% if r.last_activity %}{{ r.last_activity | ago }}{% else %}<span class="muted">No activity yet</span>{% endif %}</td></tr>
       {% endfor %}</tbody>
@@ -49,7 +50,17 @@
     {% else %}<div class="panel-b"><p class="hint">Nobody has completed an item yet.</p></div>{% endif %}
   </section>
 
-  <div class="q-bar">
+  <section class="panel" aria-label="Score summary"><div class="panel-h"><h2>Scores written{% if summary.total %} <span class="q-u">{{ summary.total }} annotation score{{ "s" if summary.total != 1 }}</span>{% endif %}</h2></div>
+    <div class="panel-b stackf">
+      {% if summary.total %}
+      {% for label, value in summary.lines %}<div class="q-kv"><span>{{ label }}</span><b class="num">{{ value }}</b></div>{% endfor %}
+      <a class="hint" href="/project/{{ project.id }}/scores/analytics?source=annotation">Open in Score analytics</a>
+      {% else %}<p class="hint">No scores written yet. Completing an item writes one score per config.</p>{% endif %}
+    </div>
+  </section>
+  </div>
+
+  <div class="q-bar toolbar">
     <div class="seg" role="group" aria-label="Status">
       {% for key, label in [("", "All")] + status_labels.items() | list %}
       <a href="?{{ 'status=' ~ key ~ '&' if key }}{{ 'reviewer=' ~ reviewer if reviewer }}" aria-pressed="{{ 'true' if status_filter == key else 'false' }}">{{ label }} <span class="cnt">{{ stats.total if not key else stats[key] }}</span></a>
@@ -112,7 +123,7 @@
 {% include "queues/_form_dialog.html" %}
 {% endif %}
 {% if can_delete %}
-<dialog class="dlg" id="delete-queue" aria-label="Delete queue">
+<dialog class="dlg q-dlg" id="delete-queue" aria-label="Delete queue">
   <div class="dialog">
     {{ m.dialog_head("Delete " ~ queue.name ~ "?") }}
     <form method="post" action="/project/{{ project.id }}/queues/{{ queue.id }}/delete">

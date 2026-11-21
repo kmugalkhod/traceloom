@@ -17,7 +17,7 @@
         {% if err %}<div class="field-error" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>Fix the JSON before saving. Nothing is changed yet.</span></div>{% endif %}
         {% with prefix = "it", editable = editable,
                 err_msg = (err.message if err else ""),
-                vals = (err.values if err else {"input": pretty(it.input), "expected_output": (pretty(it.expected_output) if it.expected_output is not none else ""), "metadata": pretty(it.metadata or {})}) %}
+                vals = (err.values if err else {"input": pretty(it.input), "expected_output": (pretty(it.expected_output) if it.expected_output is not none else ""), "metadata": compact(it.metadata or {})}) %}
           {% include "datasets/_json_fields.html" %}
         {% endwith %}
         <div class="field"><label>Versions</label>
@@ -28,9 +28,9 @@
             {% endfor %}
           </div>
         </div>
-        {% if editable %}<div class="drawer-archive"><button type="submit" form="archive-{{ it.id }}" class="btn btn-ghost">{{ m.icon("i-trash", "ico-sm") }}Archive item</button></div>{% endif %}
       </div>
       <footer>
+        {% if editable %}<button type="submit" form="archive-{{ it.id }}" class="btn btn-ghost drawer-archive">{{ m.icon("i-trash", "ico-sm") }}Archive item</button>{% endif %}
         {% if editable %}<span class="l">Saving creates v{{ it.version + 1 }}. Runs started earlier keep reading older versions.</span>{% endif %}
         <button type="button" class="btn" data-dialog-close>{{ "Cancel" if editable else "Close" }}</button>
         {% if editable %}<button type="submit" class="btn btn-primary">Save as v{{ it.version + 1 }}</button>{% endif %}

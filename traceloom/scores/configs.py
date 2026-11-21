@@ -106,7 +106,7 @@ class ConfigCache:
         self._sessions = session_factory
         self._ttl = ttl_seconds
         self._lock = threading.Lock()
-        self._entries: dict[tuple[str, str], tuple[float, ConfigSnapshot | None]] = {}
+        self._entries: dict[tuple[str, str], tuple[float, ConfigSnapshot]] = {}
 
     def get(self, project_id: str, config_id: str) -> ConfigSnapshot | None:
         key = (project_id, config_id)
@@ -122,8 +122,9 @@ class ConfigCache:
                 )
             )
             snapshot = ConfigSnapshot.of(config) if config else None
-        with self._lock:
-            self._entries[key] = (now + self._ttl, snapshot)
+        if snapshot is not None:  # a miss is not cached: a just-created config must be found
+            with self._lock:
+                self._entries[key] = (now + self._ttl, snapshot)
         return snapshot
 
     def invalidate(self, project_id: str, config_id: str | None = None) -> None:

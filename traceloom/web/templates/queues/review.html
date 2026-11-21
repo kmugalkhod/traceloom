@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m with context %}
+{% import "_score_chips.html" as chips %}
 {% block title %}Review · {{ queue.name }}{% endblock %}
 {% block ctx_m %}{% endblock %}
 {% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Annotation queues", "href": "/project/" ~ project.id ~ "/queues"}, {"label": queue.name, "href": back}, {"label": "Review"}]) }}{% endblock %}
 
 {% macro score_input(inp, editable) %}
-<div class="sin" data-score="{{ inp.id }}">
+<div class="sin q-sin" data-score="{{ inp.id }}">
   <div class="nm"><span>{{ inp.name }}{% if inp.archived %} <span class="muted">(archived)</span>{% endif %}</span><small>{{ inp.hint }}</small></div>
   {% if inp.type == "NUMERIC" %}
     <input class="input" name="score_{{ inp.id }}" value="{{ inp.value }}" inputmode="decimal" autocomplete="off" aria-label="{{ inp.name }}"{{ " disabled aria-disabled=true" if not editable }}>
@@ -33,7 +34,8 @@
   <button class="btn btn-icon btn-sm" type="button" aria-label="Keyboard shortcuts" data-dialog-open="review-help">{{ m.icon("i-kbd") }}</button>
 </div>
 
-<div class="stack q-mt-12">
+{% if notice == "no-other" or opened.state in ("locked", "closed") or error %}
+<div class="stack">
   {% if notice == "no-other" %}{{ m.banner("info", "There is no other item available right now. This one is still yours.") }}{% endif %}
   {% if opened.state == "locked" %}
   <div class="banner info" role="status">{{ m.icon("i-lock") }}<div><b>Locked by {{ lock.who }} until {{ lock.until }} UTC.</b> You can read this item, not score it. <a href="/project/{{ project.id }}/queues/{{ queue.id }}/review">Next available item</a></div></div>
@@ -42,12 +44,13 @@
   {% endif %}
   {% if error %}<div class="banner err" role="alert">{{ m.icon("i-error") }}<div>{{ error }} Nothing was saved and the item is still yours.</div></div>{% endif %}
 </div>
+{% endif %}
 
 <form method="post" id="review-form" data-review data-item="{{ item.id }}" data-mine="{{ 'true' if can_review else 'false' }}"
       data-base="{{ back }}/review/{{ item.id }}" data-renew-seconds="{{ [lock_minutes * 60 // 3, 30] | max }}">
 {{ m.csrf() }}
 <input type="hidden" name="duration_ms" value="" data-duration>
-<div class="rv q-mt-12">
+<div class="q-rv">
   <div class="obj">
     {% if view.missing %}
     <div class="panel">{% call m.empty_state("i-info", "This item is no longer available", "The " ~ item.object_type ~ " was deleted or has not arrived yet. You can skip it.") %}{% endcall %}</div>
@@ -63,15 +66,15 @@
       {% if view.kind == "session" %}
         {% for t in view.traces %}
         <div class="panel"><div class="panel-h"><h2>{{ t.name }}</h2><span class="muted right q-s12">read-only</span></div><div class="panel-b ro">
-          {% for title, rendered in t.sections %}{% include "traces/_io_block.html" %}{% endfor %}</div></div>
+          {% for title, rendered in t.sections %}{% include "queues/_qio.html" %}{% endfor %}</div></div>
         {% endfor %}
         {% if view.more %}<p class="hint">{{ view.more }} more traces in this session. Open the session to see them.</p>{% endif %}
       {% else %}
         <div class="panel"><div class="panel-h"><h2>Input and output</h2><span class="muted right q-s12">read-only</span></div><div class="panel-b ro">
-          {% for title, rendered in view.sections %}{% include "traces/_io_block.html" %}{% endfor %}</div></div>
-        <div class="panel"><div class="panel-h"><h2>Steps <span class="muted">{{ view.steps | length }}</span></h2></div>
+          {% for title, rendered in view.sections %}{% include "queues/_qio.html" %}{% endfor %}</div></div>
+        <div class="panel"><div class="panel-h"><h2>Steps <span class="q-u">{{ view.steps | length }}</span></h2></div>
           <ul class="qtree" role="tree" aria-label="Steps, read-only">
-            {% for s in view.steps %}<li role="treeitem" class="{{ 'sel' if s.selected }}"><span class="nm"><span class="ind qd{{ [s.depth, 12] | min }}"></span><span class="ty ty-{{ s.type }}" title="{{ s.type }}">{{ m.icon("i-" ~ s.type if s.type in icon_types else "i-span") }}</span><span class="t">{{ s.name }}</span></span><span class="num dim">{{ s.duration }}</span><span class="num">{{ s.cost }}</span></li>
+            {% for s in view.steps %}<li role="treeitem" class="{{ 'sel' if s.selected }}"><span class="nm"><span class="ind qd{{ [s.depth, 12] | min }}"></span><span class="ty q-ty ty-{{ s.type }}" title="{{ s.type }}">{{ m.icon("i-" ~ s.type if s.type in icon_types else "i-span") }}</span><span class="t">{{ s.name }}</span></span><span class="num d">{{ s.duration }}</span><span class="num cst">{{ s.cost }}</span></li>
             {% else %}<li class="hint">This trace has no observations.</li>{% endfor %}
           </ul></div>
       {% endif %}
@@ -84,13 +87,14 @@
       {% if can_review %}<span class="pill right" data-lock-label>{{ m.icon("i-lock") }}Yours until {{ lock.until }} UTC</span>{% endif %}</div>
       <div class="panel-b"><div class="sform">
         {% for inp in inputs %}{{ score_input(inp, can_review) }}{% endfor %}
-        <div class="sin"><div class="nm"><span>Comment</span><small>optional</small></div>
+        <div class="sin q-sin"><div class="nm"><span>Comment</span><small>optional</small></div>
           <textarea class="textarea" name="comment" aria-label="Comment" rows="3" maxlength="5000"{{ " disabled aria-disabled=true" if not can_review }}>{{ comment }}</textarea></div>
       </div></div></section>
     {% if view.scores %}
-    <section class="panel"><div class="panel-b stackf"><div class="sect q-nopad">Already scored on this {{ item.object_type }}</div>
-      <div class="scs">{% for s in view.scores %}<span class="sc {{ chip_class(s) }}"><span class="n">{{ s.name }}:</span> <b>{{ score_text(s) }}</b></span>{% endfor %}</div>
-      {% for s in view.scores if s.comment %}<div class="q-comment">{{ s.comment }}</div>{% endfor %}
+    <section class="panel"><div class="panel-b stackf"><div class="q-sect">Already scored on this {{ item.object_type }}</div>
+      <div class="scs q-scs">{% for s in view.scores %}{{ chips.chip(s) }}{% endfor %}</div>
+      {% set commented = view.scores | selectattr("comment") | list %}
+      {% if commented %}<ul class="q-cmts">{% for s in commented %}<li><b>{{ s.name }}</b> {{ s.comment }}</li>{% endfor %}</ul>{% endif %}
     </div></section>
     {% endif %}
   </div>

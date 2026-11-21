@@ -19,7 +19,7 @@ from traceloom.auth.permissions import Perm
 from traceloom.container import Container
 from traceloom.db.models import AnnotationItem, AnnotationQueue, ScoreConfig, User
 from traceloom.db.session import get_db
-from traceloom.ports import ObservationRow, ScoreRow, TraceDetail
+from traceloom.ports import ObservationRow, TraceDetail
 from traceloom.web import tree
 from traceloom.web.context import page_context
 from traceloom.web.formatting import latency, money
@@ -55,18 +55,6 @@ def _tree_rows(observations: list[ObservationRow], selected: str | None) -> list
             }
         )
     return rows
-
-
-def _chip_class(score: ScoreRow) -> str:
-    return {"ANNOTATION": "ann", "EVAL": "eval"}.get(score.source, "api")
-
-
-def _score_text(score: ScoreRow) -> str:
-    if score.string_value is not None:
-        return score.string_value
-    if score.value is None:
-        return ""
-    return f"{score.value:g}"
 
 
 def object_view(container: Container, project_id: str, item: AnnotationItem) -> dict[str, Any]:
@@ -216,8 +204,6 @@ def _page(
         done_by=(done_by.name or done_by.email) if done_by else "",
         can_review=opened.state == "mine",
         back=base(access) + f"/{queue.id}",
-        score_text=_score_text,
-        chip_class=_chip_class,
         lock_minutes=container.settings.annotation_lock_minutes,
     )
     return render(request, "queues/review.html", context, status=status)

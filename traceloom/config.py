@@ -106,6 +106,13 @@ class Settings(BaseSettings):
     smtp_from: str = Field("traceloom@localhost", validation_alias="SMTP_FROM")
     smtp_starttls: bool = Field(True, validation_alias="SMTP_STARTTLS")
 
+    @property
+    def eval_stuck_threshold_seconds(self) -> int:
+        """How long a judge or experiment job may stay `running` before the sweeper resets it.
+        Never shorter than two provider timeouts plus a minute, so a live slow call is not reset
+        and run a second time."""
+        return max(self.eval_stuck_seconds, 2 * self.provider_timeout_seconds + 60)
+
     @model_validator(mode="after")
     def _require_secret_outside_dev(self) -> Settings:
         if not self.secret_key:

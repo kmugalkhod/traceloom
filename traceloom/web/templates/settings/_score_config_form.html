@@ -20,7 +20,7 @@
     <div class="field"><label for="{{ prefix }}-min">Minimum <span class="muted">optional</span></label><input id="{{ prefix }}-min" class="input" name="min_value" value="{{ vals.min_value }}" inputmode="decimal" autocomplete="off"></div>
     <div class="field"><label for="{{ prefix }}-max">Maximum <span class="muted">optional</span></label><input id="{{ prefix }}-max" class="input" name="max_value" value="{{ vals.max_value }}" inputmode="decimal" autocomplete="off"></div>
   </div>
-  <div class="field cfg-cat"><label>Categories <span class="muted">each with a numeric value</span></label>
+  <div class="field cfg-cat"><label>Categories <span class="muted">2 to 20, each with a numeric value</span></label>
     {% set rows = [vals.categories | length, min_category_rows] | max + 1 %}
     {% for i in range(rows) %}
       {% set cat = vals.categories[i] if i < (vals.categories | length) else ("", "") %}

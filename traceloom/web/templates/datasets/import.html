@@ -15,28 +15,27 @@
 
 {% if step == 1 %}
   {% if error %}<div class="banner err" role="alert">{{ m.icon("i-error") }}<div><b>{{ error }}</b></div></div>{% endif %}
-  <form method="post" action="{{ base }}/import" enctype="multipart/form-data" class="panel" data-import-drop>
+  {% include "datasets/_ds_icons.html" %}
+  <form method="post" action="{{ base }}/import" enctype="multipart/form-data" data-import-drop>
     {{ m.csrf() }}
-    <div class="panel-b">
-      <div class="drop" data-drop-zone>
-        <span class="tile">{{ m.icon("i-arrow") }}</span>
-        <b>Drop a CSV, JSON or JSONL file</b>
-        <span class="hint">or</span>
-        <label class="btn" for="import-file">Choose file</label>
-        <input id="import-file" class="sr" type="file" name="file" accept=".csv,.json,.jsonl,.ndjson" required>
-        <span class="hint" data-file-name aria-live="polite"></span>
-        <span class="hint">Up to {{ "{:,}".format(max_rows) }} rows. JSON files need objects with input, expected_output and metadata keys.</span>
-      </div>
+    <div class="drop" data-drop-zone>
+      <span class="tile">{{ m.icon("i-ds-upload") }}</span>
+      <b>Drop a CSV, JSON or JSONL file</b>
+      <span class="hint">or</span>
+      <label class="btn" for="import-file">Choose file</label>
+      <input id="import-file" class="sr" type="file" name="file" accept=".csv,.json,.jsonl,.ndjson" required>
+      <span class="hint" data-file-name aria-live="polite"></span>
+      <span class="hint">Up to {{ "{:,}".format(max_rows) }} rows. JSON files need objects with input, expected_output and metadata keys.</span>
     </div>
-    <noscript><div class="panel-b"><div class="banner warn">{{ m.icon("i-warn") }}<div>Uploading a file needs JavaScript, because the form token is sent in a header.</div></div></div></noscript>
-    <div class="panel-b row"><a class="btn" href="{{ base }}">Cancel</a><button type="submit" class="btn btn-primary">Upload</button></div>
+    <noscript><div class="banner warn mt-8">{{ m.icon("i-warn") }}<div>Uploading a file needs JavaScript, because the form token is sent in a header.</div></div></noscript>
+    <div class="drop-acts"><a class="btn" href="{{ base }}">Cancel</a><button type="submit" class="btn btn-primary">Upload</button></div>
   </form>
 
 {% elif step == 2 %}
   {% if error %}<div class="banner err" role="alert">{{ m.icon("i-error") }}<div><b>{{ error }}</b></div></div>{% endif %}
   <form method="post" action="{{ base }}/import/{{ token }}/preview" class="stack">
     {{ m.csrf() }}
-    <div class="panel mapt"><div class="panel-h"><h2>Map columns</h2><span class="u muted">Required: map one column to input</span></div>
+    <div class="panel mapt ds-map"><div class="panel-h"><h2>Map columns</h2><span class="u muted">Required: map one column to input</span></div>
       <div class="panel-b flush"><table class="tbl"><thead><tr><th>Column</th><th>Sample</th><th>Use as</th></tr></thead><tbody>
         {% for column in table.columns %}{% set idx = loop.index0 %}{% set v = sample.get(column) %}
         <tr><td><b>{{ column }}</b></td>

@@ -131,3 +131,16 @@ def test_ten_is_enough():
 def test_length_mismatch_raises():
     with pytest.raises(ValueError):
         an.pearson([1] * 10, [1] * 11)
+
+
+def test_discrete_histogram_one_bin_per_integer_value():
+    vals = [1, 1, 2, 3, 3, 3, 5, 5, 5, 5, 5, 2]
+    h = an.discrete_histogram(vals)
+    assert h["status"] == "ok" and h["n"] == 12
+    assert [(b["value"], b["count"]) for b in h["bins"]] == [(1, 2), (2, 2), (3, 3), (4, 0), (5, 5)]
+
+
+def test_discrete_histogram_declines_fractional_or_wide_ranges():
+    assert an.discrete_histogram([i / 10 for i in range(12)]) is None
+    assert an.discrete_histogram(list(range(0, 120, 10))) is None
+    assert an.discrete_histogram(list(range(9)))["status"] == "not-enough-data"

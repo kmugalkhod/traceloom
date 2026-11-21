@@ -11,7 +11,6 @@ Holding an item renews its lock at each save; completing, skipping or releasing 
 
 from __future__ import annotations
 
-import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -20,7 +19,7 @@ from typing import Any
 from sqlalchemy import or_, select, update
 from sqlalchemy.orm import Session
 
-from traceloom.annotation.queues import get_item, get_queue
+from traceloom.annotation.queues import get_item, get_queue, score_id_for
 from traceloom.auth.permissions import Perm
 from traceloom.config import Settings
 from traceloom.db.base import utcnow
@@ -32,7 +31,6 @@ from traceloom.scores.configs import ConfigSnapshot, check_score
 
 CLAIM_RETRIES = 5
 MAX_DURATION_MS = 24 * 3600 * 1000
-_NAMESPACE = uuid.UUID("6f1c4a0e-8d52-4b8e-9f43-2a6f0d1b7c11")
 
 
 class ClaimError(ValueError):
@@ -314,11 +312,13 @@ def complete(
     now: datetime | None = None,
 ) -> list[str]:
     """Write one ANNOTATION score per queue config (tagged with the queue and the reviewer),
-    then mark the item completed and release the lock. Returns the score ids.
+    then mark the item completed, release the lock and commit. Returns the score ids.
 
-    Score ids derive from the item and config, so completing again overwrites instead of
-    duplicating. The caller's pending work is committed first: in lite mode the trace store
-    writes to the same database file, and an open write would lock it out."""
+    All or nothing: if a score write, closing the item or the commit fails, the scores written
+    by this call are deleted again and the item stays pending. Score ids derive from the item
+    and config (see `score_id_for`), so a retry overwrites instead of duplicating. The caller's
+    pending work is committed first: in lite mode the trace store writes to the same database
+    file, and an open write would lock it out."""
     _require_review(actor)
     queue = get_queue(db, project, actor, queue_id)
     item = get_item(db, project, actor, queue_id, item_id)
@@ -326,6 +326,7 @@ def complete(
     comment = (comment or "").strip()[:5000]
     now = now or utcnow()
     db.commit()  # release any write lock before the store writes (see the docstring)
+    db.refresh(item)  # its status may have changed since it was loaded
     if not _may_finish(item, actor, now):
         raise ClaimError("This item is locked by someone else or is already done.")
     where: dict[str, Any]
@@ -335,26 +336,38 @@ def complete(
         where = {"trace_id": item.trace_id, "observation_id": item.object_id}
     else:
         where = {"trace_id": item.object_id}
-    ids = []
-    for config in configs:
-        score_id = uuid.uuid5(_NAMESPACE, f"{item.id}:{config.id}").hex
-        score_service.create_score(
-            store,
-            project.id,
-            name=config.name,
-            value=values[config.id],
-            source="ANNOTATION",
-            config_id=config.id,
-            data_type=config.data_type,
-            score_id=score_id,
-            timestamp=now,
-            author_id=actor.id,
-            queue_id=queue.id,
-            comment=comment or None,
-            **where,
-        )
-        ids.append(score_id)
-    _close(db, item.id, actor, "completed", now, _clamp_duration(duration_ms))
+    ids: list[str] = []
+    planned = [score_id_for(item.id, c.id) for c in configs]
+    kept = set(store.get_existing(project.id, {"score": planned}).get("score", {}))
+    try:
+        for config in configs:
+            score_id = score_id_for(item.id, config.id)
+            score_service.create_score(
+                store,
+                project.id,
+                name=config.name,
+                value=values[config.id],
+                source="ANNOTATION",
+                config_id=config.id,
+                data_type=config.data_type,
+                score_id=score_id,
+                timestamp=now,
+                author_id=actor.id,
+                queue_id=queue.id,
+                comment=comment or None,
+                **where,
+            )
+            ids.append(score_id)
+        _close(db, item.id, actor, "completed", now, _clamp_duration(duration_ms))
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        for score_id in ids:
+            if score_id not in kept:  # never remove a score an earlier completion wrote
+                store.delete_score(project.id, score_id)
+        if isinstance(exc, score_service.ScoreError):
+            raise ClaimError(str(exc)) from exc
+        raise
     return ids
 
 

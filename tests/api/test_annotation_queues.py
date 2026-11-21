@@ -294,3 +294,44 @@ def test_items_are_reviewed_in_the_order_they_were_added(container, db, world, m
         db.commit()
         order.append(item.object_id)
     assert order == ids
+
+
+def test_add_items_rejects_an_observation_without_its_trace(db, world, member, queue):
+    settings = world_settings(db)
+    with pytest.raises(QueueError, match="trace"):
+        queues.add_items(
+            db, world.project, member, queue.id, [ItemRef("observation", "o1")], settings
+        )
+    _, total = queues.list_items(db, world.project, member, queue.id)
+    assert total == 0
+
+
+def test_score_summary_counts_the_queue_scores_per_config(
+    container, db, world, member, queue, config, make_score_config
+):
+    from traceloom.annotation import claim
+
+    ok = make_score_config(world.project, "correct", data_type="BOOLEAN")
+    queues.update_queue(
+        db, world.project, member, queue.id, "Refund review", "", [config.id, ok.id]
+    )
+    other = queues.create_queue(db, world.project, member, "Other", "", [config.id])
+    db.commit()
+    put_traces(container, world.project.id, ["a", "b", "c"])
+    refs = [ItemRef("trace", f"t{i}") for i in range(3)]
+    queues.add_items(db, world.project, member, queue.id, refs[:2], world_settings(db))
+    queues.add_items(db, world.project, member, other.id, refs[2:], world_settings(db))
+    db.commit()
+    empty = queues.score_summary(db, container.trace_store, world.project, member, queue.id)
+    assert empty.total == 0
+    for q, values in (
+        (queue, {config.id: 0.5, ok.id: True}),
+        (queue, {config.id: 1.0, ok.id: False}),
+        (other, {config.id: 0.0}),
+    ):
+        item = claim.claim_next(db, world.project, member, q.id, container.settings)
+        claim.complete(db, container.trace_store, world.project, member, q.id, item.id, values)
+        db.commit()
+    summary = queues.score_summary(db, container.trace_store, world.project, member, queue.id)
+    assert summary.total == 4
+    assert summary.lines == [("helpfulness, mean", "0.75"), ("correct, true", "1 of 2")]

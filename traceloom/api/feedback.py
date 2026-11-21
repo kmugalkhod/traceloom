@@ -102,8 +102,8 @@ def post_feedback(
             raise HTTPException(403, "This origin is not allowed to send feedback.")
         headers = _cors(origin)
     ip = request.client.host if request.client else "unknown"
+    _limit(container, "ip", ip, headers)  # first: one visitor cannot spend the key's budget
     _limit(container, "key", principal.key_id, headers)
-    _limit(container, "ip", ip, headers)
     try:
         row = feedback.submit(
             db,

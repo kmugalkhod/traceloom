@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 
 import pytest
 
 from tests.api.test_ingestion import auth, event, post, stored
 from traceloom.db.models import ScoreConfig
+from traceloom.ingest.accept import IngestLimits, accept_batch
 from traceloom.scores import configs as cfg
 from traceloom.scores import service
 from traceloom.scores.service import ScoreError, ScoreNotFound
@@ -118,21 +120,32 @@ def test_archived_config_still_validates_new_scores(
 
 
 def test_new_score_fields_are_stored(client, container, world, headers):
-    post_scores(
-        client,
-        container,
-        headers,
-        score_event(
-            "f1",
-            id="s-f",
-            value=1,
-            queueId="q1",
-            executionId="x1",
-            datasetRunId="r1",
-            channel="public_feedback",
-        ),  # fmt: skip
-    )
-    row = stored(container, world.project.id, score=["s-f"])["score"]["s-f"]
+    # datasetRunId is the client's (SDK experiments); the server-owned fields only reach storage
+    # through the server's own (trusted) ingest path.
+    post_scores(client, container, headers, score_event("f0", id="s-r", value=1, datasetRunId="r1"))
+    raw = {
+        "batch": [
+            score_event(
+                "f1",
+                id="s-f",
+                value=1,
+                queueId="q1",
+                executionId="x1",
+                datasetRunId="r1",
+                channel="public_feedback",
+            )  # fmt: skip
+        ]
+    }
+    s = container.settings
+    result = accept_batch(
+        world.project.id, json.dumps(raw).encode(), container.blob_store, container.queue,
+        IngestLimits(s.ingest_max_events, s.ingest_max_bytes), trusted=True,
+    )  # fmt: skip
+    assert not result.errors
+    container.queue.drain()
+    rows = stored(container, world.project.id, score=["s-f", "s-r"])["score"]
+    assert rows["s-r"].dataset_run_id == "r1"
+    row = rows["s-f"]
     assert (row.queue_id, row.execution_id, row.dataset_run_id, row.channel) == (
         "q1",
         "x1",

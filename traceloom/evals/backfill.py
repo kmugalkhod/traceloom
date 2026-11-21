@@ -40,8 +40,9 @@ def rule_query(rule: RuleSnapshot, from_time: datetime | None, to_time: datetime
         version=f.get("version"),
         tags=tuple(f.get("tags") or ()),
         min_level=f.get("min_level"),
-        has_error=f.get("has_error"),
+        has_error=None if f.get("has_error") is None else rules.truthy(f["has_error"]),
         metadata={k: str(v) for k, v in (f.get("metadata") or {}).items()},
+        score_filters=tuple(rules.score_conditions(f) or ()),
         from_time=from_time,
         to_time=to_time,
         cursor=cursor,
@@ -66,8 +67,12 @@ def backfill(
         if row is None:
             raise RuleNotFound(rule_id)
         version_id = rules.resolve_version_id(db, row)
-        if version_id is None:
-            return BackfillResult(0, False)
+        if (
+            version_id is None
+            or (row.filter or {}).get("scores")
+            and (rules.score_conditions(row.filter) is None)
+        ):
+            return BackfillResult(0, False)  # no versions, or unreadable score conditions
         snapshot = RuleSnapshot(
             row.id,
             project_id,
@@ -84,14 +89,17 @@ def backfill(
     while True:
         page = store.list_traces(project_id, rule_query(snapshot, from_time, to_time, cursor))
         for trace in page.items:
+            parents = {}
             if snapshot.target == OBSERVATION:
                 detail = store.get_trace(project_id, trace.id)
                 candidates = detail.observations if detail else []
+                parents = {trace.id: detail.trace} if detail else {}
             else:
                 candidates = [trace]
             created += rules.trigger(
-                container, [snapshot], candidates, delay_seconds=0, limit=limit - created
-            )
+                container, [snapshot], candidates, delay_seconds=0, limit=limit - created,
+                parents=parents,
+            )  # fmt: skip
             if created >= limit:
                 return BackfillResult(created, capped=True)
         if page.next_cursor is None:

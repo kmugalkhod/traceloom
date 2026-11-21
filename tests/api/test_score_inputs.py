@@ -122,3 +122,76 @@ def test_chips_are_coloured_by_source_and_escaped(client, login, world, containe
     assert '<span class="sc ann' in html and '<span class="sc eval' in html
     assert "<b>x</b>" not in html and "&lt;b&gt;x&lt;/b&gt;" in html
     assert "<i>c</i>" not in html
+
+
+def test_scores_tab_lists_scores_in_a_table_with_source_pills(client, login, world, container):
+    now = datetime.now(UTC)
+    seed_trace(
+        container,
+        world.project.id,
+        "t3",
+        scores=[
+            ScoreRow(
+                id="a3", trace_id="t3", name="helpfulness", value=0.82, timestamp=now,
+                source="ANNOTATION", author_id=world.user(Role.MEMBER).id, comment="<i>why</i>",
+            ),
+            ScoreRow(id="p3", trace_id="t3", name="thumbs", value=1, timestamp=now, source="API"),
+        ],
+    )  # fmt: skip
+    as_role(client, login, world, Role.MEMBER)
+    html = discussion(client, world, "t3")
+    assert '<table class="tbl sc-tbl"' in html
+    for head in ("Score", "Value", "Source", "By"):
+        assert f"<th>{head}</th>" in html
+    assert 'class="sc ann src"' in html and "Annotation</span>" in html
+    assert 'class="sc api src"' in html and "API</span>" in html
+    assert "Api · API" not in html  # the source is not repeated as text
+    assert "&lt;i&gt;why&lt;/i&gt;" in html and "<i>why</i>" not in html
+    assert '<div class="scs sc-sum">' in html  # chip summary row above the table
+
+
+def test_add_a_score_section_matches_the_design(client, login, world, trace, configs):
+    as_role(client, login, world, Role.MEMBER)
+    html = discussion(client, world)
+    assert ">Add a score</div>" in html
+    assert "<small>Numeric, 0 to 1</small>" in html
+    assert "<small>Categorical</small>" in html and "<small>Boolean</small>" in html
+    assert '<button class="btn btn-primary btn-sm" type="submit">Save</button>' in html
+    assert 'type="submit">Add</button>' not in html
+    assert '<textarea class="textarea" id="score-note" name="comment"' in html
+    assert 'hx-include="#score-note"' in html
+    assert "Free-form score (no config)" in html
+
+
+def test_config_score_keeps_the_shared_comment(client, login, world, trace, configs, container):
+    as_role(client, login, world, Role.MEMBER)
+    html = discussion(client, world)
+    r = post_form(
+        client,
+        html,
+        url(world) + "/scores",
+        {"config_id": configs["quality"].id, "value": "0.5", "comment": "kind"},
+        headers=HX,
+    )
+    assert r.status_code == 200
+    (score,) = container.trace_store.get_trace(world.project.id, "t1").scores
+    assert score.comment == "kind"
+
+
+def test_tree_rows_show_a_chip_per_observation_score(client, login, world, container):
+    now = datetime.now(UTC)
+    seed_trace(
+        container,
+        world.project.id,
+        "t4",
+        scores=[
+            ScoreRow(
+                id="o4", trace_id="t4", observation_id="t4-o1", name="quality", value=0.74,
+                timestamp=now, source="EVAL", execution_id="x",
+            ),
+        ],
+    )  # fmt: skip
+    as_role(client, login, world, Role.VIEWER)
+    html = client.get(url(world, "t4")).text
+    tree = html[html.index('class="tree"') :]
+    assert 'class="sc eval mini"' in tree and "<b>0.74</b>" in tree

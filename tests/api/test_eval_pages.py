@@ -497,3 +497,88 @@ def test_evaluator_pages_use_no_inline_styles_or_handlers(
         html = client.get(url(world, path), headers=HTML).text
         assert not re.search(r"<[^>]+\sstyle=", html), path
         assert not re.search(r"\son[a-z]+=", html), path
+
+
+# --- rule filter: operators and score conditions (FR-J3 follow-up) ----------------------------
+
+
+def _edit_filter(client, world, rule, template, **filters):
+    return post(
+        client,
+        world,
+        f"/rules/{rule.id}",
+        template_id=template.id,
+        name="r",
+        target="trace",
+        sampling_pct="100",
+        delay_seconds="0",
+        **filters,
+    )
+
+
+def test_rule_filter_stores_score_conditions_in_the_list_filter_format(
+    client, login, world, db, make_eval_rule, make_eval_template
+):
+    template = make_eval_template(world.project, "judge", prompt="{{input}}", model="m")
+    rule = make_eval_rule(world.project, template, name="r")
+    as_(client, login, world, Role.ADMIN)
+    saved = _edit_filter(
+        client,
+        world,
+        rule,
+        template,
+        f_field=["tags", "score:quality", "score:thumbs"],
+        f_op=["in", ">=", "missing"],
+        f_value=["vip", "0.5", ""],
+    )
+    assert saved.status_code == 303
+    db.expire_all()
+    assert db.get(EvalRule, rule.id).filter == {
+        "tags": ["vip"],
+        "scores": ["quality:>=:0.5", "thumbs:missing"],
+    }
+    page = client.get(url(world, f"/rules/{rule.id}"), headers=HTML).text
+    assert 'name="f_op"' in page
+    assert '<option value="score:quality" selected>' in page
+    assert '<option value="&gt;=" selected>' in page
+    assert '<option value="missing" selected>' in page
+
+
+def test_rule_filter_rejects_an_invalid_score_condition(
+    client, login, world, db, make_eval_rule, make_eval_template
+):
+    template = make_eval_template(world.project, "judge", prompt="{{input}}", model="m")
+    rule = make_eval_rule(world.project, template, name="r", filter={"name": "chat"})
+    as_(client, login, world, Role.ADMIN)
+    response = _edit_filter(
+        client, world, rule, template, f_field=["score:quality"], f_op=[">"], f_value=["abc"]
+    )
+    assert response.status_code == 400 and "needs a number" in response.text
+    db.expire_all()
+    assert db.get(EvalRule, rule.id).filter == {"name": "chat"}
+
+
+def test_rule_filter_offers_active_score_configs_and_escapes_names(
+    client, login, world, db, make_eval_rule, make_eval_template
+):
+    from traceloom.db.models import ScoreConfig
+
+    db.add(ScoreConfig(project_id=world.project.id, name=XSS, data_type="BOOLEAN"))
+    db.commit()
+    template = make_eval_template(world.project, "judge", prompt="{{input}}", model="m")
+    rule = make_eval_rule(world.project, template, name="r")
+    as_(client, login, world, Role.ADMIN)
+    page = client.get(url(world, f"/rules/{rule.id}"), headers=HTML).text
+    assert "score: &lt;script&gt;alert(1)&lt;/script&gt;" in page and XSS not in page
+    assert "Same conditions as the trace filter" in page
+
+
+def test_templates_page_features_three_starters_and_lists_the_rest(client, login, world):
+    as_(client, login, world, Role.MEMBER)
+    page = client.get(url(world, "/templates"), headers=HTML).text
+    assert "Also built in:" in page
+    featured = page.split("Also built in:")[0]
+    for name in ("Hallucination", "Relevance", "Correctness"):
+        assert name in featured
+    for name in ("Toxicity", "Helpfulness", "Conciseness"):
+        assert name not in featured

@@ -324,3 +324,18 @@ def test_qa_cap_meter_has_no_inline_style(client, login, world):
     as_role(client, login, world, Role.ADMIN)
     html = client.get(eval_url(world), headers={"Accept": "text/html"}).text
     assert not re.search(r'<i style="width:', html)
+
+
+@pytest.mark.parametrize(
+    ("path", "line"),
+    [
+        ("scores", "Configs define what a score may be, so annotators and judges stay consistent."),
+        ("evaluation", "Judge spending and the public feedback endpoint for this project."),
+    ],
+)
+def test_phase3_tabs_put_their_line_in_the_page_header(client, login, world, path, line):
+    as_role(client, login, world, Role.ADMIN)
+    html = client.get(f"/project/{world.project.id}/settings/{path}").text
+    header = html.split('<div class="page-h">', 1)[1].split("</div>", 2)
+    assert line in "".join(header[:2]) and "members, keys, model prices" not in html
+    assert html.count(line) == 1

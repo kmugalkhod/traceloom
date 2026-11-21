@@ -649,3 +649,30 @@ def test_progress_bars_and_filters_work_under_the_csp(
     assert "data-autosubmit" in client.get("/static/queue_review.js").text
     css = client.get("/static/ui/queues.css").text
     assert ".w50{width:50%}" in css and ".w100{width:100%}" in css and ".qd2{width:32px}" in css
+
+
+def test_detail_shows_the_scores_written_by_the_queue(
+    client, login, world, db, container, queue, config
+):
+    fill(db, world, container, queue, 2)
+    member = Actor.for_user(world.users[Role.MEMBER], Role.MEMBER)
+    for value in (0.25, 0.75):
+        item = claim.claim_next(db, world.project, member, queue.id, container.settings)
+        claim.complete(
+            db, container.trace_store, world.project, member, queue.id, item.id, {config.id: value}
+        )
+        db.commit()
+    as_(client, login, world, Role.MEMBER)
+    page = client.get(url(world, f"/{queue.id}"), headers=HTML).text
+    assert "Scores written" in page and "2 annotation scores" in page
+    assert "helpfulness, mean" in page and "0.5" in page
+    assert "Open in Score analytics" in page
+
+
+def test_detail_scores_written_is_empty_before_any_review(
+    client, login, world, db, container, queue
+):
+    fill(db, world, container, queue, 1)
+    as_(client, login, world, Role.MEMBER)
+    page = client.get(url(world, f"/{queue.id}"), headers=HTML).text
+    assert "Scores written" in page and "No scores written yet" in page

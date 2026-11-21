@@ -1,8 +1,10 @@
 {% extends "base.html" %}
 {% import "_macros.html" as m with context %}
-{% block crumbs %}{% if settings_tabs is defined and settings_tabs %}{% set cur = settings_tabs | selectattr("current") | list %}{{ m.crumbs([{"label": "Settings", "href": settings_tabs[0].href}] + ([{"label": cur[0].label}] if cur else [])) }}{% endif %}{% endblock %}
+{% block crumbs %}{% if settings_tabs is defined and settings_tabs %}{% set cur = settings_tabs | selectattr("current") | list %}{{ m.crumbs([{"label": "Project"}, {"label": "Settings", "href": settings_tabs[0].href}] + ([{"label": cur[0].label}] if cur else [])) }}{% endif %}{% endblock %}
+{% block settings_sub %}Manage {{ org.name }} / {{ project.name }}: members, keys, model prices.{% endblock %}
 {% block content %}
-{{ m.page_header("Settings", "Manage " ~ org.name ~ " / " ~ project.name ~ ": members, keys, model prices.") }}
+{# A tab may replace the subtitle with its own line (the Phase 3 tabs do). #}
+{{ m.page_header("Settings", self.settings_sub() | trim) }}
 {% include "settings/_tabs.html" %}
 {% block settings_body %}{% endblock %}
 {% endblock %}

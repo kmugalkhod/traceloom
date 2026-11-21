@@ -24,7 +24,7 @@ import json
 import logging
 import random
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -37,12 +37,12 @@ from traceloom.db.models import LLMConnection
 from traceloom.db.models_eval import EvalExecution, EvalRule, EvalTemplate, EvalTemplateVersion
 from traceloom.evals import rule_service, spend
 from traceloom.evals.mapping import MappingError, ObjectContext, resolve_variables
-from traceloom.evals.rules import OBSERVATION, TRACE, _filter_matches
+from traceloom.evals.rules import OBSERVATION, TRACE, _filter_matches, score_conditions, truthy
 from traceloom.ingest.accept import IngestLimits, accept_batch
 from traceloom.llm import connections, providers
 from traceloom.llm.connections import ConnectionPolicy, Secrets
 from traceloom.llm.run import Run, RunSpec
-from traceloom.ports import LEVELS, ObservationRow, TraceRow
+from traceloom.ports import LEVELS, ObservationRow, ScoreRow, TraceRow
 from traceloom.prompts.variables import compile_text
 from traceloom.queue_registry import EVAL_JOB
 from traceloom.scores.configs import config_cache, score_check_for
@@ -166,20 +166,24 @@ def validate_output(output_schema: Mapping[str, Any], reply: str) -> Judgement:
 # --- Filter re-check and context ---------------------------------------------------------------
 
 
-def _truthy(value: Any) -> bool:
-    return str(value).strip().lower() in ("1", "true", "yes")
-
-
-def still_matches(rule: EvalRule, row: TraceRow | ObservationRow) -> bool:
-    """The rule's filter on the object as it is now."""
+def still_matches(
+    rule: EvalRule,
+    row: TraceRow | ObservationRow,
+    trace: TraceRow | None = None,
+    scores: Sequence[ScoreRow] = (),
+) -> bool:
+    """The rule's filter on the object as it is now (`trace`: an observation's parent; `scores`:
+    the trace's scores, which the score conditions are checked against)."""
     f = rule.filter or {}
-    if not _filter_matches(f, row):
+    if f.get("scores") and score_conditions(f) is None:
+        return False
+    if not _filter_matches(f, row, trace, list(scores)):
         return False
     level = row.max_level if isinstance(row, TraceRow) else row.level
     rank = LEVELS.index(level) if level in LEVELS else 1
     if f.get("min_level") in LEVELS and rank < LEVELS.index(f["min_level"]):
         return False
-    return not (f.get("has_error") is not None and _truthy(f["has_error"]) != (level == "ERROR"))
+    return not (f.get("has_error") is not None and truthy(f["has_error"]) != (level == "ERROR"))
 
 
 def _context(row: TraceRow | ObservationRow, observations: list[ObservationRow]) -> ObjectContext:
@@ -354,7 +358,7 @@ def _execute(container: Container, execution_id: str, secrets: list[str]) -> Non
             row = next((o for o in detail.observations if o.id == object_id), None)
         if row is None or object_type not in (TRACE, OBSERVATION):
             raise Skipped("the object no longer exists")
-        if not still_matches(rule, row):
+        if not still_matches(rule, row, detail.trace, detail.scores):
             raise Skipped("the object no longer matches the rule's filter")
         context = _context(row, detail.observations if object_type == TRACE else [])
 
@@ -393,15 +397,17 @@ def _execute(container: Container, execution_id: str, secrets: list[str]) -> Non
             .where(EvalExecution.id == execution_id)
             .values(estimated_cost=reservation.amount)
         )
+    # This claim (the attempt number) still owns the row: not reset by the sweeper meanwhile.
+    held = spend.claim_check(EvalExecution, execution_id, EvalExecution.attempts == attempt)
     try:
         reply, judge_trace_id, cost = _call(
             container, project_id, template.name, prompt, schema, params, connection,
             model.model, secrets,
         )  # fmt: skip
     except BaseException:
-        spend.release(sessions, reservation)  # no usable call happened
+        spend.release(sessions, reservation, held)  # no usable call happened
         raise
-    spend.settle(sessions, reservation, cost or 0.0)
+    spend.settle(sessions, reservation, cost, held)  # an unknown cost counts as the estimate
 
     # 4. Output, then the score.
     try:
@@ -607,6 +613,7 @@ def _write_score(
         container.queue,
         IngestLimits(settings.ingest_max_events, settings.ingest_max_bytes),
         score_check_for(config_cache(container)),
+        trusted=True,  # sets executionId (source=EVAL), which clients cannot
     )
     if result.errors:
         raise Permanent(f"the score was rejected: {result.errors[0]['message']}")

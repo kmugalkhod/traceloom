@@ -28,7 +28,7 @@
     </select>
     <input type="hidden" name="status" value="{{ status }}">
     <input type="hidden" name="range" value="{{ range }}">
-    <button class="btn" type="submit">Apply</button>
+    <noscript><button class="btn" type="submit">Apply</button></noscript>
     <div class="seg scroll" role="group" aria-label="Status">
       <a href="{{ link(status="") }}"{% if not status %} aria-pressed="true"{% endif %}>All <span class="c">{{ total }}</span></a>
       {% for s in statuses %}<a href="{{ link(status=s.key) }}"{% if s.key == status %} aria-pressed="true"{% endif %}>{{ s.label }} <span class="c">{{ s.count }}</span></a>{% endfor %}

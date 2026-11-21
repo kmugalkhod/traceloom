@@ -41,6 +41,10 @@ def _descriptions() -> dict[str, str]:
     return {e["name"]: e.get("description", "") for e in tpl.load_starter()}
 
 
+# The starter cards shown first (mockup section 7); the rest are listed under "Also built in".
+FEATURED_STARTERS = ("hallucination", "relevance", "correctness")
+
+
 def score_label(schema: Mapping[str, Any]) -> str:
     kind = SCORE_TYPE_LABELS.get(schema.get("type", ""), "")
     if schema.get("type") == "numeric":
@@ -131,6 +135,11 @@ def templates_page(
         for v in views
         if v.builtin
     ]
+    featured = sorted(
+        (c for c in cards if c["name"] in FEATURED_STARTERS),
+        key=lambda c: FEATURED_STARTERS.index(c["name"]),
+    )
+    more = [c for c in cards if c["name"] not in FEATURED_STARTERS]
     mine = [
         {
             "id": v.template.id,
@@ -144,7 +153,15 @@ def templates_page(
         for v in views
         if not v.builtin
     ]
-    context = shell(db, access, "templates", cards=cards, mine=mine, notice=NOTES.get(notice, ""))
+    context = shell(
+        db,
+        access,
+        "templates",
+        cards=featured,
+        more_cards=more,
+        mine=mine,
+        notice=NOTES.get(notice, ""),
+    )
     return render(request, "evals/templates.html", context)
 
 

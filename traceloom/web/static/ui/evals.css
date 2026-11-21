@@ -43,7 +43,8 @@
 .tgt label:has(input:checked){border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
 .tgt label:has(input:focus-visible){outline:2px solid var(--focus);outline-offset:2px}
 .tgt b{display:block;font-size:14px}.tgt small{color:var(--ink-3);font-size:12px}
-.frow{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,2fr) 36px;gap:8px;align-items:center;margin-bottom:8px}
+.frow{display:grid;grid-template-columns:minmax(0,1.4fr) 88px minmax(0,1.6fr) 36px;gap:8px;align-items:center;margin-bottom:8px}
+.frow [name=f_value][hidden]{display:block;visibility:hidden}
 .mapt .tbl td{height:auto;padding-top:8px;padding-bottom:8px;vertical-align:top}
 .mapt .tbl .input,.mapt .tbl .select{height:32px;font-size:13px}
 .mapt .sub-in{margin-top:6px}
@@ -57,7 +58,7 @@
 .sw-form{display:inline-flex}
 .mono-sm{font-family:var(--font-mono);font-size:12px}
 .ev-outcome{display:flex;gap:6px;flex-wrap:wrap}
-@media (max-width:900px){.tpl-grid{grid-template-columns:1fr}.form2{grid-template-columns:1fr}.fgrid{grid-template-columns:1fr}.tgt{grid-template-columns:1fr}.frow{grid-template-columns:1fr 36px}.frow .select{grid-column:1/-1}}
+@media (max-width:900px){.tpl-grid{grid-template-columns:1fr}.form2{grid-template-columns:1fr}.fgrid{grid-template-columns:1fr}.tgt{grid-template-columns:1fr}.frow{grid-template-columns:88px minmax(0,1fr) 36px}.frow [name=f_field]{grid-column:1/-1}}
 
 /* no inline styles: the app CSP (default-src 'self') drops style="" attributes */
 .ev-s1{font-size:12px}
@@ -94,3 +95,18 @@
 .log-detail .dh h2{margin:0;flex:1}
 .retry-form{display:inline}
 .ev-cell-trunc{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* starter cards: black titles, the rest of the library behind "Also built in" (mockup section 7) */
+.tpl h3 a{color:var(--ink)}
+.tpl h3 a:hover{text-decoration:underline}
+.tpl-more>summary{list-style:none;cursor:pointer;font-size:13px;color:var(--ink-3);display:flex;gap:8px;align-items:center}
+.tpl-more>summary::-webkit-details-marker{display:none}
+.tpl-more-show{color:var(--accent);font-weight:500}
+.tpl-more[open] .tpl-more-show{display:none}
+.tpl-more[open]>summary{margin-bottom:16px}
+.tpl-more>summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+.mapt .tbl th{border-radius:0;border-bottom:1px solid var(--line)}
+.log-wrap .tbl th{border-radius:0;border-bottom:1px solid var(--line)}
+/* enable-confirm and backfill dialogs: 24px body as in the mockup (the form wraps body and footer) */
+.dlg[id^=enable-] .dialog>form>.body,.dlg[data-backfill] .dialog>form>.body{padding:24px;gap:16px}
+.dlg[id^=enable-] .dialog>form>footer,.dlg[data-backfill] .dialog>form>footer{padding:16px 24px}

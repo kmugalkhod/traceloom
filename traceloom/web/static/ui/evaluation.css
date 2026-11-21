@@ -39,7 +39,7 @@
 .meter.full i{background:var(--warn-bar)}
 .cap-input{position:relative;display:block}
 .cap-input .cur{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink-3)}
-.cap-input .input{padding-left:26px}
+.cap-input .input{padding-left:26px;text-align:left}
 /* origins and snippet */
 .fchips{display:flex;gap:6px;flex-wrap:wrap}
 .chip.f{background:var(--accent-soft);color:var(--ink);border-color:transparent}
@@ -165,3 +165,19 @@
 .meter i.mw-98{width:98%}
 .meter i.mw-99{width:99%}
 .meter i.mw-100{width:100%}
+/* Phase 3 tables run the header edge to edge, as in the mockup (panel-b flush) */
+.rack.rack-flush{padding:0}
+.rack.rack-flush .tbl th{border-radius:0;border-bottom:1px solid var(--line)}
+@container app (max-width:760px){
+  .rack.rack-flush:has(.cardrows){padding:0 12px}
+  .rack.rack-flush .tbl.cardrows td:first-child{padding-left:0}
+  .rack.rack-flush .tbl.cardrows td.num{text-align:left}
+}
+/* score config dialog (mockup section 1): 24px body, small labels with the optional note on the right,
+   a full-width data-type control */
+.dialog>form>.cfg-form{padding:24px;gap:16px}
+.dialog>form>.cfg-form~footer{padding:16px 24px}
+.cfg-form .field>label{font-size:12px;font-weight:600;color:var(--ink-2);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cfg-form .field>label .muted{font-weight:500}
+.cfg-form .segr{align-self:stretch;background:var(--surface);border-radius:10px;padding:2px}
+.cfg-form .segr span{height:30px}

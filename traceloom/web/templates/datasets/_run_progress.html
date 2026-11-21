@@ -14,9 +14,9 @@
       <span><i class="d"></i>{{ by_status.succeeded }} succeeded</span><span><i class="f"></i>{{ by_status.failed }} failed</span><span><i class="s"></i>{{ by_status.capped }} capped</span><span><i class="a"></i>{{ by_status.running }} running</span><span><i class="p"></i>{{ by_status.pending }} pending</span>
     </div></div></section>
   <div class="kpis">
-    <div class="stat"><span class="top">Mean latency<span class="chipi">{{ m.icon("i-clock", "ico-sm") }}</span></span><b>{{ mean_latency }}</b><span class="sub">p95 {{ p95_latency }}</span></div>
-    <div class="stat"><span class="top">Cost so far<span class="chipi ok">{{ m.icon("i-check", "ico-sm") }}</span></span><b>{{ cost }}</b><span class="sub">calculated</span></div>
-    {% for s in score_means[:1] %}<div class="stat"><span class="top">{{ s.name }}<span class="chipi">{{ m.icon("i-check", "ico-sm") }}</span></span><b>{{ s.mean }}</b><span class="sub">mean of {{ s.n }}</span></div>{% else %}<div class="stat"><span class="top">Scores<span class="chipi">{{ m.icon("i-check", "ico-sm") }}</span></span><b>-</b><span class="sub">no evaluator scores yet</span></div>{% endfor %}
+    <div class="stat"><span class="top">Mean latency<span class="chipi acc">{{ m.icon("i-clock", "ico-sm") }}</span></span><b>{{ mean_latency }}</b><span class="sub">p95 {{ p95_latency }}</span></div>
+    <div class="stat"><span class="top">Cost so far<span class="chipi ok">{{ m.icon("i-ds-cost", "ico-sm") }}</span></span><b>{{ cost }}</b><span class="sub">calculated</span></div>
+    {% for s in score_means[:1] %}<div class="stat"><span class="top">{{ s.name }}<span class="chipi acc">{{ m.icon("i-judge", "ico-sm") }}</span></span><b>{{ s.mean }}</b><span class="sub">mean of {{ s.n }}</span></div>{% else %}<div class="stat"><span class="top">Scores<span class="chipi acc">{{ m.icon("i-judge", "ico-sm") }}</span></span><b>-</b><span class="sub">no evaluator scores yet</span></div>{% endfor %}
     <div class="stat"><span class="top">Success rate<span class="chipi ok">{{ m.icon("i-check", "ico-sm") }}</span></span><b>{{ success_rate }}</b><span class="sub">{{ by_status.succeeded }} of {{ finished }} finished</span></div>
   </div>
   <div class="panel"><div class="panel-b flush">
@@ -32,12 +32,12 @@
             {% elif st == "running" and not it.output %}<span class="cursor"></span>
             {% elif it.output %}<div class="trunc mw-260">{{ it.output }}</div>
             {% else %}<span class="muted">-</span>{% endif %}</td>
-          <td>{% for sc in it.scores %}<span class="sc eval"><span class="n">{{ sc.name }}:</span> <b>{{ sc.value }}</b></span> {% else %}<span class="muted">-</span>{% endfor %}</td>
+          <td>{% for sc in it.scores %}<span class="sc eval">{{ m.icon("i-judge") }}<span class="n">{{ sc.name }}:</span> <b>{{ sc.value }}</b></span> {% else %}<span class="muted">-</span>{% endfor %}</td>
           <td class="num r">{{ it.latency }}</td>
           <td class="num r">{% if it.row.cost %}${{ "%.4f" | format(it.row.cost) }}{% else %}<span class="muted">-</span>{% endif %}</td>
           <td>{% if st == "succeeded" %}<span class="pill ok">{{ m.icon("i-check") }}Succeeded</span>
             {% elif st == "failed" %}<span class="pill err">{{ m.icon("i-error") }}Failed</span>
-            {% elif st == "capped" %}<span class="pill capd">{{ m.icon("i-warn") }}Capped</span>
+            {% elif st == "capped" %}<span class="pill capd">{{ m.icon("i-ds-cost") }}Capped</span>
             {% elif st == "running" %}<span class="pill run"><span class="spin"></span>Running</span>
             {% else %}<span class="pill pend">{{ m.icon("i-clock") }}Pending</span>{% endif %}
             {% if it.trace_url %}<a class="btn btn-ghost btn-sm" href="{{ it.trace_url }}">Trace</a>{% endif %}</td>

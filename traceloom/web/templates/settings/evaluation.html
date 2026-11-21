@@ -2,10 +2,11 @@
 {% import "_macros.html" as m with context %}
 {% block title %}Evaluation{% endblock %}
 
+{% block settings_sub %}Judge spending and the public feedback endpoint for this project.{% endblock %}
+
 {% block settings_body %}
 <div class="stack">
   {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
-  <p class="hint">Judge spending and the public feedback endpoint for this project.</p>
 
   <section class="panel" aria-label="Daily cost cap">
     <div class="panel-h"><h2>Judge daily cost cap</h2></div>
@@ -33,7 +34,7 @@
   </section>
 
   <section class="panel" aria-label="Public feedback">
-    <div class="panel-h"><h2>Public feedback</h2><span class="muted right small">pk-only endpoint</span></div>
+    <div class="panel-h"><h2>Public feedback</h2><span class="muted small">pk-only endpoint</span></div>
     <div class="panel-b stack">
       <div class="field"><label>Allowed feedback origins</label>
         {% if origins %}

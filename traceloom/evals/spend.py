@@ -12,8 +12,10 @@ settles against the day that was charged.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from typing import Any
 
 from sqlalchemy import case, select, update
 from sqlalchemy.dialects import postgresql, sqlite
@@ -182,30 +184,68 @@ def _drop_reservation(amount: float):
     return case((left < 0, 0.0), else_=left)  # never negative, even after a manual reset
 
 
-def settle(sessions: sessionmaker[Session], reservation: Reservation, actual: float) -> None:
-    """Replace the reservation with what the call really cost, on the day it was reserved."""
+# Runs inside the settle/release transaction. True while the job still owns its claimed row (and
+# so its reservation); it also zeroes the row's `estimated_cost`. False once the sweeper has reset
+# the row, which already released the reservation.
+StillHeld = Callable[[Session], bool]
+
+
+def claim_check(model: Any, row_id: str, *conditions: Any) -> StillHeld:
+    """A StillHeld for a job row: `status == running` plus the claim's own `conditions`."""
+
+    def check(db: Session) -> bool:
+        return bool(
+            db.execute(
+                update(model)
+                .where(model.id == row_id, model.status == "running", *conditions)
+                .values(estimated_cost=0.0)
+            ).rowcount
+        )
+
+    return check
+
+
+def settle(
+    sessions: sessionmaker[Session],
+    reservation: Reservation,
+    actual: float | None,
+    still_held: StillHeld | None = None,
+) -> None:
+    """Replace the reservation with what the call really cost, on the day it was reserved.
+
+    An unknown cost (None) is charged at the reservation, never as free. When `still_held` says
+    the sweeper already reset the row, only the spend is added: its hold was released then."""
+    actual = reservation.amount if actual is None else max(actual, 0.0)
     if reservation.amount <= 0 and actual <= 0:
         return
     with sessions.begin() as db:
+        held = still_held(db) if still_held else True
         _insert_if_missing(db, reservation.project_id, reservation.day)
+        values: dict[str, Any] = {"spent_usd": EvalSpendDaily.spent_usd + actual}
+        if held:
+            values["reserved_usd"] = _drop_reservation(reservation.amount)
         db.execute(
             update(EvalSpendDaily)
             .where(
                 EvalSpendDaily.project_id == reservation.project_id,
                 EvalSpendDaily.day == reservation.day,
             )
-            .values(
-                spent_usd=EvalSpendDaily.spent_usd + max(actual, 0.0),
-                reserved_usd=_drop_reservation(reservation.amount),
-            )
+            .values(**values)
         )
 
 
-def release(sessions: sessionmaker[Session], reservation: Reservation) -> None:
-    """Free a reservation whose call never ran (or died)."""
+def release(
+    sessions: sessionmaker[Session],
+    reservation: Reservation,
+    still_held: StillHeld | None = None,
+) -> None:
+    """Free a reservation whose call never ran (or died). Nothing to do when `still_held` says
+    the sweeper already reset the row (and released it)."""
     if reservation.amount <= 0:
         return
     with sessions.begin() as db:
+        if still_held and not still_held(db):
+            return
         db.execute(
             update(EvalSpendDaily)
             .where(

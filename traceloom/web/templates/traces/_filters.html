@@ -3,7 +3,7 @@
 <div class="menu-wrap" id="filter-wrap">
   <button type="button" class="btn" aria-haspopup="true" aria-expanded="false" data-menu-toggle="filter-menu">{{ m.icon("i-filter") }}Filter</button>
   <div class="pop pop-wide" id="filter-menu" data-menu hidden>
-    <div class="hd">Filters</div>
+    <div class="hd tray-hd"><span>Filters</span><span class="muted">All conditions must match</span><a class="btn btn-ghost btn-sm" href="{{ state.base_path }}">Clear all</a></div>
     <div class="filter-grid">
       <div class="field"><label for="f-name">Trace name</label><input class="input" id="f-name" name="name" value="{{ state.form.name }}"></div>
       <div class="field"><label for="f-user">User</label><input class="input" id="f-user" name="user" value="{{ state.form.user }}"></div>
@@ -30,15 +30,27 @@
       <div class="field"><label for="f-costmax">Cost to ($)</label><input class="input" id="f-costmax" name="cost_max" inputmode="decimal" value="{{ state.form.cost_max }}"></div>
       <div class="field"><label for="f-from">From date</label><input class="input" id="f-from" name="from" type="date" value="{{ state.form["from"] }}"></div>
       <div class="field"><label for="f-to">To date</label><input class="input" id="f-to" name="to" type="date" value="{{ state.form.to }}"><span class="hint">Setting either date uses a custom range.</span></div>
+      {% macro sf_row(sf, i) %}
+      {% set no_value = sf.op in ("exists", "missing") %}
+      <div class="frow score-frow"{% if no_value %} data-op-none{% endif %} data-sf-row>
+        <select class="select" name="sf_name" aria-label="Score name">{% if not sf.name %}<option value="">Choose a score</option>{% endif %}{% for n in score_names %}<option value="{{ n }}"{% if n == sf.name %} selected{% endif %}>{{ n }}</option>{% endfor %}</select>
+        <select class="select" name="sf_op" aria-label="Operator" data-sf-op>{% for op, label in score_ops %}<option value="{{ op }}"{% if sf.op == op %} selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+        <input class="input" name="sf_value" aria-label="Value" autocomplete="off" placeholder="0.5" value="{{ sf.value }}"{% if sf.error %} aria-invalid="true" aria-describedby="sf-err-{{ i }}"{% endif %}><span class="nov muted">no value needed</span>
+        <button type="button" class="btn btn-icon btn-ghost" aria-label="Remove condition" title="Remove condition" data-sf-remove>{{ m.icon("i-x", "ico-sm") }}</button>
+      </div>
+      {% if sf.error %}<span class="field-error" id="sf-err-{{ i }}" role="alert">{{ m.icon("i-warn", "ico-sm") }}<span>{{ sf.error }}</span></span>{% endif %}
+      {% endmacro %}
       <fieldset class="wide score-filters" id="score-filters">
-        <legend class="lbl">Score</legend>
-        {% for sf in state.form.scores %}
-        <div class="frow score-frow"><input class="input" name="sf_name" aria-label="Score name" value="{{ sf.name }}"><select class="select" name="sf_op" aria-label="Operator">{% for op in ["=", "!=", ">", ">=", "<", "<=", "in", "exists", "missing"] %}<option value="{{ op }}"{% if sf.op == op %} selected{% endif %}>{{ op }}</option>{% endfor %}</select><input class="input" name="sf_value" aria-label="Value" value="{{ sf.value }}"></div>
-        {% endfor %}
-        <div class="frow score-frow"><input class="input" name="sf_name" aria-label="Score name" placeholder="quality"><select class="select" name="sf_op" aria-label="Operator">{% for op in ["=", "!=", ">", ">=", "<", "<=", "in", "exists", "missing"] %}<option value="{{ op }}"{% if op == ">=" %} selected{% endif %}>{{ op }}</option>{% endfor %}</select><input class="input" name="sf_value" aria-label="Value" inputmode="decimal" placeholder="0.5"></div>
-        <span class="hint">Add one condition at a time; list values with commas (ok, great). Applied filters appear as chips.</span>
-        {% for err in state.score_errors %}<span class="hint" role="alert">{{ err }} was ignored.</span>{% endfor %}
+        <legend class="sect">Score</legend>
+        <div class="sf-rows" data-sf-rows>
+        {% for sf in state.score_rows %}{{ sf_row(sf, loop.index0) }}{% endfor %}
+        {% if not state.score_rows %}{{ sf_row({"name": "", "op": ">=", "value": "", "error": ""}, "new") }}{% endif %}
+        </div>
+        <template id="sf-template">{{ sf_row({"name": "", "op": ">=", "value": "", "error": ""}, "new") }}</template>
+        <button type="button" class="btn btn-sm sf-add" data-sf-add>{{ m.icon("i-plus", "ico-sm") }}Add score condition</button>
+        <span class="hint">Operators: = ≠ &gt; ≥ &lt; ≤ for numbers and booleans, in for categories (ok, great), exists and missing for any.</span>
       </fieldset>
+      <script src="/static/score_filters.js" defer></script>
       <label class="check wide"><input type="checkbox" name="bookmarked" value="1"{% if state.form.bookmarked %} checked{% endif %}>Bookmarked only</label>
     </div>
     <div class="row jc-end spacer-top"><a class="btn btn-ghost" href="{{ state.base_path }}">Clear filters</a><button class="btn btn-primary" type="submit">Apply filters</button></div>

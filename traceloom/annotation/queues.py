@@ -8,6 +8,7 @@ audit rows; the caller commits.
 from __future__ import annotations
 
 import statistics
+import uuid
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -27,6 +28,8 @@ from traceloom.services import audit
 
 OBJECT_TYPES = ("trace", "observation", "session")
 STATUSES = ("pending", "skipped", "completed")
+_SCORE_NAMESPACE = uuid.UUID("6f1c4a0e-8d52-4b8e-9f43-2a6f0d1b7c11")
+SUMMARY_CHUNK = 500
 NAME_MAX = 200
 DESCRIPTION_MAX = 2000
 MAX_CONFIGS = 20
@@ -63,6 +66,14 @@ class ReviewerStat:
     completed: int
     median_ms: float | None
     last_activity: datetime | None
+
+
+@dataclass
+class ScoreSummary:
+    """The annotation scores a queue has written: how many, and one (label, value) per config."""
+
+    total: int = 0
+    lines: list[tuple[str, str]] = field(default_factory=list)
 
 
 @dataclass
@@ -284,6 +295,8 @@ def add_items(
     for ref in refs:
         if ref.object_type not in OBJECT_TYPES or not ref.object_id:
             raise QueueError("Items are traces, observations or sessions.")
+        if ref.object_type == "observation" and not ref.trace_id:
+            raise QueueError("An observation can only be added together with its trace id.")
         key = (ref.object_type, ref.object_id)
         if key in unique:
             repeated += 1
@@ -449,3 +462,64 @@ def stats(db: Session, project: Project, actor: Actor, queue_id: str) -> QueueSt
         )
     result.reviewers.sort(key=lambda r: (-r.completed, r.name))
     return result
+
+
+# --- Scores written ----------------------------------------------------------------------------
+
+
+def score_id_for(item_id: str, config_id: str) -> str:
+    """The id of the score a completed item wrote for one config (stable, so a retry
+    overwrites instead of duplicating)."""
+    return uuid.uuid5(_SCORE_NAMESPACE, f"{item_id}:{config_id}").hex
+
+
+def _fmt(number: float) -> str:
+    return f"{number:.2f}".rstrip("0").rstrip(".") if number % 1 else str(int(number))
+
+
+def score_summary(
+    db: Session, store: TraceStore, project: Project, actor: Actor, queue_id: str
+) -> ScoreSummary:
+    """What the queue's completed items wrote, read back through the trace store: numeric
+    configs give a mean, boolean ones how many are true, categorical ones the most common
+    label. Scores deleted since are not counted."""
+    queue = get_queue(db, project, actor, queue_id)
+    item_ids = list(
+        db.scalars(
+            select(AnnotationItem.id).where(
+                AnnotationItem.queue_id == queue.id,
+                AnnotationItem.project_id == project.id,
+                AnnotationItem.status == "completed",
+            )
+        )
+    )
+    configs = queue_configs(db, project, queue)
+    wanted = {score_id_for(i, c.id): c.id for i in item_ids for c in configs}
+    rows: list[Any] = []
+    ids = list(wanted)
+    for start in range(0, len(ids), SUMMARY_CHUNK):
+        found = store.get_existing(project.id, {"score": ids[start : start + SUMMARY_CHUNK]})
+        rows.extend(found.get("score", {}).values())
+    by_config: dict[str, list[Any]] = {}
+    for row in rows:
+        by_config.setdefault(wanted[row.id], []).append(row)
+    lines: list[tuple[str, str]] = []
+    for config in configs:
+        got = by_config.get(config.id, [])
+        if not got:
+            continue
+        if config.data_type == "NUMERIC":
+            values = [r.value for r in got if r.value is not None]
+            if values:
+                lines.append((f"{config.name}, mean", _fmt(statistics.fmean(values))))
+        elif config.data_type == "BOOLEAN":
+            true = sum(1 for r in got if r.value)
+            lines.append((f"{config.name}, true", f"{true} of {len(got)}"))
+        else:
+            labels = [r.string_value for r in got if r.string_value]
+            if labels:
+                top = max(set(labels), key=lambda label: (labels.count(label), label))
+                lines.append(
+                    (f"{config.name}, most common", f"{top} ({labels.count(top)} of {len(got)})")
+                )
+    return ScoreSummary(len(rows), lines)

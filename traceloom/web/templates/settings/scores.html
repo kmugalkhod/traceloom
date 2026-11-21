@@ -2,11 +2,12 @@
 {% import "_macros.html" as m with context %}
 {% block title %}Score configs{% endblock %}
 
+{% block settings_sub %}Configs define what a score may be, so annotators and judges stay consistent.{% endblock %}
+
 {% block settings_body %}
 <div class="stack">
   {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
   {% if error and error.scope == "page" %}{{ m.banner("err", error.message) }}{% endif %}
-  <p class="hint">Configs define what a score may be, so annotators and judges stay consistent.</p>
 
   {% if not rows and active_count == 0 and archived_count == 0 %}
   <div class="panel">
@@ -23,7 +24,7 @@
     <span class="grow"></span>
     {% if can_edit %}<button type="button" class="btn btn-primary" data-dialog-open="new-config">{{ m.icon("i-plus") }}New score config</button>{% endif %}
   </form>
-  <div class="panel"><div class="rack">
+  <div class="panel"><div class="rack rack-flush">
     {% if rows %}
     <table class="tbl cardrows">
       <thead><tr><th>Name</th><th>Type</th><th>Range or values</th><th>Public feedback</th><th class="r">Scores</th>{% if can_edit %}<th class="r menu"><span class="sr">Actions</span></th>{% endif %}</tr></thead>
@@ -32,7 +33,7 @@
         <tr{% if show == "archived" %} class="is-dim"{% endif %}>
           <td class="c-name m-show"><div class="two"><b>{{ row.config.name }}</b><small>{{ row.config.description or "No description" }}</small></div></td>
           <td class="m-show">{{ row.type_label }}</td>
-          <td class="m-show">{% if row.chips %}<span class="scs">{% for c in row.chips %}<span class="chip">{{ c }}</span>{% endfor %}</span>{% else %}<span class="num left">{{ row.shape }}</span>{% endif %}</td>
+          <td class="m-show">{% if row.chips %}<span class="scs">{% for c in row.chips %}<span class="chip">{{ c }}</span>{% endfor %}</span>{% else %}{{ row.shape }}{% endif %}</td>
           <td class="m-show">{% if row.config.public_feedback %}<span class="pill ok">{{ m.icon("i-check") }}On</span>{% else %}<span class="muted">Off</span>{% endif %}</td>
           <td class="num r m-show">{{ "{:,}".format(row.scores) }}</td>
           {% if can_edit %}

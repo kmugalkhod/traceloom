@@ -1,5 +1,5 @@
 {# New / edit queue dialog. Expects: dlg_id, title, action, submit, form, form_configs, error. #}
-<dialog class="dlg" id="{{ dlg_id }}" aria-label="{{ title }}"{% if error %} data-autoopen{% endif %}>
+<dialog class="dlg q-dlg" id="{{ dlg_id }}" aria-label="{{ title }}"{% if error %} data-autoopen{% endif %}>
   <div class="dialog">
     {{ m.dialog_head(title) }}
     <form method="post" action="{{ action }}">

@@ -15,6 +15,7 @@ from traceloom.auth.permissions import Perm
 from traceloom.container import Container
 from traceloom.db.session import get_db
 from traceloom.ports import LEVELS, InvalidCursor, TraceQuery
+from traceloom.scores import configs as score_configs
 from traceloom.services import views
 from traceloom.services.orgs import NotAllowed, OrgError
 from traceloom.web.context import env_context, page_context
@@ -24,6 +25,7 @@ from traceloom.web.trace_list import (
     COLUMN_KEYS,
     COLUMNS,
     PAGE_SIZE,
+    SCORE_OP_LABELS,
     SESSION_COLUMN_KEYS,
     canonical_params,
     chip_url,
@@ -57,8 +59,13 @@ def traces_page(
         return RedirectResponse(f"{base}?{urlencode(tidy)}" if tidy else base, status_code=303)
 
     store = container.trace_store
+    active_configs = score_configs.list_configs(db, project_id)
+    score_types = {c.name: c.data_type for c in active_configs}
     state = parse_state(
-        request.query_params, base, views.get_pref(db, access.user.id, project_id, "env")
+        request.query_params,
+        base,
+        views.get_pref(db, access.user.id, project_id, "env"),
+        score_types=score_types,
     )
     columns = parse_columns(views.get_pref(db, access.user.id, project_id, "columns"))
     cursor = request.query_params.get("cursor") or None
@@ -101,6 +108,7 @@ def traces_page(
         ),
         base,
         views.get_pref(db, access.user.id, project_id, "env"),
+        score_types=score_types,
     )
     q = base_state.query
     warn_level = q.min_level if q.min_level in LEVELS[LEVELS.index("WARNING") :] else "WARNING"
@@ -137,12 +145,24 @@ def traces_page(
         empty_project=empty_project,
         views=views.list_views(db, project_id),
         chip_urls=[chip_url(state, c) for c in state.chips],
+        score_names=_score_names(active_configs, rows, state),
+        score_types=score_types,
+        score_ops=SCORE_OP_LABELS,
         base_url=container.settings.base_url.rstrip("/"),
         oob=False,
         **pager,
         **env_context(db, store, access.user, project_id, state.environment),
     )
     return render(request, "traces/list.html", context)
+
+
+def _score_names(configs, rows, state) -> list[str]:
+    """Names the tray's score picker offers: active configs, plus names already on screen or in
+    the URL so a free-form score can still be filtered."""
+    names = {c.name for c in configs}
+    names.update(s.name for r in rows for s in r.scores)
+    names.update(row["name"] for row in state.score_rows if row["name"])
+    return sorted(names)
 
 
 # --- display preferences (any member, including Viewers: these are their own settings) -----------

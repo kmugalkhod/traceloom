@@ -231,6 +231,14 @@ Also:
 - 2026-11-09 — spec FR-J6 / [~] cost assumption: the cap uses the `eval_spend_daily` ledger with reservations instead of `TraceStore.trace_cost_sum`, per approved ADR-0014. `trace_cost_sum` is not built.
 - 2026-11-09 — spec FR-S4 / AC-8: a POST from a non-allowed origin returns 403 (stricter than "no CORS headers"), and accepted feedback returns 202 without checking that the trace exists, per approved ADR-0015.
 - 2026-11-09 — FR-J4: online rules also ignore `traceloom-experiment` traces (owner decision at the architecture gate).
+- 2026-11-21 — review fixes: score ingest rejects client-set `queueId`, `executionId` and `channel` (per-event 400); only server paths (judge worker, queue complete) set them. `datasetRunId` stays client-settable for `run_experiment`.
+- 2026-11-21 — review fixes: the stuck-job threshold is `max(eval_stuck_seconds, 2 × provider_timeout_seconds + 60)` (new setting `eval_stuck_threshold_seconds`), and spend settle/release only drop a hold while the job still owns its row.
+- 2026-11-21 — FR-J3: rule filters gain score conditions (`filter.scores`, same syntax as the traces list). At ingest they are deferred to the job's re-check, because scores usually arrive after their trace.
+- 2026-11-21 — review fixes: an experiment item and its evaluator rows complete in one transaction; annotation `complete()` writes item status and scores atomically and rejects observation items without a trace id.
+- 2026-11-21 — design fidelity: shell, segments, selects, dialogs and all Phase 3 pages brought in line with the approved mockup. Shared icons stay in `_icons.html`; datasets add a local sprite `datasets/_ds_icons.html` (file, upload, $). The select chevron is a static `ui/chevron-down.svg` because the CSP blocks `data:` images.
+- 2026-11-21 — design fidelity, kept on purpose: the traces list keeps its Tags column, so score chips wrap to up to three lines (mockup has no Tags column); there is no Columns button yet; category and boolean score inputs stay selects (spec says "category select"); the compare page keeps an "Update comparison" button for no-JS use.
+- 2026-11-21 — import wizard still needs JS: the CSRF middleware reads the token only from a header or a urlencoded body, so a plain multipart form is rejected. A `<noscript>` notice explains it.
+- 2026-11-21 — files beyond "Files that change": `db/models_eval.py`, `db/models_datasets.py`, `scores/feedback.py`, `web/routers/queue_add.py`, `queue_review.py`, `dataset_add.py`, `dataset_import.py`, and the split of evaluator routes into `eval_log.py`, `evaluators.py`, `eval_rules.py`; score config validation runs at accept time (`ingest/accept.py`).
 
 ## Proposed `.env.example` lines (for the human; agents cannot edit that file)
 ```

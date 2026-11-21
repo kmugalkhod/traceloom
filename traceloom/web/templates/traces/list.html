@@ -144,7 +144,7 @@
         {% if "tokens" in columns %}<th class="r" aria-sort="{{ state.sort_state('tokens') }}"><a href="{{ state.sort_url('tokens') }}">Tokens{{ m.icon("i-sort", "ico-sm") }}</a></th>{% endif %}
         {% if "cost" in columns %}<th class="r" aria-sort="{{ state.sort_state('cost') }}"><a href="{{ state.sort_url('cost') }}">Cost{{ m.icon("i-sort", "ico-sm") }}</a></th>{% else %}<th class="only-m"></th>{% endif %}
         {% if "level" in columns %}<th>Status</th>{% endif %}
-        {% if "scores" in columns %}{% set first_score = state.form.scores[0].name if state.form.scores else "" %}{% if first_score %}<th class="c" aria-sort="{{ 'descending' if state.sort == 'score:' ~ first_score ~ ':desc' else ('ascending' if state.sort == 'score:' ~ first_score ~ ':asc' else 'none') }}"><a href="{{ state.score_sort_url(first_score) }}" title="Sort by {{ first_score }}">Scores{{ m.icon("i-sort", "ico-sm") }}</a></th>{% else %}<th class="c">Scores</th>{% endif %}{% endif %}
+        {% if "scores" in columns %}{% set first_score = state.form.scores[0].name if state.form.scores else "" %}{% if first_score %}{% set score_sort = 'descending' if state.sort == 'score:' ~ first_score ~ ':desc' else ('ascending' if state.sort == 'score:' ~ first_score ~ ':asc' else 'none') %}<th class="c" aria-sort="{{ score_sort }}"><a href="{{ state.score_sort_url(first_score) }}" title="Sort by {{ first_score }}">Scores{{ m.icon({'descending': 'i-down', 'ascending': 'i-up'}.get(score_sort, 'i-sort'), 'ico-sm') }}</a></th>{% else %}<th class="c">Scores</th>{% endif %}{% endif %}
         {% if "environment" in columns %}<th>Environment</th>{% endif %}
         {% if "release" in columns %}<th>Release</th>{% endif %}
         <th class="only-m"></th>

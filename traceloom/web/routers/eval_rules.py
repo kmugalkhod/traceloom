@@ -22,10 +22,12 @@ from traceloom.evals import rules as rules_mod
 from traceloom.evals import spend
 from traceloom.evals import templates as tpl
 from traceloom.llm.connections import ConnectionPolicy, list_usable
+from traceloom.ports import SCORE_OPS
 from traceloom.prompts.service import Actor
 from traceloom.prompts.variables import find_variables
 from traceloom.web.routers.evaluators import score_label, shell
 from traceloom.web.templating import render
+from traceloom.web.trace_list import parse_score_filter
 
 router = APIRouter(tags=["eval-rules"])
 
@@ -53,6 +55,10 @@ FILTER_LABELS = [
     ("version", "version"),
     ("metadata", "metadata"),
 ]
+SCORE_FIELD = "score:"  # a filter row on a score: field "score:<name>", as the trace list filter
+# The operators each kind of row offers. Text fields match exactly and tags match any listed tag;
+# score rows take the trace list's score operators.
+FILTER_OPS = {"text": ["="], "tags": ["in"], "score": list(SCORE_OPS)}
 
 
 def _base(access: Access) -> str:
@@ -163,17 +169,53 @@ def _form_from_rule(rule: EvalRule) -> svc.RuleForm:
     )
 
 
+def _op_kind(field_name: str) -> str:
+    if field_name.startswith(SCORE_FIELD):
+        return "score"
+    return "tags" if field_name == "tags" else "text"
+
+
+def _score_value_text(value: Any) -> str:
+    if isinstance(value, list | tuple):
+        return ", ".join(_score_value_text(v) for v in value)
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return f"{value:g}" if isinstance(value, float) else str(value)
+
+
 def _filter_rows(flt: dict[str, Any]) -> list[dict[str, str]]:
     rows = []
     for key, _label in FILTER_LABELS:
         value = flt.get(key)
         if key == "tags" and value:
-            rows.append({"field": key, "value": ", ".join(value)})
+            rows.append({"field": key, "op": "in", "value": ", ".join(value)})
         elif key == "metadata":
-            rows += [{"field": key, "value": f"{k}={v}"} for k, v in (value or {}).items()]
+            rows += [
+                {"field": key, "op": "=", "value": f"{k}={v}"} for k, v in (value or {}).items()
+            ]
         elif value:
-            rows.append({"field": key, "value": str(value)})
+            rows.append({"field": key, "op": "=", "value": str(value)})
+    for raw in flt.get("scores") or []:
+        try:
+            f = parse_score_filter(str(raw))
+        except ValueError:
+            name, _, rest = str(raw).partition(":")
+            op, _, text = rest.partition(":")
+            rows.append({"field": SCORE_FIELD + name, "op": op, "value": text})
+            continue
+        value = "" if f.op in ("exists", "missing") else _score_value_text(f.value)
+        rows.append({"field": SCORE_FIELD + f.name, "op": f.op, "value": value})
     return rows
+
+
+def _filter_fields(flt: dict[str, Any], configs: list[dict[str, Any]]) -> list[tuple[str, str]]:
+    """Trace fields, then one row field per active score config (and any score the rule uses)."""
+    names = [c["name"] for c in configs]
+    for raw in flt.get("scores") or []:
+        name = str(raw).partition(":")[0]
+        if name and name not in names:
+            names.append(name)
+    return [(SCORE_FIELD + n, f"score: {n}") for n in names]
 
 
 def parse_form(form: FormData, variables: list[str] | None = None) -> svc.RuleForm:
@@ -182,8 +224,18 @@ def parse_form(form: FormData, variables: list[str] | None = None) -> svc.RuleFo
     flt: dict[str, Any] = {}
     tags: list[str] = []
     metadata: dict[str, str] = {}
-    for field_name, value in zip(form.getlist("f_field"), form.getlist("f_value"), strict=False):
-        field_name, value = str(field_name), str(value).strip()
+    scores: list[str] = []
+    fields, values = form.getlist("f_field"), form.getlist("f_value")
+    ops = list(form.getlist("f_op")) + [""] * len(fields)  # a form without operators still works
+    for field_name, op, value in zip(fields, ops, values, strict=False):
+        field_name, op, value = str(field_name), str(op).strip(), str(value).strip()
+        if field_name.startswith(SCORE_FIELD):
+            name = field_name[len(SCORE_FIELD) :].strip()
+            if name and op in ("exists", "missing"):
+                scores.append(f"{name}:{op}")
+            elif name and value:
+                scores.append(f"{name}:{op or '='}:{value}")
+            continue
         if not value:
             continue
         if field_name == "tags":
@@ -198,6 +250,8 @@ def parse_form(form: FormData, variables: list[str] | None = None) -> svc.RuleFo
         flt["tags"] = tags
     if metadata:
         flt["metadata"] = metadata
+    if scores:
+        flt["scores"] = scores
     trace_name = str(form.get("trace_name", "")).strip()
     if target == "trace" and trace_name:
         flt["name"] = trace_name
@@ -296,7 +350,10 @@ def _editor(
         configs=configs,
         sources=SOURCE_LABELS,
         filter_fields=FILTER_LABELS,
-        filter_rows=_filter_rows(form.filter) or [{"field": "tags", "value": ""}],
+        score_fields=_filter_fields(form.filter, configs),
+        filter_ops=FILTER_OPS,
+        op_kind=_op_kind,
+        filter_rows=_filter_rows(form.filter) or [{"field": "tags", "op": "in", "value": ""}],
         trace_name=form.filter.get("name", ""),
         model=model,
     )

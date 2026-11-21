@@ -3,6 +3,21 @@
 {% block title %}Evaluators{% endblock %}
 {% block ctx_m %}{% endblock %}
 {% block crumbs %}{{ m.crumbs([{"label": "Evaluation"}, {"label": "Evaluators"}]) }}{% endblock %}
+{% macro card(t) %}
+    <article class="tpl">
+      <h3><a href="/project/{{ project.id }}/evals/templates/{{ t.id }}">{{ t.name | capitalize }}</a> <span class="pill builtin">Built-in</span></h3>
+      <p>{{ t.description }}</p>
+      <div class="vars">{% for v in t.variables %}<span class="chip var">{{ "{{" }}{{ v }}{{ "}}" }}</span>{% endfor %}</div>
+      <div class="foot">
+        {# star: the score type; drawn here until the shared sprite has an i-star #}
+        <span class="pill"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.9l1.8 3.9 4.2.5-3.1 2.9.8 4.2L8 11.3l-3.7 2.1.8-4.2L2 6.3l4.2-.5z"/></svg>{{ t.score }}</span>
+        {% if can("eval:templates_write") %}
+        <form class="right" method="post" action="/project/{{ project.id }}/evals/templates/{{ t.id }}/clone">{{ m.csrf() }}
+          <button class="btn btn-sm" type="submit" aria-label="Clone {{ t.name }}">{{ m.icon("i-copy") }}Clone</button></form>
+        {% endif %}
+      </div>
+    </article>
+{% endmacro %}
 {% block content %}
 {% call m.page_header("Evaluators", "LLM judges that score traces and observations automatically.") %}
   {% if can("eval:templates_write") %}<a class="btn btn-primary" href="/project/{{ project.id }}/evals/templates/new">{{ m.icon("i-plus") }}New template</a>{% endif %}
@@ -12,22 +27,13 @@
   {% if notice %}{{ m.banner("ok", notice) }}{% endif %}
 
   <div class="ev-sect">Starter library <span class="muted">read-only, clone to edit</span></div>
-  <div class="tpl-grid">
-    {% for t in cards %}
-    <article class="tpl">
-      <h3><a href="/project/{{ project.id }}/evals/templates/{{ t.id }}">{{ t.name | capitalize }}</a> <span class="pill builtin">Built-in</span></h3>
-      <p>{{ t.description }}</p>
-      <div class="vars">{% for v in t.variables %}<span class="chip var">{{ "{{" }}{{ v }}{{ "}}" }}</span>{% endfor %}</div>
-      <div class="foot">
-        <span class="pill">{{ t.score }}</span>
-        {% if can("eval:templates_write") %}
-        <form class="right" method="post" action="/project/{{ project.id }}/evals/templates/{{ t.id }}/clone">{{ m.csrf() }}
-          <button class="btn btn-sm" type="submit" aria-label="Clone {{ t.name }}">{{ m.icon("i-copy") }}Clone</button></form>
-        {% endif %}
-      </div>
-    </article>
-    {% endfor %}
-  </div>
+  <div class="tpl-grid">{% for t in cards %}{{ card(t) }}{% endfor %}</div>
+  {% if more_cards %}
+  <details class="tpl-more">
+    <summary>Also built in: {% for t in more_cards %}{{ t.name }}{{ ", " if not loop.last else "." }}{% endfor %} <span class="tpl-more-show">Show</span></summary>
+    <div class="tpl-grid">{% for t in more_cards %}{{ card(t) }}{% endfor %}</div>
+  </details>
+  {% endif %}
 
   <div class="ev-sect">Your templates</div>
   {% if not mine %}
@@ -37,7 +43,7 @@
     {% endcall %}
   </div>
   {% else %}
-  <div class="panel"><div class="rack">
+  <div class="panel"><div class="rack rack-flush">
     <table class="tbl tbl-flat cardrows">
       <thead><tr><th>Template</th><th>Score</th><th>Model</th><th class="r">Version</th><th class="r">Rules</th><th>Edited</th><th class="menu"><span class="sr">Actions</span></th></tr></thead>
       <tbody>

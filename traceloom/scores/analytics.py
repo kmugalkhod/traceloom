@@ -15,6 +15,7 @@ from typing import Any, Literal
 
 MIN_SAMPLES = 10
 HISTOGRAM_BINS = 10
+MAX_DISCRETE_VALUES = 20
 
 NOT_ENOUGH_DATA: dict[str, Any] = {"status": "not-enough-data", "min_samples": MIN_SAMPLES}
 
@@ -75,6 +76,30 @@ def histogram(values: Sequence[float], bins: int = HISTOGRAM_BINS) -> dict[str, 
         "status": "ok",
         "n": n,
         "bins": [{"start": edges[i], "end": edges[i + 1], "count": counts[i]} for i in range(bins)],
+    }
+
+
+def discrete_histogram(
+    values: Sequence[float], max_values: int = MAX_DISCRETE_VALUES
+) -> dict[str, Any] | None:
+    """One bin per integer value (zero-count values included) for ratings such as 1-5.
+
+    Returns None when the values are not all whole numbers or span more than
+    ``max_values`` distinct integers; callers then fall back to ``histogram``.
+    """
+    n = len(values)
+    if _short(n):
+        return _not_enough(n)
+    if any(not float(v).is_integer() for v in values):
+        return None
+    lo, hi = int(min(values)), int(max(values))
+    if hi - lo + 1 > max_values:
+        return None
+    counts = Counter(int(v) for v in values)
+    return {
+        "status": "ok",
+        "n": n,
+        "bins": [{"value": v, "count": counts.get(v, 0)} for v in range(lo, hi + 1)],
     }
 
 

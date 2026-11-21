@@ -22,3 +22,4 @@
 .cbl{display:flex;gap:8px;align-items:center}
 .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media (max-width:760px){.kpis,.fgrid{grid-template-columns:1fr}}
+#run-live .banner .acts{margin-left:auto}

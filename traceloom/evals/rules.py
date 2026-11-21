@@ -25,7 +25,7 @@ from traceloom.container import Container
 from traceloom.db.base import new_id
 from traceloom.db.models_eval import EvalExecution, EvalRule, EvalTemplateVersion
 from traceloom.evals import spend
-from traceloom.ports import ObservationRow, TraceRow
+from traceloom.ports import ObservationRow, ScoreFilter, ScoreRow, TraceRow
 from traceloom.queue_registry import EVAL_JOB
 
 log = logging.getLogger("traceloom.evals")
@@ -117,16 +117,94 @@ def excluded_environments(settings: Settings) -> frozenset[str]:
 # Filter keys the in-memory row can answer. Others (scores, latency, cost, level, ...) are
 # re-checked against the store when the job runs.
 _ROW_FIELDS = ("name", "user_id", "session_id", "environment", "release", "version")
+# Keys only a trace carries: an observation answers them from its parent trace.
+_TRACE_FIELDS = frozenset({"user_id", "session_id", "release"})
 
 
-def _filter_matches(rule_filter: Mapping[str, Any], row: TraceRow | ObservationRow) -> bool:
+def truthy(value: Any) -> bool:
+    """A filter flag as stored by the rule form ("true", "1", "yes", True)."""
+    return str(value).strip().lower() in ("1", "true", "yes")
+
+
+def score_conditions(rule_filter: Mapping[str, Any]) -> list[ScoreFilter] | None:
+    """The rule's score conditions (`name:op[:value]`, the trace list's format), parsed. None
+    when one cannot be read: such a rule matches nothing rather than everything."""
+    from traceloom.web.trace_list import parse_score_filter
+
+    try:
+        return [parse_score_filter(str(raw)) for raw in rule_filter.get("scores") or ()]
+    except ValueError:
+        return None
+
+
+_COMPARE: dict[str, Callable[[Any, Any], bool]] = {
+    "=": lambda a, b: a == b,
+    "!=": lambda a, b: a != b,
+    ">": lambda a, b: a > b,
+    ">=": lambda a, b: a >= b,
+    "<": lambda a, b: a < b,
+    "<=": lambda a, b: a <= b,
+}
+
+
+def _score_passes(f: ScoreFilter, score: ScoreRow) -> bool:
+    """One score against one condition, as the SQL filter does it: text values compare the
+    score's text, numbers (and bools) its numeric value."""
+    if f.op == "exists":
+        return True
+    values = list(f.value) if f.op == "in" else [f.value]
+    if isinstance(values[0], str):
+        actual: Any = score.string_value
+    else:
+        actual, values = score.value, [float(v) for v in values]
+    if actual is None:
+        return False
+    if f.op == "in":
+        return actual in values
+    return _COMPARE[f.op](actual, values[0])
+
+
+def scores_match(conditions: Sequence[ScoreFilter], scores: Iterable[ScoreRow]) -> bool:
+    """Every condition holds on the trace's scores (`missing`: no score of that name)."""
+    scores = [s for s in scores if s.trace_id is not None]
+    for f in conditions:
+        named = [s for s in scores if s.name == f.name]
+        if f.op == "missing":
+            if named:
+                return False
+        elif not any(_score_passes(f, s) for s in named):
+            return False
+    return True
+
+
+def _filter_matches(
+    rule_filter: Mapping[str, Any],
+    row: TraceRow | ObservationRow,
+    trace: TraceRow | None = None,
+    scores: Sequence[ScoreRow] | None = None,
+) -> bool:
+    """`trace` is the parent of an observation row; trace-scoped keys (user, session, release,
+    tags) are answered from it, and fail when it is unknown.
+
+    `scores` are the target's trace scores. Score conditions are checked only when they are
+    given: at ingest a trace's scores usually arrive later, so the job re-checks them."""
+    if rule_filter.get("scores") and scores is not None:
+        conditions = score_conditions(rule_filter)
+        if conditions is None or not scores_match(conditions, scores):
+            return False
+    is_observation = isinstance(row, ObservationRow)
     for key in _ROW_FIELDS:
         wanted = rule_filter.get(key)
-        if wanted is not None and getattr(row, key, None) != wanted:
+        if wanted is None:
+            continue
+        source = trace if is_observation and key in _TRACE_FIELDS else row
+        if source is None or getattr(source, key, None) != wanted:
             return False
     tags = rule_filter.get("tags")
-    if tags and not set(tags) & set(getattr(row, "tags", ()) or ()):
-        return False
+    if tags:
+        source = trace if is_observation else row
+        if source is None or not set(tags) & set(getattr(source, "tags", ()) or ()):
+            return False
     metadata = row.metadata or {}
     for key, value in (rule_filter.get("metadata") or {}).items():
         if key not in metadata or str(metadata[key]) != str(value):
@@ -134,8 +212,21 @@ def _filter_matches(rule_filter: Mapping[str, Any], row: TraceRow | ObservationR
     return True
 
 
-def matches(rule: RuleSnapshot, row: TraceRow | ObservationRow) -> bool:
-    """Target, then the filter predicates the row can answer."""
+def needs_trace(rule_filter: Mapping[str, Any]) -> bool:
+    """Whether an observation needs its parent trace to answer this filter."""
+    return bool(rule_filter.get("tags")) or any(
+        rule_filter.get(key) is not None for key in _TRACE_FIELDS
+    )
+
+
+def matches(
+    rule: RuleSnapshot,
+    row: TraceRow | ObservationRow,
+    trace: TraceRow | None = None,
+    scores: Sequence[ScoreRow] | None = None,
+) -> bool:
+    """Target, then the filter predicates the row (and, for an observation, its parent `trace`;
+    with `scores`, the trace's scores) can answer."""
     if isinstance(row, ObservationRow):
         if rule.target != OBSERVATION:
             return False
@@ -145,7 +236,9 @@ def matches(rule: RuleSnapshot, row: TraceRow | ObservationRow) -> bool:
             return False
     elif rule.target != TRACE:
         return False
-    return _filter_matches(rule.filter, row)
+    if rule.filter.get("scores") and score_conditions(rule.filter) is None:
+        return False  # unreadable score conditions never match
+    return _filter_matches(rule.filter, row, trace, scores)
 
 
 # --- Executions --------------------------------------------------------------------------------
@@ -195,11 +288,25 @@ def trigger(
     *,
     delay_seconds: float | None = None,
     limit: int | None = None,
+    parents: Mapping[str, TraceRow] | None = None,
 ) -> int:
     """Create (and enqueue) executions for every sampled (rule, row) match; at most `limit`.
-    Returns how many were created."""
+    Returns how many were created. An observation's parent trace (for trace-scoped filter keys)
+    comes from `rows`, then `parents`, then the store."""
     skip = excluded_environments(container.settings)
     now, created = datetime.now(UTC), 0
+    rows = list(rows)
+    known: dict[str, TraceRow | None] = {r.id: r for r in rows if isinstance(r, TraceRow)}
+    known.update(parents or {})
+
+    def parent_of(rule: RuleSnapshot, row: TraceRow | ObservationRow) -> TraceRow | None:
+        if not isinstance(row, ObservationRow) or not needs_trace(rule.filter):
+            return None
+        if row.trace_id not in known:
+            detail = container.trace_store.get_trace(rule.project_id, row.trace_id)
+            known[row.trace_id] = detail.trace if detail else None
+        return known[row.trace_id]
+
     for row in rows:
         if limit is not None and created >= limit:
             break
@@ -208,7 +315,13 @@ def trigger(
         for rule in rules:
             if limit is not None and created >= limit:
                 break
-            if not matches(rule, row) or not is_sampled(rule.id, row.id, rule.sampling_pct):
+            if not is_sampled(rule.id, row.id, rule.sampling_pct):
+                continue
+            try:
+                if not matches(rule, row, parent_of(rule, row)):
+                    continue
+            except Exception:  # a failed parent lookup must not stop the others
+                log.exception("eval rule %s could not match %s", rule.id, row.id)
                 continue
             try:
                 with container.session_factory.begin() as db:
@@ -253,7 +366,7 @@ def due_messages(container: Container) -> list[dict[str, Any]]:
     `running` (their reservation is released) back to pending."""
     settings, sessions = container.settings, container.session_factory
     now = datetime.now(UTC)
-    stuck_before = now - timedelta(seconds=settings.eval_stuck_seconds)
+    stuck_before = now - timedelta(seconds=settings.eval_stuck_threshold_seconds)
     releases: list[spend.Reservation] = []
     reset_ids: list[str] = []
     with sessions.begin() as db:
@@ -267,7 +380,13 @@ def due_messages(container: Container) -> list[dict[str, Any]]:
             project_id, started_at, held = ex.project_id, ex.started_at, ex.estimated_cost
             reset = db.execute(
                 update(EvalExecution)
-                .where(EvalExecution.id == ex.id, EvalExecution.status == "running")
+                .where(
+                    EvalExecution.id == ex.id,
+                    EvalExecution.status == "running",
+                    # Unchanged since read: a job that settled meanwhile keeps its row.
+                    EvalExecution.attempts == ex.attempts,
+                    EvalExecution.estimated_cost == held,
+                )
                 .values(status="pending", run_after=now, started_at=None, estimated_cost=0.0)
             ).rowcount
             if reset:

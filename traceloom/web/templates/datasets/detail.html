@@ -125,6 +125,7 @@
 {% endblock %}
 
 {% block dialogs %}
+{% include "datasets/_ds_icons.html" %}
 {% if experiment %}{% include "datasets/_new_experiment.html" %}{% endif %}
 {% if can_write %}
 {% set add_err = error if error and error.scope == "new" else none %}
@@ -147,4 +148,4 @@
 {% endif %}
 {% if drawer %}{% include "datasets/_item_drawer.html" %}{% endif %}
 {% endblock %}
-{% block scripts %}{% if experiment %}<link rel="stylesheet" href="/static/dataset_runs.css"><script src="/static/dataset_runs.js" defer></script>{% endif %}{% endblock %}
+{% block scripts %}<script src="/static/dataset_json.js" defer></script>{% if experiment %}<link rel="stylesheet" href="/static/dataset_runs.css"><script src="/static/dataset_runs.js" defer></script>{% endif %}{% endblock %}

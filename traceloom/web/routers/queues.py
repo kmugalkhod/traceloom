@@ -226,6 +226,7 @@ def _detail_page(
         queue=queue,
         stats=stats,
         bar=segments(stats),
+        summary=queues.score_summary(db, container.trace_store, access.project, actor, queue_id),
         configs=queues.queue_configs(db, access.project, queue),
         items=[
             {

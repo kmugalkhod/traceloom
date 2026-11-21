@@ -211,3 +211,20 @@ def test_dataset_pages_have_no_inline_style_or_handlers(
             headers={"HX-Request": "true"},
         )
         assert INLINE.search(fragment.text) is None
+
+
+def test_item_drawer_layout_matches_design(client, as_role, world, db, dataset):
+    """JSON editors carry a status, metadata is one line, Archive sits in the footer."""
+    view = add_item(
+        db, world, dataset, input={"q": 1}, expected_output={"a": 1}, metadata={"topic": "refund"}
+    )
+    as_role(Role.MEMBER)
+    page = client.get(url(world, f"/{dataset.id}?item={view.id}")).text
+    drawer = page.split('id="item-drawer"', 1)[1].split("</dialog>", 1)[0]
+    # input and expected output carry a status bar; metadata is a one-line field without one
+    assert drawer.count("valid JSON") == 2
+    assert "#i-ds-file" in drawer
+    footer = drawer.split("<footer", 1)[1].split("</footer>", 1)[0]
+    assert "Archive item" in footer
+    meta = re.search(r'<textarea id="it-metadata"[^>]*>(.*?)</textarea>', drawer, re.S)
+    assert meta and "\n" not in meta.group(1) and "topic" in meta.group(1)

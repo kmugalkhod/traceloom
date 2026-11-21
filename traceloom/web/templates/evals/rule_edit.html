@@ -6,6 +6,18 @@
 
 {% macro fe(name) %}{% if error and error.field == name %}<span class="field-error" role="alert">{{ m.icon("i-error", "ico-sm") }}<span>{{ error }}</span></span>{% endif %}{% endmacro %}
 
+{% macro frow(field, op, value) %}
+          <div class="frow">
+            <select class="select" name="f_field" aria-label="Field" data-f-field>
+              <optgroup label="Trace">{% for key, label in filter_fields %}<option value="{{ key }}"{{ " selected" if field == key }}>{{ label }}</option>{% endfor %}</optgroup>
+              {% if score_fields %}<optgroup label="Scores">{% for key, label in score_fields %}<option value="{{ key }}"{{ " selected" if field == key }}>{{ label }}</option>{% endfor %}</optgroup>{% endif %}
+            </select>
+            <select class="select" name="f_op" aria-label="Operator" data-f-op>{% for o in filter_ops[op_kind(field)] %}<option value="{{ o }}"{{ " selected" if o == op }}>{{ o }}</option>{% endfor %}</select>
+            <input class="input" name="f_value" value="{{ value }}" aria-label="Value" placeholder="{{ 'key=value' if field == 'metadata' else ('comma separated' if field == 'tags' else 'value') }}"{{ " hidden" if op in ("exists", "missing") }}>
+            <button class="btn btn-icon btn-ghost" type="button" aria-label="Remove condition" data-remove-row>{{ m.icon("i-x") }}</button>
+          </div>
+{%- endmacro %}
+
 {% block content %}
 {% set action = "/project/" ~ project.id ~ "/evals/rules" ~ ("/" ~ rule.id if rule else "") %}
 <div class="page-h">
@@ -77,21 +89,13 @@
       </div>
       <div>
         <div class="ev-s7 lbl">Filter</div>
-        <div data-filter-rows>
-          {% for row in filter_rows %}
-          <div class="frow">
-            <select class="select" name="f_field" aria-label="Field">{% for key, label in filter_fields %}<option value="{{ key }}"{{ " selected" if row.field == key }}>{{ label }}</option>{% endfor %}</select>
-            <input class="input" name="f_value" value="{{ row.value }}" aria-label="Value" placeholder="{{ 'key=value' if row.field == 'metadata' else ('comma separated' if row.field == 'tags' else 'value') }}">
-            <button class="btn btn-icon btn-ghost" type="button" aria-label="Remove condition" data-remove-row>{{ m.icon("i-x") }}</button>
-          </div>
-          {% endfor %}
+        <div data-filter-rows data-ops="{{ filter_ops | tojson | forceescape }}">
+          {% for row in filter_rows %}{{ frow(row.field, row.op, row.value) }}{% endfor %}
         </div>
-        <template data-filter-template><div class="frow">
-          <select class="select" name="f_field" aria-label="Field">{% for key, label in filter_fields %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select>
-          <input class="input" name="f_value" aria-label="Value" placeholder="value">
-          <button class="btn btn-icon btn-ghost" type="button" aria-label="Remove condition" data-remove-row>{{ m.icon("i-x") }}</button></div></template>
+        <template data-filter-template>{{ frow("tags", "in", "") }}</template>
+        {{ fe("filter") }}
         <button class="ev-s8 btn btn-sm" type="button" data-add-row>{{ m.icon("i-plus") }}Add condition</button>
-        <span class="ev-s9 hint">Conditions use the trace filter fields: name, tags, environment, user, session, release, version and metadata. Judge and experiment traces never match.</span>
+        <span class="ev-s9 hint">Same conditions as the trace filter: name, tags, environment, user, session, release, version, metadata and scores. Judge and experiment traces never match.</span>
       </div>
     </div></section>
 

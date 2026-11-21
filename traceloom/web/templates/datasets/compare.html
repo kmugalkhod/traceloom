@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/static/compare.css">
 <div class="page-h">
   <div class="grow"><h1>Compare runs</h1>
-    <p class="sub">{{ dataset.name }} · {{ run_ids | length }} run{{ "" if run_ids | length == 1 else "s" }}{% if columns %} · baseline is {{ columns[0].name }}{% endif %}</p></div>
+    {% set n_runs = (run_ids | length) if run_ids else (all_runs | length) %}<p class="sub">{{ dataset.name }} · {{ n_runs }} run{{ "" if n_runs == 1 else "s" }}{% if columns %} · baseline is {{ columns[0].name }}{% endif %}</p></div>
 </div>
 
 {% if too_many %}{{ m.banner("err", "You can compare at most " ~ max_runs ~ " runs. Remove one first. The page shows the first " ~ max_runs ~ " in the link.") }}{% endif %}
@@ -50,7 +50,7 @@
         {% endfor %}</tr>
       {% endfor %}
         <tr><td class="stick"><b>Regressed items</b> <span class="muted">vs baseline</span></td>
-        {% for c in columns %}{% if c.i == 0 %}<td class="muted">baseline</td>{% else %}<td><span class="regtag" data-regressed="{{ c.id }}">{{ m.icon("i-down") }}{{ c.agg.regressed }} of {{ c.agg.items }}</span></td>{% endif %}{% endfor %}</tr>
+        {% for c in columns %}{% if c.i == 0 %}<td class="muted">baseline</td>{% else %}<td>{% if c.agg.regressed %}<span class="regtag" data-regressed="{{ c.id }}">{{ m.icon("i-down") }}{{ c.agg.regressed }} of {{ c.agg.items }}</span>{% else %}<span class="muted" data-regressed="{{ c.id }}">0 of {{ c.agg.items }}</span>{% endif %}</td>{% endif %}{% endfor %}</tr>
       </tbody>
     </table></div>
   </section>
@@ -76,7 +76,7 @@
       <tbody>
       {% for row in rows %}
         <tr data-reg="{{ 1 if row.reg else 0 }}"{% if not row.reg %} class="ok-row"{% endif %}>
-          <td class="stick"><p class="inp">{{ row.input }}</p>{% if row.expected %}<div class="exp"><b>Expected</b> {{ row.expected }}</div>{% endif %}<button type="button" class="btn btn-ghost btn-sm" data-expand aria-expanded="false">Show more</button></td>
+          <td class="stick"><p class="inp">{{ row.input }}</p>{% if row.expected %}<div class="exp"><b>Expected</b> {{ row.expected }}</div>{% endif %}{% if row.long %}<button type="button" class="btn btn-ghost btn-sm" data-expand aria-expanded="false">Show more</button>{% endif %}</td>
           {% for cell in row.cells %}
           {% if cell.state == "none" %}<td class="muted">Not run</td>
           {% elif cell.state == "failed" %}<td class="muted">Failed: {{ cell.error }}</td>

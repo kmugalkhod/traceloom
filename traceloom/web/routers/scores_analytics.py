@@ -60,7 +60,32 @@ def _load(
     return list(db.scalars(stmt.order_by(Score.timestamp).limit(MAX_ROWS)))
 
 
-def _bars(items: list[tuple[str, int]]) -> list[dict[str, Any]]:
+def _tick(v: float) -> str:
+    """Axis tick: at most two decimals, trailing zeros dropped (0, 0.5, 1)."""
+    out = f"{v:.2f}".rstrip("0").rstrip(".")
+    return "0" if out in ("", "-0") else out
+
+
+def _hist_bars(counts: list[int]) -> list[dict[str, Any]]:
+    """Contiguous histogram bars (viewBox 300 x 120) with a 4-unit gap between them."""
+    top = max(counts, default=0) or 1
+    slot = 300 / max(len(counts), 1)
+    out = []
+    for i, count in enumerate(counts):
+        h = count / top * 112
+        out.append(
+            {
+                "x": round(slot * i + 2, 1),
+                "w": round(slot - 4, 1),
+                "y": round(120 - h, 1),
+                "h": round(h, 1),
+                "series": 1,
+            }
+        )
+    return out
+
+
+def _bars(items: list[tuple[str, int]], series: list[int] | None = None) -> list[dict[str, Any]]:
     """SVG bar geometry (viewBox 300 x 120) for label/count pairs."""
     top = max((c for _, c in items), default=0) or 1
     slot = 300 / max(len(items), 1)
@@ -76,7 +101,7 @@ def _bars(items: list[tuple[str, int]]) -> list[dict[str, Any]]:
                 "w": round(width, 1),
                 "y": round(120 - h, 1),
                 "h": round(h, 1),
-                "series": i % 6 + 1,
+                "series": series[i % len(series)] if series else i % 6 + 1,
             }
         )
     return out
@@ -94,8 +119,6 @@ def _card(name: str, rows: list[Score]) -> dict[str, Any]:
             card["enough"] = False
             return card
         stats = analytics.summary(values)
-        bins = hist["bins"]
-        top = max(b["count"] for b in bins) or 1
         card.update(
             enough=True,
             stats=[
@@ -105,17 +128,34 @@ def _card(name: str, rows: list[Score]) -> dict[str, Any]:
                 ("p90", _fmt(stats["p90"])),
                 ("n", f"{n:,}"),
             ],
-            bars=[
-                {
-                    "x": 3 + 30 * i,
-                    "w": 26,
-                    "y": round(120 - b["count"] / top * 112, 1),
-                    "h": round(b["count"] / top * 112, 1),
-                    "series": 1,
-                }
-                for i, b in enumerate(bins)
+        )
+        discrete = analytics.discrete_histogram(values)
+        if discrete is not None:
+            dbins = discrete["bins"]
+            every = math.ceil(len(dbins) / 10)
+            top_bin = max(dbins, key=lambda b: b["count"])
+            card.update(
+                bars=_hist_bars([b["count"] for b in dbins]),
+                ticks=[str(b["value"]) if i % every == 0 else "" for i, b in enumerate(dbins)],
+                slots=True,
+                table=[(str(b["value"]), b["count"]) for b in dbins],
+                table_head=("Value", "Count"),
+                aria=(
+                    f"Histogram of {name}, one bar per value from {dbins[0]['value']} to "
+                    f"{dbins[-1]['value']}; most common {top_bin['value']} "
+                    f"({top_bin['count']:,} scores)"
+                ),
+            )
+            return card
+        bins = hist["bins"]
+        card.update(
+            bars=_hist_bars([b["count"] for b in bins]),
+            ticks=[
+                _tick(stats["min"]),
+                _tick((stats["min"] + stats["max"]) / 2),
+                _tick(stats["max"]),
             ],
-            axis=[_fmt(stats["min"]), _fmt((stats["min"] + stats["max"]) / 2), _fmt(stats["max"])],
+            slots=False,
             table=[(f"{_fmt(b['start'])} to {_fmt(b['end'])}", b["count"]) for b in bins],
             table_head=("Bin", "Count"),
             aria=(
@@ -146,7 +186,9 @@ def _card(name: str, rows: list[Score]) -> dict[str, Any]:
     else:
         card["stats"] = [(k, f"{c:,}") for k, c in items[:5]]
     if card["enough"]:
-        card["bars"] = _bars([(f"{k} · {c}", c) for k, c in items])
+        # Booleans use teal (true) and amber (false), as in the approved design.
+        palette = [2, 4] if kind == "BOOLEAN" else None
+        card["bars"] = _bars([(f"{k} · {c}", c) for k, c in items], palette)
         card["aria"] = f"Bar chart for {name}: " + ", ".join(f"{k} {c}" for k, c in items)
     return card
 

@@ -227,3 +227,36 @@ def test_trend_axis_spans_the_whole_range_when_data_is_on_one_day(client, login,
     assert len(days) >= 7
     assert days[0] <= NOW - timedelta(days=6)
     assert days[-1] >= NOW - timedelta(days=1)
+
+
+def _card_html(text, name):
+    return re.search(rf'aria-label="Distribution of {name}">(.*?)</section>', text, re.S).group(1)
+
+
+def test_integer_scores_draw_one_contiguous_bar_per_value(client, login, world, db):
+    """A 1-5 rating must not render as a gappy 10-bin histogram with 2.00 / 3.50 ticks."""
+    for i, v in enumerate([1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 5, 5]):
+        add(db, world, f"g{i}", "rating", f"g{i}", "ANNOTATION", value=v)
+    db.commit()
+    card = _card_html(page(client, login, world).text, "rating")
+    assert card.count("<rect ") == 5
+    axis = re.search(r'<div class="an-ax[^"]*">(.*?)</div>', card).group(1)
+    assert axis == "".join(f"<span>{v}</span>" for v in "12345")
+    assert 'y1="60"' not in card  # no mid gridline through the bars
+
+
+def test_numeric_axis_ticks_are_trimmed(client, login, world, db):
+    for i in range(21):
+        add(db, world, f"t{i}", "helpfulness", f"t{i}", "ANNOTATION", value=i / 20)
+    db.commit()
+    card = _card_html(page(client, login, world).text, "helpfulness")
+    assert "<span>0</span><span>0.5</span><span>1</span>" in card
+
+
+def test_boolean_bars_use_teal_and_amber(client, login, world, db):
+    for i in range(12):
+        add(db, world, f"b{i}", "correct", f"b{i}", "API", value=i % 3 != 0, kind="BOOLEAN")
+    db.commit()
+    card = _card_html(page(client, login, world).text, "correct")
+    assert card.index('fill="var(--s2)"') < card.index('fill="var(--s4)"')
+    assert 'fill="var(--s1)"' not in card

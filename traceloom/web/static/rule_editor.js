@@ -55,11 +55,32 @@
       var rm = e.target.closest('[data-remove-row]');
       if (rm) { var row = rm.closest('.frow'); if (row) { row.remove(); schedule(); } }
     });
+    // Each field offers its own operators (text: =, tags: in, scores: the trace list's operators).
+    var ops = {};
+    try { ops = JSON.parse(rows ? rows.getAttribute('data-ops') || '{}' : '{}'); } catch (e) { ops = {}; }
+    function kindOf(field) { return field.indexOf('score:') === 0 ? 'score' : (field === 'tags' ? 'tags' : 'text'); }
+    function syncValue(row) {
+      var op = row.querySelector('[name=f_op]'), value = row.querySelector('[name=f_value]');
+      if (op && value) { value.hidden = op.value === 'exists' || op.value === 'missing'; }
+    }
     form.addEventListener('change', function (e) {
-      var f = e.target;
-      if (f.name === 'f_field') {
-        var value = f.closest('.frow').querySelector('[name=f_value]');
+      var f = e.target, row = f.closest('.frow');
+      if (f.name === 'f_field' && row) {
+        var value = row.querySelector('[name=f_value]'), op = row.querySelector('[name=f_op]');
         value.placeholder = f.value === 'metadata' ? 'key=value' : (f.value === 'tags' ? 'comma separated' : 'value');
+        var choices = ops[kindOf(f.value)] || ['='];
+        if (op) {
+          var keep = op.value;
+          op.textContent = '';
+          choices.forEach(function (o) {
+            var opt = document.createElement('option'); opt.value = o; opt.textContent = o;
+            if (o === keep) { opt.selected = true; }
+            op.appendChild(opt);
+          });
+        }
+        syncValue(row);
+      } else if (f.name === 'f_op' && row) {
+        syncValue(row);
       }
     });
 

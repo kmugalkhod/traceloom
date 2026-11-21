@@ -160,7 +160,8 @@ def _discussion_response(
         comment_error=comment_error,
         comment_draft=comment_draft,
         score_error=score_error,
-        score_form=score_form or {"name": "", "data_type": "NUMERIC", "value": "", "comment": ""},
+        score_form=score_form
+        or {"name": "", "data_type": "NUMERIC", "value": "", "comment": "", "config_id": ""},
     )
     return render(request, "traces/_panels.html", ctx, status=status)
 
@@ -339,6 +340,7 @@ def add_score(
     if observation_id and observation_id not in {o.id for o in detail.observations}:
         raise HTTPException(404, "Not found.")
     config_id = str(form.get("config_id", "")).strip() or None
+    fields["config_id"] = config_id or ""  # which input the error and kept value belong to
     config = None
     try:
         if config_id:

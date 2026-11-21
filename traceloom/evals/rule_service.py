@@ -188,7 +188,25 @@ def _clean_filter(raw: Mapping[str, Any]) -> dict[str, Any]:
     }
     if metadata:
         clean["metadata"] = metadata
+    scores = _clean_score_conditions(raw.get("scores") or [])
+    if scores:
+        clean["scores"] = scores
     return clean
+
+
+def _clean_score_conditions(raw: Any) -> list[str]:
+    """Score conditions in the trace list's `name:op[:value]` format, checked by its parser."""
+    from traceloom.web.trace_list import MAX_SCORE_FILTERS, parse_score_filter
+
+    conditions = [str(c).strip() for c in raw if str(c).strip()]
+    if len(conditions) > MAX_SCORE_FILTERS:
+        raise RuleError(f"Use at most {MAX_SCORE_FILTERS} score conditions.", "filter")
+    for condition in conditions:
+        try:
+            parse_score_filter(condition)
+        except ValueError as exc:
+            raise RuleError(f"Score condition: {exc}.", "filter") from None
+    return conditions
 
 
 def _clean_mapping(variables: list[str], raw: Mapping[str, Mapping[str, str]]) -> dict[str, Any]:

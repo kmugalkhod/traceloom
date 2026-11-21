@@ -106,3 +106,26 @@ def test_no_inline_styles_for_csp(client, login, world, env):
     assert r.status_code == 200
     assert "style=" not in r.text.split("<body", 1)[1]
     assert 'class="dlt up"' in r.text
+
+
+def test_bare_page_subtitle_counts_the_datasets_runs(client, login, world, env):
+    """With no runs picked, the subtitle counts the runs there are to pick from, not 0."""
+    dataset, *_ = env
+    text = page(client, login, world, dataset, "").text
+    sub = re.search(r'<p class="sub">(.*?)</p>', text, re.S).group(1)
+    assert "3 runs" in sub and "0 runs" not in sub
+
+
+def test_picked_runs_subtitle_counts_the_picked_runs(client, login, world, env):
+    dataset, _, (v1, v2, _) = env
+    text = page(client, login, world, dataset, f"runs={v1.id},{v2.id}").text
+    sub = re.search(r'<p class="sub">(.*?)</p>', text, re.S).group(1)
+    assert "2 runs" in sub and "baseline is v1" in sub
+
+
+def test_short_item_text_offers_no_show_more(client, login, world, env):
+    """Show more appears only when the item text is long enough to be clamped."""
+    dataset, _, (v1, v2, _) = env
+    text = page(client, login, world, dataset, f"runs={v1.id},{v2.id}").text
+    sticky = re.findall(r'<td class="stick"><p class="inp">.*?</td>', text, re.S)
+    assert sticky and not any("data-expand" in td for td in sticky)

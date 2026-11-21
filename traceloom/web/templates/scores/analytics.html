@@ -42,22 +42,22 @@
 </div>
 {% else %}
 <div class="stack">
-<div class="sect">Distribution</div>
+<div class="an-sect">Distribution</div>
 {% if not view.cards %}
   {% call nd() %}<b>No scores from this source.</b> Pick another source or all sources.{% endcall %}
 {% else %}
 <div class="an-grid">
   {% for c in view.cards %}
   <section class="panel an-card" aria-label="Distribution of {{ c.name }}">
-    <div class="panel-h"><h2><span class="an-name">{{ c.name }}</span><span class="u">{{ c.kind }}</span></h2><span class="right num">n = {{ "{:,}".format(c.n) }}</span></div>
+    <div class="panel-h"><h2>{{ c.name }}<span class="u">{{ c.kind }}</span></h2><span class="right num">n = {{ "{:,}".format(c.n) }}</span></div>
     {% if c.enough %}
     <div class="panel-b">
       <svg class="an-svg" viewBox="0 0 300 120" preserveAspectRatio="none" role="img" aria-label="{{ c.aria }}">
-        <g stroke="var(--line)"><line x1="0" x2="300" y1="119" y2="119"/><line x1="0" x2="300" y1="60" y2="60"/></g>
+        <g stroke="var(--line)"><line x1="0" x2="300" y1="119.5" y2="119.5"/></g>
         {% for b in c.bars %}<rect x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}" rx="3" fill="var(--s{{ b.series }})"/>{% endfor %}
       </svg>
-      {% if c.type == "numeric" %}<div class="an-ax"><span>{{ c.axis[0] }}</span><span>{{ c.axis[1] }}</span><span>{{ c.axis[2] }}</span></div>
-      {% else %}<div class="an-ax">{% for b in c.bars %}<span>{{ b.label }}</span>{% endfor %}</div>{% endif %}
+      {% if c.type == "numeric" %}<div class="an-ax{{ ' an-slots' if c.slots }}">{% for t in c.ticks %}<span>{{ t }}</span>{% endfor %}</div>
+      {% else %}<div class="an-ax an-slots">{% for b in c.bars %}<span>{{ b.label }}</span>{% endfor %}</div>{% endif %}
     </div>
     {% else %}
     <div class="panel-b">{% call nd() %}<b>Not enough data.</b> <span class="an-name">{{ c.name }}</span> has {{ c.n }} score{{ "" if c.n == 1 else "s" }}. Statistics need at least 10.{% endcall %}</div>
@@ -70,7 +70,7 @@
 {% if view.more_cards %}<p class="hint">{{ view.more_cards }} more scores. Pick one above to see it.</p>{% endif %}
 {% endif %}
 
-<section class="panel" aria-label="Trend">
+<section class="panel an-sub" aria-label="Trend">
   <div class="panel-h"><h2>Trend{% if view.trend_name %} <span class="u"><span class="an-name">{{ view.trend_name }}</span>, mean per {{ per }}</span>{% endif %}</h2>
     {% if view.trend %}<div class="an-legend">{% for s in view.trend.series %}<span><i class="{{ '' if s.source == 'ANNOTATION' else s.source | lower }}"></i>{{ m.icon(icons[s.source], "ico-sm") }}{{ s.name }}</span>{% endfor %}</div>{% endif %}
   </div>

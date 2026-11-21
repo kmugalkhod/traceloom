@@ -214,11 +214,13 @@ def compare_page(
         base_id = aggs[0].run_id
         for row in result.rows:
             base_cell = row.cells.get(base_id)
+            text, expected = compact(row.input), compact(row.expected_output)
             rows.append(
                 {
                     "id": row.item_id,
-                    "input": compact(row.input),
-                    "expected": compact(row.expected_output),
+                    "input": text,
+                    "expected": expected,
+                    "long": len(text) > LONG_TEXT // 2 or len(expected) > LONG_TEXT,
                     "cells": [
                         _item_cell(row.cells.get(c["id"]), row, c["id"], base_cell) for c in columns
                     ],
@@ -267,4 +269,3 @@ def compare_page(
         next_url=link(page=result.page + 1) if result and result.page < result.pages else "",
     )
     return render(request, "datasets/compare.html", context)
-

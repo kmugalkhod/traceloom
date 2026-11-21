@@ -47,7 +47,21 @@ TABS = ("all", "errors", "warnings", "bookmarked")
 MAX_METADATA_FILTERS = 10
 MAX_SCORE_FILTERS = 10
 _SCORE_PARAM = re.compile(
-    r"^(?P<name>.+?):(?P<op>>=|<=|!=|=|>|<|in|exists|missing)(?::(?P<value>.*))?$"
+    r"^(?P<name>.+?):(?P<op>>=|<=|!=|=|>|<|in|exists|missing|gte|lte|gt|lt|eq|ne)"
+    r"(?::(?P<value>.*))?$"
+)
+_WORD_OPS = {"gte": ">=", "lte": "<=", "gt": ">", "lt": "<", "eq": "=", "ne": "!="}
+# Operators as the filter tray shows them; the URL keeps the ASCII form.
+SCORE_OP_LABELS = (
+    ("=", "="),
+    ("!=", "≠"),
+    (">", ">"),
+    (">=", "≥"),
+    ("<", "<"),
+    ("<=", "≤"),
+    ("in", "in"),
+    ("exists", "exists"),
+    ("missing", "missing"),
 )
 
 
@@ -109,6 +123,7 @@ def parse_score_filter(raw: str) -> ScoreFilter:
     if not match:
         raise ValueError(f"{raw!r} is not name:operator:value")
     name, op, text = match["name"].strip(), match["op"], match["value"]
+    op = _WORD_OPS.get(op, op)
     if op in ("exists", "missing"):
         return ScoreFilter(name, op)
     if text is None or not text.strip():
@@ -133,6 +148,62 @@ def parse_score_filters(values: Sequence[str]) -> tuple[list[ScoreFilter], list[
         except ValueError as exc:
             errors.append(str(exc))
     return filters, errors
+
+
+_TYPE_HINTS = {
+    "NUMERIC": "{} is numeric. Enter a number like 0.5.",
+    "BOOLEAN": "{} is true or false. Enter true, false, 1 or 0.",
+    "CATEGORICAL": "{} is categorical. Use =, ≠ or in.",
+}
+
+
+def _type_error(f: ScoreFilter, data_type: str | None) -> str | None:
+    """Why a parsed filter cannot match a score of this config type, or None if it can."""
+    if data_type not in _TYPE_HINTS or f.op in ("exists", "missing"):
+        return None
+    values = f.value if isinstance(f.value, list | tuple) else [f.value]
+    numeric = all(isinstance(v, int | float) and not isinstance(v, bool) for v in values)
+    if data_type == "NUMERIC" and not numeric:
+        return _TYPE_HINTS["NUMERIC"].format(f.name)
+    if data_type == "BOOLEAN" and not all(
+        isinstance(v, int | float) or str(v).lower() in ("true", "false") for v in values
+    ):
+        return _TYPE_HINTS["BOOLEAN"].format(f.name)
+    if data_type == "CATEGORICAL" and f.op in (">", ">=", "<", "<="):
+        return _TYPE_HINTS["CATEGORICAL"].format(f.name)
+    return None
+
+
+def score_rows(
+    values: Sequence[str], score_types: Mapping[str, str] | None = None
+) -> tuple[list[ScoreFilter], list[dict[str, str]]]:
+    """The applied filters plus one tray row per `score` param, in URL order. A row whose
+    condition is malformed or does not fit its config's type carries an `error` and is not
+    applied."""
+    filters: list[ScoreFilter] = []
+    rows: list[dict[str, str]] = []
+    for raw in values[:MAX_SCORE_FILTERS]:
+        try:
+            f = parse_score_filter(raw)
+        except ValueError as exc:
+            match = _SCORE_PARAM.match(raw.strip())
+            if match:
+                name, op = match["name"].strip(), _WORD_OPS.get(match["op"], match["op"])
+                value = (match["value"] or "").strip()
+            else:
+                (name, _, value), op = raw.partition(":"), "="
+            data_type = (score_types or {}).get(name)
+            typed = data_type in ("NUMERIC", "BOOLEAN") and value
+            error = _TYPE_HINTS[data_type].format(name) if typed else str(exc)
+            rows.append({"name": name.strip(), "op": op, "value": value, "error": error})
+            continue
+        error = _type_error(f, (score_types or {}).get(f.name))
+        rows.append(
+            {"name": f.name, "op": f.op, "value": _score_value_text(f), "error": error or ""}
+        )
+        if error is None:
+            filters.append(f)
+    return filters, rows
 
 
 def _float(value: str | None) -> float | None:
@@ -170,6 +241,7 @@ class ListState:
     chips: list[Chip] = field(default_factory=list)
     score_errors: list[str] = field(default_factory=list)
     base_path: str = ""
+    score_rows: list[dict[str, str]] = field(default_factory=list)
 
     def url(
         self,
@@ -256,7 +328,11 @@ def _score_value_text(f: ScoreFilter) -> str:
 
 
 def parse_state(
-    params: QueryParams, base_path: str, env_pref: str | None, now: datetime | None = None
+    params: QueryParams,
+    base_path: str,
+    env_pref: str | None,
+    now: datetime | None = None,
+    score_types: Mapping[str, str] | None = None,
 ) -> ListState:
     now = now or datetime.now(UTC)
     get = params.get
@@ -283,7 +359,8 @@ def parse_state(
         if sort_key not in SORTS:
             sort_key = "time"
     direction = direction if direction in ("asc", "desc") else "desc"
-    score_filters, score_errors = parse_score_filters(params.getlist("score"))
+    score_filters, rows_for_tray = score_rows(params.getlist("score"), score_types)
+    score_errors = [r["error"] for r in rows_for_tray if r["error"]]
 
     tab = get("tab") if get("tab") in TABS else "all"
     level = get("level") if get("level") in LEVELS else None
@@ -344,6 +421,7 @@ def parse_state(
         if score_sort
         else f"{sort_key}.{direction}",
         score_errors=score_errors,
+        score_rows=rows_for_tray,
         search=get("q") or "",
         form={
             "name": get("name") or "",
@@ -401,6 +479,8 @@ def chips_for(state: ListState) -> list[Chip]:
         try:
             f = parse_score_filter(raw)
         except ValueError:
+            continue
+        if f not in state.query.score_filters:  # rejected for its config type
             continue
         chips.append(
             Chip(

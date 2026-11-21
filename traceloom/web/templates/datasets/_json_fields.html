@@ -1,12 +1,15 @@
-{# The three JSON editors of an item. Needs: prefix, vals (field -> text), err_msg, editable. #}
+{# The three JSON editors of an item. Needs: prefix, vals (field -> text), err_msg, editable.
+   Input and expected output get a titled editor with a parse status; metadata is a one-line field. #}
 {% import "_macros.html" as m with context %}
-{% for name, label, hint, required in (("input", "Input", "JSON", true), ("expected_output", "Expected output", "JSON, optional", false), ("metadata", "Metadata", "JSON object", false)) %}
+{% for name, label, hint, required in (("input", "Input", "JSON", true), ("expected_output", "Expected output", "JSON, optional", false), ("metadata", "Metadata", "JSON", false)) %}
 {% set bad = err_msg.startswith(label) %}
+{% set val = vals.get(name, "") %}
 <div class="field">
-  <label for="{{ prefix }}-{{ name }}">{{ label }} <span class="muted">{{ hint }}</span></label>
-  <div class="jed{% if bad %} bad{% endif %}">
-    <div class="jed-bar">{{ name }}{% if bad %}<span class="right">{{ m.icon("i-error", "ico-sm") }} {{ err_msg }}</span>{% endif %}</div>
-    <textarea id="{{ prefix }}-{{ name }}" name="{{ name }}" spellcheck="false" autocomplete="off"{% if not editable %} readonly{% endif %}{% if required and editable %} required{% endif %}{% if bad %} aria-invalid="true"{% endif %}>{{ vals.get(name, "") }}</textarea>
+  <label class="jlab" for="{{ prefix }}-{{ name }}">{{ label }} <span class="muted">{{ hint }}</span></label>
+  <div class="jed{% if bad %} bad{% endif %}{% if name == 'metadata' %} jed-line{% endif %}" data-json{% if not required %} data-optional{% endif %}>
+    {% if name != "metadata" %}<div class="jed-bar">{{ m.icon("i-ds-file", "ico-sm") }}{{ name }}<span class="right" data-json-status>{% if bad %}{{ m.icon("i-warn", "ico-sm") }} {{ err_msg }}{% elif val %}valid JSON{% endif %}</span></div>{% endif %}
+    <textarea id="{{ prefix }}-{{ name }}" name="{{ name }}" spellcheck="false" autocomplete="off"{% if name == "metadata" %} rows="1" placeholder="{}"{% endif %}{% if not editable %} readonly{% endif %}{% if required and editable %} required{% endif %}{% if bad %} aria-invalid="true"{% endif %}>{{ val }}</textarea>
   </div>
+  {% if bad and name == "metadata" %}<span class="field-error">{{ m.icon("i-warn", "ico-sm") }}{{ err_msg }}</span>{% endif %}
 </div>
 {% endfor %}

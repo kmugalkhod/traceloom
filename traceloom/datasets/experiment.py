@@ -202,11 +202,12 @@ def _execute(container: Container, run_item_id: str, secrets: list[str]) -> None
         run = db.get(DatasetRun, row.run_id) if row else None
         if row is None or run is None:
             raise Failed("the run item no longer exists")
-        project_id, item_id, item_version, config = (
+        project_id, item_id, item_version, config, claimed_at = (
             row.project_id,
             row.item_id,
             row.item_version,
             run.config,
+            row.run_after,  # set by _claim: identifies this claim of the row
         )
         project = db.get(Project, project_id)
         item = service.item_at_version(
@@ -241,27 +242,37 @@ def _execute(container: Container, run_item_id: str, secrets: list[str]) -> None
             .where(DatasetRunItem.id == run_item_id)
             .values(estimated_cost=reservation.amount)
         )
+    claim = (DatasetRunItem.run_after == claimed_at,)
+    held = spend.claim_check(DatasetRunItem, run_item_id, *claim)
     try:
         output, trace_id, cost, latency, error = _call(
             container, project_id, config, messages, params, connection, cfg, secrets
         )
     except BaseException:
-        spend.release(sessions, reservation)
+        spend.release(sessions, reservation, held)
         raise
     if error:
-        spend.release(sessions, reservation)
+        spend.release(sessions, reservation, held)
         raise Failed(error)
-    spend.settle(sessions, reservation, cost or 0.0)
-    _finish(
-        container,
-        run_item_id,
-        "completed",
-        output=output,
-        trace_id=trace_id,
-        cost=cost,
-        latency_ms=latency,
-    )
-    _create_evaluations(container, run_item_id, project_id, trace_id, config)
+    spend.settle(sessions, reservation, cost, held)  # an unknown cost counts as the estimate
+    # One transaction: the item is never `completed` without its evaluator executions.
+    with sessions.begin() as db:
+        done = db.execute(
+            update(DatasetRunItem)
+            .where(DatasetRunItem.id == run_item_id, DatasetRunItem.status == "running", *claim)
+            .values(
+                status="completed",
+                error=None,
+                run_after=None,
+                estimated_cost=0.0,
+                output=output,
+                trace_id=trace_id,
+                cost=cost,
+                latency_ms=latency,
+            )
+        ).rowcount
+        ids = _add_evaluations(db, run_item_id, project_id, trace_id, config) if done else []
+    _enqueue_evaluations(container, ids)
 
 
 def _compile(config: Mapping[str, Any], item: service.ItemView) -> list[dict[str, Any]]:
@@ -308,38 +319,42 @@ def _call(container, project_id, config, messages, params, connection, cfg, secr
     return "".join(text), trace_id, cost, latency, errors[0] if errors else None
 
 
-def _create_evaluations(
-    container: Container, run_item_id: str, project_id: str, trace_id: str | None, config: Mapping
-) -> None:
-    """One execution per evaluator, due now, then the wake-ups. Safe to repeat."""
+def _add_evaluations(
+    db: Session, run_item_id: str, project_id: str, trace_id: str | None, config: Mapping
+) -> list[str]:
+    """One pending execution per evaluator, due now, in the caller's transaction. Safe to
+    repeat. Returns the new ids for `_enqueue_evaluations` (after the commit)."""
     if not trace_id:
-        return
+        return []
     ids: list[str] = []
-    with container.session_factory.begin() as db:
-        have = set(
-            db.scalars(
-                select(EvalExecution.template_version_id).where(
-                    EvalExecution.run_item_id == run_item_id
-                )
+    have = set(
+        db.scalars(
+            select(EvalExecution.template_version_id).where(
+                EvalExecution.run_item_id == run_item_id
             )
         )
-        for spec in config.get("evaluators") or []:
-            if spec["template_version_id"] in have:
-                continue
-            ex = EvalExecution(
-                project_id=project_id,
-                rule_id=None,
-                run_item_id=run_item_id,
-                template_version_id=spec["template_version_id"],
-                object_type="trace",
-                object_id=trace_id,
-                trace_id=trace_id,
-                status="pending",
-                run_after=utcnow(),
-            )
-            db.add(ex)
-            db.flush()
-            ids.append(ex.id)
+    )
+    for spec in config.get("evaluators") or []:
+        if spec["template_version_id"] in have:
+            continue
+        ex = EvalExecution(
+            project_id=project_id,
+            rule_id=None,
+            run_item_id=run_item_id,
+            template_version_id=spec["template_version_id"],
+            object_type="trace",
+            object_id=trace_id,
+            trace_id=trace_id,
+            status="pending",
+            run_after=utcnow(),
+        )
+        db.add(ex)
+        db.flush()
+        ids.append(ex.id)
+    return ids
+
+
+def _enqueue_evaluations(container: Container, ids: list[str]) -> None:
     for execution_id in ids:
         try:
             container.queue.enqueue({"type": EVAL_JOB, "execution_id": execution_id})
@@ -374,7 +389,7 @@ def due_messages(container: Container) -> list[dict[str, Any]]:
     in `running` (their reservation is released) back to pending."""
     settings, sessions = container.settings, container.session_factory
     now = datetime.now(UTC)
-    stuck_before = now - timedelta(seconds=settings.eval_stuck_seconds)
+    stuck_before = now - timedelta(seconds=settings.eval_stuck_threshold_seconds)
     releases: list[spend.Reservation] = []
     reset_ids: list[str] = []
     with sessions.begin() as db:
@@ -387,7 +402,15 @@ def due_messages(container: Container) -> list[dict[str, Any]]:
             project_id, started, held = row.project_id, row.run_after, row.estimated_cost or 0.0
             reset = db.execute(
                 update(DatasetRunItem)
-                .where(DatasetRunItem.id == row.id, DatasetRunItem.status == "running")
+                .where(
+                    DatasetRunItem.id == row.id,
+                    DatasetRunItem.status == "running",
+                    # Unchanged since read: a job that settled meanwhile keeps its row.
+                    DatasetRunItem.run_after == started,
+                    DatasetRunItem.estimated_cost.is_(None)
+                    if row.estimated_cost is None
+                    else DatasetRunItem.estimated_cost == row.estimated_cost,
+                )
                 .values(status="pending", run_after=now, estimated_cost=0.0)
             ).rowcount
             if reset:
